@@ -4,6 +4,7 @@ import {
   Workflow,
   Columns3,
   Calendar,
+  ClipboardList,
   FileText,
   CheckSquare,
   Users,
@@ -40,6 +41,7 @@ export const NAV_SECTIONS: NavSection[] = [
     items: [
       { label: "Pipeline", href: "/pipeline", icon: Workflow },
       { label: "Board", href: "/board", icon: Columns3 },
+      { label: "Commissioning", href: "/commissioning", icon: ClipboardList },
       { label: "Calendar", href: "/calendar", icon: Calendar },
       { label: "Article Dossier", href: "/articles", icon: FileText },
     ],
