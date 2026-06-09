@@ -2,6 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
+import { nextAlertCode } from "@/lib/ingest/codes";
 
 type TriageState =
   | "ready"
@@ -22,7 +23,29 @@ const VALID_STATES: TriageState[] = [
   "escalated",
 ];
 
-const REVALIDATE_PATHS = ["/discovery/inbox", "/discovery"];
+const SEVERITIES = new Set(["p1", "p2", "p3"]);
+const ISSUE_TYPES = new Set([
+  "parse_failure",
+  "unreachable",
+  "rate_limit",
+  "schema_drift",
+  "volume_anomaly",
+  "wordpress_check",
+  "config",
+  "timeout",
+]);
+
+const SLA_HOURS: Record<string, number> = { p1: 1, p2: 4, p3: 24 };
+
+const REVALIDATE_PATHS = [
+  "/discovery/inbox",
+  "/discovery",
+  "/discovery/ops-rr",
+];
+
+function revalidateAll() {
+  for (const p of REVALIDATE_PATHS) revalidatePath(p);
+}
 
 export async function setCandidateTriage(formData: FormData) {
   const id = String(formData.get("id") ?? "");
@@ -35,5 +58,71 @@ export async function setCandidateTriage(formData: FormData) {
     .update({ triage_state: target })
     .eq("id", id);
 
-  for (const p of REVALIDATE_PATHS) revalidatePath(p);
+  revalidateAll();
+}
+
+export async function dismissCandidate(formData: FormData) {
+  const id = String(formData.get("id") ?? "");
+  if (!id) return;
+
+  const supabase = await createClient();
+  await supabase
+    .from("candidates")
+    .update({ triage_state: "pointer" })
+    .eq("id", id);
+
+  revalidateAll();
+}
+
+/**
+ * Files an OPS-RR alert against the candidate's source and flips the
+ * candidate to `escalated`. The description prepends the candidate code
+ * + working headline so the alert queue carries enough context to act
+ * on without round-tripping back to the inbox.
+ */
+export async function escalateCandidateToOpsRr(formData: FormData) {
+  const candidateId = String(formData.get("id") ?? "");
+  const severity = String(formData.get("severity") ?? "p2");
+  const issueType = String(formData.get("issue_type") ?? "config");
+  const note = String(formData.get("note") ?? "").trim();
+
+  if (!candidateId) return;
+  if (!SEVERITIES.has(severity)) return;
+  if (!ISSUE_TYPES.has(issueType)) return;
+  if (note.length < 4) return;
+
+  const supabase = await createClient();
+
+  const { data: cand } = await supabase
+    .from("candidates")
+    .select("id, code, source_id, sweep_run_id, working_headline")
+    .eq("id", candidateId)
+    .single();
+  if (!cand || !cand.source_id) return;
+
+  const code = await nextAlertCode(supabase);
+  const slaDeadline = new Date(
+    Date.now() + (SLA_HOURS[severity] ?? 4) * 3_600_000,
+  ).toISOString();
+
+  const description = `${cand.code} — ${cand.working_headline} — ${note}`;
+
+  await supabase.from("ops_rr_alerts").insert({
+    code,
+    source_id: cand.source_id,
+    sweep_run_id: cand.sweep_run_id,
+    severity,
+    issue_type: issueType,
+    status: "open",
+    description,
+    sla_deadline_at: slaDeadline,
+    auto_raised: false,
+  });
+
+  await supabase
+    .from("candidates")
+    .update({ triage_state: "escalated" })
+    .eq("id", candidateId);
+
+  revalidateAll();
 }
