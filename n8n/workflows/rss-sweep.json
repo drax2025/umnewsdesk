@@ -1,0 +1,242 @@
+{
+  "name": "UM Newsroom — RSS sweep (am + pm)",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            { "field": "cronExpression", "expression": "0 8,16 * * *" }
+          ]
+        }
+      },
+      "id": "a9b1c2d3-0002-4000-8000-000000000001",
+      "name": "Schedule 08:00 + 16:00",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [240, 300]
+    },
+    {
+      "parameters": {
+        "jsCode": "const hour = new Date().getUTCHours();\nconst slot = hour < 12 ? 'am' : 'pm';\nreturn [{ json: { slot, trigger: 'scheduled' } }];"
+      },
+      "id": "a9b1c2d3-0002-4000-8000-000000000002",
+      "name": "Derive slot",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [460, 300]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $env.UM_BASE_URL }}/api/ingest/sweep",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "httpHeaderAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"slot\": \"{{ $json.slot }}\",\n  \"trigger\": \"{{ $json.trigger }}\"\n}",
+        "options": {}
+      },
+      "id": "a9b1c2d3-0002-4000-8000-000000000003",
+      "name": "Open sweep",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [680, 300],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "REPLACE_WITH_CREDENTIAL_ID",
+          "name": "UM Newsroom — INGEST_TOKEN"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// Edit this list to add or remove sources. Each entry needs a code\n// (must match discovery_sources.code) and a feed_url. Layer/stream\n// resolution happens server-side from the code.\nconst sources = [\n  { code: 'SRC-9011', feed_url: 'https://techscotland.com/feed' },\n  { code: 'SRC-9002', feed_url: 'https://edinburghbioquarter.com/news/feed' },\n  { code: 'SRC-9009', feed_url: 'https://www.ssen-transmission.co.uk/news/feed' }\n];\nconst sweepId = $input.first().json.sweep_id;\nconst sweepCode = $input.first().json.sweep_code;\nreturn sources.map((s) => ({ json: { ...s, sweep_id: sweepId, sweep_code: sweepCode } }));"
+      },
+      "id": "a9b1c2d3-0002-4000-8000-000000000004",
+      "name": "Source list",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [900, 300]
+    },
+    {
+      "parameters": {
+        "batchSize": 1,
+        "options": {}
+      },
+      "id": "a9b1c2d3-0002-4000-8000-000000000005",
+      "name": "Loop sources",
+      "type": "n8n-nodes-base.splitInBatches",
+      "typeVersion": 3,
+      "position": [1120, 300]
+    },
+    {
+      "parameters": {
+        "url": "={{ $json.feed_url }}",
+        "options": {
+          "ignoreSSL": false
+        }
+      },
+      "id": "a9b1c2d3-0002-4000-8000-000000000006",
+      "name": "Fetch RSS",
+      "type": "n8n-nodes-base.rssFeedRead",
+      "typeVersion": 1.1,
+      "position": [1340, 220],
+      "onError": "continueErrorOutput"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Map each RSS item into the IngestItem envelope. Trim long bodies;\n// the route caps them too but it's cheaper to do it here.\nconst source = $('Loop sources').item.json;\nconst now = new Date().toISOString();\nconst items = $input.all().slice(0, 50); // soft cap per source per sweep\nreturn items.map((it) => {\n  const r = it.json;\n  const headline = (r.title || '').toString().trim();\n  if (!headline) return null;\n  return {\n    json: {\n      sweep_id: source.sweep_id,\n      source_code: source.code,\n      kind: 'rss',\n      fetched_at: now,\n      item: {\n        headline,\n        external_id: r.guid || r.id || r.link || null,\n        primary_url: r.link || null,\n        published_at: r.isoDate || r.pubDate || null,\n        summary: r.contentSnippet || r.summary || null,\n        body_text: r['content:encoded'] || r.content || null,\n        author: r.creator || r['dc:creator'] || r.author || null,\n        tags: Array.isArray(r.categories) ? r.categories.slice(0, 16) : [],\n        raw: r\n      }\n    }\n  };\n}).filter(Boolean);"
+      },
+      "id": "a9b1c2d3-0002-4000-8000-000000000007",
+      "name": "Map RSS → items",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1560, 220]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $env.UM_BASE_URL }}/api/ingest/item",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "httpHeaderAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify($json) }}",
+        "options": {
+          "batching": {
+            "batch": {
+              "batchSize": 5,
+              "batchInterval": 250
+            }
+          }
+        }
+      },
+      "id": "a9b1c2d3-0002-4000-8000-000000000008",
+      "name": "Post item",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [1780, 220],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "REPLACE_WITH_CREDENTIAL_ID",
+          "name": "UM Newsroom — INGEST_TOKEN"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// Roll the per-source outcome up for /complete. The route ignores\n// candidate_count — it counts authoritative rows — but parse_issue_count\n// and outcome are honoured.\nconst source = $('Loop sources').item.json;\nreturn [{\n  json: {\n    source_code: source.code,\n    outcome: 'reached_items',\n    http_status: 200,\n    parse_issue_count: 0\n  }\n}];"
+      },
+      "id": "a9b1c2d3-0002-4000-8000-000000000009",
+      "name": "Record success",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [2000, 220]
+    },
+    {
+      "parameters": {
+        "jsCode": "// RSS fetch failed — record outcome and raise a P2 alert.\nconst source = $('Loop sources').item.json;\nreturn [{\n  json: {\n    source_code: source.code,\n    outcome: 'parse_failure',\n    http_status: 0,\n    parse_issue_count: 1,\n    _alert: {\n      source_code: source.code,\n      sweep_id: source.sweep_id,\n      severity: 'p2',\n      issue_type: 'unreachable',\n      description: 'RSS fetch failed for ' + source.code + ' (' + source.feed_url + ')'\n    }\n  }\n}];"
+      },
+      "id": "a9b1c2d3-0002-4000-8000-000000000010",
+      "name": "Record failure",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1560, 400]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $env.UM_BASE_URL }}/api/ingest/alert",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "httpHeaderAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify($json._alert) }}",
+        "options": {}
+      },
+      "id": "a9b1c2d3-0002-4000-8000-000000000011",
+      "name": "File alert",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [1780, 400],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "REPLACE_WITH_CREDENTIAL_ID",
+          "name": "UM Newsroom — INGEST_TOKEN"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $env.UM_BASE_URL }}/api/ingest/sweep/{{ $('Open sweep').first().json.sweep_id }}/complete",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "httpHeaderAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ site_results: $input.all().map(i => i.json) }) }}",
+        "options": {}
+      },
+      "id": "a9b1c2d3-0002-4000-8000-000000000012",
+      "name": "Complete sweep",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [2240, 300],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "REPLACE_WITH_CREDENTIAL_ID",
+          "name": "UM Newsroom — INGEST_TOKEN"
+        }
+      }
+    }
+  ],
+  "connections": {
+    "Schedule 08:00 + 16:00": {
+      "main": [[{ "node": "Derive slot", "type": "main", "index": 0 }]]
+    },
+    "Derive slot": {
+      "main": [[{ "node": "Open sweep", "type": "main", "index": 0 }]]
+    },
+    "Open sweep": {
+      "main": [[{ "node": "Source list", "type": "main", "index": 0 }]]
+    },
+    "Source list": {
+      "main": [[{ "node": "Loop sources", "type": "main", "index": 0 }]]
+    },
+    "Loop sources": {
+      "main": [
+        [{ "node": "Complete sweep", "type": "main", "index": 0 }],
+        [{ "node": "Fetch RSS", "type": "main", "index": 0 }]
+      ]
+    },
+    "Fetch RSS": {
+      "main": [
+        [{ "node": "Map RSS → items", "type": "main", "index": 0 }],
+        [{ "node": "Record failure", "type": "main", "index": 0 }]
+      ]
+    },
+    "Map RSS → items": {
+      "main": [[{ "node": "Post item", "type": "main", "index": 0 }]]
+    },
+    "Post item": {
+      "main": [[{ "node": "Record success", "type": "main", "index": 0 }]]
+    },
+    "Record success": {
+      "main": [[{ "node": "Loop sources", "type": "main", "index": 0 }]]
+    },
+    "Record failure": {
+      "main": [[{ "node": "File alert", "type": "main", "index": 0 }]]
+    },
+    "File alert": {
+      "main": [[{ "node": "Loop sources", "type": "main", "index": 0 }]]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "tags": [
+    { "name": "um-newsroom" },
+    { "name": "ingest" },
+    { "name": "rss" }
+  ]
+}

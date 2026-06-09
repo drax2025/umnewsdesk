@@ -1,0 +1,127 @@
+{
+  "name": "UM Newsroom — Ingest smoke test",
+  "nodes": [
+    {
+      "parameters": {},
+      "id": "f4a9d6c1-0001-4000-8000-000000000001",
+      "name": "Run manually",
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1,
+      "position": [240, 300]
+    },
+    {
+      "parameters": {
+        "jsCode": "const hour = new Date().getUTCHours();\nconst slot = hour < 12 ? 'am' : 'pm';\nreturn [{ json: { slot, trigger: 'manual' } }];"
+      },
+      "id": "f4a9d6c1-0001-4000-8000-000000000002",
+      "name": "Derive slot",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [460, 300]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $env.UM_BASE_URL }}/api/ingest/sweep",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "httpHeaderAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"slot\": \"{{ $json.slot }}\",\n  \"trigger\": \"{{ $json.trigger }}\"\n}",
+        "options": {}
+      },
+      "id": "f4a9d6c1-0001-4000-8000-000000000003",
+      "name": "Open sweep",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [680, 300],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "REPLACE_WITH_CREDENTIAL_ID",
+          "name": "UM Newsroom — INGEST_TOKEN"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const sweepId = $input.first().json.sweep_id;\nconst sweepCode = $input.first().json.sweep_code;\nconst now = new Date().toISOString();\nreturn [{\n  json: {\n    sweep_id: sweepId,\n    sweep_code: sweepCode,\n    source_code: 'SRC-9011',\n    payload: {\n      sweep_id: sweepId,\n      source_code: 'SRC-9011',\n      kind: 'rss',\n      fetched_at: now,\n      item: {\n        headline: 'Smoke test — n8n wire path OK at ' + now,\n        external_id: 'smoke-' + Date.now(),\n        primary_url: 'https://example.com/smoke-test',\n        published_at: now,\n        summary: 'Synthetic item from the n8n smoke-test workflow.',\n        author: 'n8n smoke test',\n        tags: ['smoke', 'n8n'],\n        raw: { origin: 'n8n-smoke' },\n      }\n    }\n  }\n}];"
+      },
+      "id": "f4a9d6c1-0001-4000-8000-000000000004",
+      "name": "Build payload",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [900, 300]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $env.UM_BASE_URL }}/api/ingest/item",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "httpHeaderAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify($json.payload) }}",
+        "options": {}
+      },
+      "id": "f4a9d6c1-0001-4000-8000-000000000005",
+      "name": "Post candidate",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [1120, 300],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "REPLACE_WITH_CREDENTIAL_ID",
+          "name": "UM Newsroom — INGEST_TOKEN"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $env.UM_BASE_URL }}/api/ingest/sweep/{{ $('Open sweep').first().json.sweep_id }}/complete",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "httpHeaderAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"site_results\": [\n    {\n      \"source_code\": \"SRC-9011\",\n      \"outcome\": \"reached_items\",\n      \"http_status\": 200,\n      \"parse_issue_count\": 0\n    }\n  ]\n}",
+        "options": {}
+      },
+      "id": "f4a9d6c1-0001-4000-8000-000000000006",
+      "name": "Complete sweep",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [1340, 300],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "REPLACE_WITH_CREDENTIAL_ID",
+          "name": "UM Newsroom — INGEST_TOKEN"
+        }
+      }
+    }
+  ],
+  "connections": {
+    "Run manually": {
+      "main": [[{ "node": "Derive slot", "type": "main", "index": 0 }]]
+    },
+    "Derive slot": {
+      "main": [[{ "node": "Open sweep", "type": "main", "index": 0 }]]
+    },
+    "Open sweep": {
+      "main": [[{ "node": "Build payload", "type": "main", "index": 0 }]]
+    },
+    "Build payload": {
+      "main": [[{ "node": "Post candidate", "type": "main", "index": 0 }]]
+    },
+    "Post candidate": {
+      "main": [[{ "node": "Complete sweep", "type": "main", "index": 0 }]]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "tags": [
+    { "name": "um-newsroom" },
+    { "name": "ingest" },
+    { "name": "smoke-test" }
+  ]
+}
