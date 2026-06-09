@@ -1,5 +1,10 @@
-import { Cog, Lock } from "lucide-react";
+import { Cog } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
+import {
+  ExclusivityCell,
+  SignalOnlyCell,
+  StatusCell,
+} from "@/components/forms/source-config-cells";
 
 export const dynamic = "force-dynamic";
 
@@ -32,9 +37,8 @@ export default async function DiscoveryConfigPage() {
       <div className="flex flex-shrink-0 items-center gap-3 border-b border-border bg-card px-5 py-3">
         <Cog className="h-4 w-4 text-primary" />
         <span className="text-[13px] font-semibold text-foreground">Discovery Config</span>
-        <span className="rounded-full border border-warn/30 bg-warn/10 px-2 py-0.5 text-[10px] font-medium text-warn">
-          <Lock className="-mt-px mr-1 inline h-2.5 w-2.5" />
-          Read-only slice
+        <span className="rounded-full border border-success/30 bg-success/10 px-2 py-0.5 text-[10px] font-medium text-success">
+          Inline edits live
         </span>
       </div>
 
@@ -42,9 +46,9 @@ export default async function DiscoveryConfigPage() {
         <div className="mb-5 rounded-md border border-border bg-card p-4">
           <h2 className="mb-1 text-[13px] font-semibold text-foreground">Source registry</h2>
           <p className="text-[12px] leading-[1.5] text-um-muted">
-            Editing config (crawl method, exclusivity windows, scheduling cadence, parser
-            overrides, versioned snapshots) wires up in the next slice. This view shows the live
-            registry as currently seeded.
+            Status, exclusivity window, and signal-only eligibility edit in place — changes save
+            immediately. Crawl method, parser overrides, and versioned snapshots wire up in the
+            next slice.
           </p>
         </div>
 
@@ -84,12 +88,14 @@ export default async function DiscoveryConfigPage() {
                       {s.layer}
                     </span>
                   </td>
-                  <td className="px-3 py-2.5 text-[11.5px] capitalize text-fg-2">{s.status}</td>
-                  <td className="px-3 py-2.5 text-right font-mono text-[11px] tabular-nums text-fg-2">
-                    {s.exclusivity_window_hours}h
+                  <td className="px-3 py-2.5">
+                    <StatusCell id={s.id} value={s.status} />
                   </td>
-                  <td className="px-3 py-2.5 text-[11px] text-um-muted">
-                    {s.signal_only_eligible ? "Yes" : "—"}
+                  <td className="px-3 py-2.5 text-right">
+                    <ExclusivityCell id={s.id} value={s.exclusivity_window_hours} />
+                  </td>
+                  <td className="px-3 py-2.5">
+                    <SignalOnlyCell id={s.id} value={s.signal_only_eligible} />
                   </td>
                   <td className="px-3 py-2.5 font-mono text-[11px] tabular-nums text-um-muted">
                     {new Date(s.monitored_since).toLocaleDateString("en-GB", {

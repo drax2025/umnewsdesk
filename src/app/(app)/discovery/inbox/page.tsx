@@ -2,6 +2,7 @@ import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
 import { cn } from "@/lib/utils";
 import { AutoSubmitSelect } from "@/components/forms/auto-submit-select";
+import { setCandidateTriage } from "@/lib/actions/inbox";
 
 export const dynamic = "force-dynamic";
 
@@ -324,6 +325,7 @@ export default async function CandidateInboxPage({
                     <Th>Verify</Th>
                     <Th>Triage</Th>
                     <Th className="text-right">Score</Th>
+                    <Th className="text-right">Actions</Th>
                   </tr>
                 </thead>
                 <tbody>
@@ -399,6 +401,9 @@ export default async function CandidateInboxPage({
                         <td className="whitespace-nowrap px-3 py-2.5 text-right font-mono text-[11.5px] tabular-nums text-fg-2">
                           {c.score !== null ? Number(c.score).toFixed(2) : "—"}
                         </td>
+                        <td className="whitespace-nowrap px-3 py-2.5 text-right">
+                          <TriageActions id={c.id} state={c.triage_state} />
+                        </td>
                       </tr>
                     );
                   })}
@@ -413,7 +418,9 @@ export default async function CandidateInboxPage({
               </strong>{" "}
               of {cands.length} candidates
             </span>
-            <span className="ml-auto text-[11px] text-um-muted">Read-only view</span>
+            <span className="ml-auto text-[11px] text-um-muted">
+              Triage actions wired · F1 routing live
+            </span>
           </div>
         </div>
 
@@ -585,6 +592,55 @@ function StatRow({
       <span className="flex-1 text-um-muted">{k}</span>
       <span className={cn("font-mono font-medium tabular-nums", c)}>{v}</span>
     </div>
+  );
+}
+
+function TriageActions({ id, state }: { id: string; state: CandidateRow["triage_state"] }) {
+  if (state === "sent_to_f1" || state === "escalated") {
+    return <span className="text-[10.5px] text-um-muted">—</span>;
+  }
+  if (state === "ready") {
+    return (
+      <div className="inline-flex gap-1">
+        <TriageBtn id={id} target="sent_to_f1" label="→ F1" tone="success" />
+        <TriageBtn id={id} target="needs_review" label="Hold" tone="warn" />
+      </div>
+    );
+  }
+  return <TriageBtn id={id} target="ready" label="↺ Ready" tone="muted" />;
+}
+
+function TriageBtn({
+  id,
+  target,
+  label,
+  tone,
+}: {
+  id: string;
+  target: string;
+  label: string;
+  tone: "success" | "warn" | "muted";
+}) {
+  const cls =
+    tone === "success"
+      ? "border-success/40 bg-success/10 text-success hover:bg-success/15"
+      : tone === "warn"
+        ? "border-warn/40 bg-warn/10 text-warn hover:bg-warn/15"
+        : "border-border bg-background text-fg-2 hover:bg-secondary";
+  return (
+    <form action={setCandidateTriage} className="inline-block">
+      <input type="hidden" name="id" value={id} />
+      <input type="hidden" name="target" value={target} />
+      <button
+        type="submit"
+        className={cn(
+          "h-6 rounded-sm border px-2 text-[10.5px] font-medium transition-colors",
+          cls,
+        )}
+      >
+        {label}
+      </button>
+    </form>
   );
 }
 

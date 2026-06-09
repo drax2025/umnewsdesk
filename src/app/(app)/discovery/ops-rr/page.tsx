@@ -3,6 +3,13 @@ import { redirect } from "next/navigation";
 import { AlertTriangle } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { cn } from "@/lib/utils";
+import {
+  acknowledgeAlert,
+  deferAlert,
+  escalateAlert,
+  reopenAlert,
+  resolveAlert,
+} from "@/lib/actions/ops-rr";
 
 export const dynamic = "force-dynamic";
 
@@ -584,33 +591,54 @@ export default async function OpsRrQueuePage({
               </div>
             </div>
 
-            {/* Action tray (placeholder — read-only slice) */}
-            <div className="flex flex-shrink-0 items-center gap-3 border-t border-border bg-card px-6 py-3">
+            {/* Action tray */}
+            <div className="flex flex-shrink-0 flex-wrap items-center gap-2 border-t border-border bg-card px-6 py-3">
               <span className="text-[10.5px] font-semibold uppercase tracking-[0.07em] text-um-muted">
                 Actions
               </span>
-              <span className="text-[11px] italic text-um-muted">
-                Acknowledge · Investigate · Defer · Escalate — wiring in next slice
+              <span className="text-[11px] capitalize text-fg-2">
+                Current: <span className="font-medium text-foreground">{active.status}</span>
               </span>
-              <div className="ml-auto flex gap-2">
-                <button
-                  disabled
-                  className="h-7 cursor-not-allowed rounded-sm border border-border bg-background px-3 text-[11.5px] font-medium text-um-muted"
-                >
-                  Acknowledge
-                </button>
-                <button
-                  disabled
-                  className="h-7 cursor-not-allowed rounded-sm border border-warn/40 bg-warn/10 px-3 text-[11.5px] font-medium text-warn opacity-60"
-                >
-                  Investigate
-                </button>
-                <button
-                  disabled
-                  className="h-7 cursor-not-allowed rounded-sm border border-destructive/40 bg-destructive/10 px-3 text-[11.5px] font-medium text-destructive opacity-60"
-                >
-                  Escalate
-                </button>
+              <div className="ml-auto flex flex-wrap gap-2">
+                {active.status === "open" || active.status === "deferred" ? (
+                  <ActionButton
+                    action={acknowledgeAlert}
+                    id={active.id}
+                    label="Acknowledge"
+                    className="border-state-comm/40 bg-state-comm/10 text-state-comm hover:bg-state-comm/15"
+                  />
+                ) : null}
+                {active.status === "open" || active.status === "investigating" ? (
+                  <ActionButton
+                    action={deferAlert}
+                    id={active.id}
+                    label="Defer"
+                    className="border-border bg-background text-fg-2 hover:bg-secondary"
+                  />
+                ) : null}
+                {active.status !== "resolved" ? (
+                  <ActionButton
+                    action={escalateAlert}
+                    id={active.id}
+                    label="Escalate"
+                    className="border-destructive/40 bg-destructive/10 text-destructive hover:bg-destructive/15"
+                  />
+                ) : null}
+                {active.status !== "resolved" ? (
+                  <ActionButton
+                    action={resolveAlert}
+                    id={active.id}
+                    label="Resolve"
+                    className="border-success/40 bg-success/10 text-success hover:bg-success/15"
+                  />
+                ) : (
+                  <ActionButton
+                    action={reopenAlert}
+                    id={active.id}
+                    label="Reopen"
+                    className="border-warn/40 bg-warn/10 text-warn hover:bg-warn/15"
+                  />
+                )}
               </div>
             </div>
           </>
@@ -752,6 +780,33 @@ function Tl({
         <p className="leading-[1.45] text-fg-2">{text}</p>
       </div>
     </div>
+  );
+}
+
+function ActionButton({
+  action,
+  id,
+  label,
+  className,
+}: {
+  action: (formData: FormData) => Promise<void>;
+  id: string;
+  label: string;
+  className: string;
+}) {
+  return (
+    <form action={action}>
+      <input type="hidden" name="id" value={id} />
+      <button
+        type="submit"
+        className={cn(
+          "h-7 rounded-sm border px-3 text-[11.5px] font-medium transition-colors",
+          className,
+        )}
+      >
+        {label}
+      </button>
+    </form>
   );
 }
 
