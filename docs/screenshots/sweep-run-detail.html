@@ -1,0 +1,1063 @@
+<!doctype html>
+<html lang="en" data-theme="dark">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Sweep Run RR-2841 — Union Media</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg:             #0b0d12;
+  --surface:        #10131c;
+  --surface-2:      #161d2e;
+  --fg:             #dde4f0;
+  --fg-2:           #7e8ea8;
+  --muted:          #4b5672;
+  --border:         #1c2438;
+  --border-mid:     #273047;
+  --accent:         #3b82f6;
+  --accent-on:      #fff;
+  --accent-hover:   #2563eb;
+  --accent-subtle:  rgba(59,130,246,.10);
+  --success:        #22c55e;
+  --success-subtle: rgba(34,197,94,.08);
+  --warn:           #f59e0b;
+  --warn-subtle:    rgba(245,158,11,.08);
+  --danger:         #ef4444;
+  --danger-subtle:  rgba(239,68,68,.08);
+  --font: Inter, "Helvetica Neue", system-ui, sans-serif;
+  --mono: "SF Mono", "Cascadia Code", ui-monospace, Menlo, monospace;
+  --sidebar-w: 216px;
+  --topbar-h:  48px;
+  --r: 6px;
+}
+[data-theme="light"] {
+  --bg:             #f4f6f9;
+  --surface:        #ffffff;
+  --surface-2:      #eef1f6;
+  --fg:             #0d1117;
+  --fg-2:           #4a5568;
+  --muted:          #8b95a8;
+  --border:         #dde3ed;
+  --border-mid:     #c7d0e0;
+  --accent:         #2563eb;
+  --accent-on:      #fff;
+  --accent-hover:   #1d4ed8;
+  --accent-subtle:  rgba(37,99,235,.09);
+  --success:        #16a34a;
+  --success-subtle: rgba(22,163,74,.08);
+  --warn:           #d97706;
+  --warn-subtle:    rgba(217,119,6,.08);
+  --danger:         #dc2626;
+  --danger-subtle:  rgba(220,38,38,.08);
+}
+
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+html, body {
+  height: 100%; background: var(--bg); color: var(--fg);
+  font-family: var(--font); font-size: 13px; line-height: 1.45;
+  -webkit-font-smoothing: antialiased;
+}
+
+.shell {
+  display: grid;
+  grid-template-columns: var(--sidebar-w) 1fr;
+  grid-template-rows: var(--topbar-h) 1fr;
+  height: 100vh; overflow: hidden;
+}
+
+/* ── SIDEBAR ── */
+.sidebar {
+  grid-row: 1 / 3; background: var(--surface);
+  border-right: 1px solid var(--border);
+  display: flex; flex-direction: column; overflow-y: auto;
+}
+.sidebar-pub { padding: 14px 16px 12px; border-bottom: 1px solid var(--border); }
+.pub-name { font-size: 13px; font-weight: 600; color: var(--fg); letter-spacing: -0.015em; display: block; }
+.pub-meta { font-size: 11px; color: var(--muted); margin-top: 2px; font-family: var(--mono); font-variant-numeric: tabular-nums; }
+.sidebar-nav { padding: 8px 0; flex: 1; }
+.nav-section { padding: 14px 16px 4px; font-size: 10px; font-weight: 600; letter-spacing: 0.07em; text-transform: uppercase; color: var(--muted); }
+.nav-item {
+  display: flex; align-items: center; gap: 9px;
+  padding: 7px 16px; font-size: 13px; color: var(--fg-2);
+  cursor: pointer; text-decoration: none; position: relative;
+  transition: background 100ms, color 100ms;
+}
+.nav-item:hover { background: var(--surface-2); color: var(--fg); }
+.nav-item.active { color: var(--fg); background: var(--accent-subtle); }
+.nav-item.active::before {
+  content: ''; position: absolute; left: 0; top: 4px; bottom: 4px;
+  width: 2px; background: var(--accent); border-radius: 0 2px 2px 0;
+}
+.nav-icon { width: 15px; height: 15px; flex-shrink: 0; opacity: .65; }
+.nav-item.active .nav-icon, .nav-item:hover .nav-icon { opacity: 1; }
+.nav-badge {
+  margin-left: auto; font-size: 10px; font-family: var(--mono);
+  font-variant-numeric: tabular-nums; color: var(--muted);
+  background: var(--bg); border: 1px solid var(--border);
+  padding: 1px 6px; border-radius: 9999px; line-height: 1.6;
+}
+.nav-badge.urgent { color: var(--warn); border-color: rgba(245,158,11,.4); background: var(--warn-subtle); }
+.sidebar-user {
+  padding: 12px 16px; border-top: 1px solid var(--border);
+  display: flex; align-items: center; gap: 9px;
+}
+.avatar-sm {
+  width: 26px; height: 26px; border-radius: 50%;
+  background: var(--accent-subtle); border: 1px solid var(--border-mid);
+  display: flex; align-items: center; justify-content: center;
+  font-size: 10px; font-weight: 700; color: var(--accent);
+  flex-shrink: 0; font-family: var(--mono);
+}
+.user-name { font-size: 12px; font-weight: 500; color: var(--fg); display: block; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.user-role { font-size: 11px; color: var(--muted); display: block; }
+
+/* ── TOPBAR ── */
+.topbar {
+  background: var(--surface); border-bottom: 1px solid var(--border);
+  display: flex; align-items: center; padding: 0 18px; gap: 7px;
+}
+.topbar-back {
+  display: flex; align-items: center; gap: 4px;
+  font-size: 12px; color: var(--fg-2); cursor: pointer;
+  padding: 3px 7px 3px 3px; border-radius: var(--r);
+  text-decoration: none; transition: background 100ms, color 100ms; flex-shrink: 0;
+}
+.topbar-back:hover { background: var(--surface-2); color: var(--fg); }
+.topbar-sep { color: var(--border-mid); font-size: 14px; line-height: 1; }
+.topbar-id { font-family: var(--mono); font-size: 12px; font-weight: 600; color: var(--fg-2); flex-shrink: 0; }
+.topbar-name { font-size: 13px; font-weight: 600; color: var(--fg); flex: 1; letter-spacing: -0.01em; }
+.topbar-clock { font-size: 11.5px; font-family: var(--mono); color: var(--fg-2); font-variant-numeric: tabular-nums; }
+.theme-toggle {
+  display: flex; align-items: center; gap: 5px; height: 28px; padding: 0 10px;
+  border: 1px solid var(--border); border-radius: var(--r);
+  background: transparent; color: var(--fg-2); font-size: 11.5px; font-family: var(--font);
+  cursor: pointer; transition: background 100ms, color 100ms;
+}
+.theme-toggle:hover { background: var(--surface-2); color: var(--fg); }
+.icon-btn {
+  width: 28px; height: 28px; display: flex; align-items: center; justify-content: center;
+  border: 1px solid var(--border); background: transparent; border-radius: var(--r);
+  color: var(--fg-2); cursor: pointer; transition: background 100ms, color 100ms;
+}
+.icon-btn:hover { background: var(--surface-2); color: var(--fg); }
+.topbar-avatar {
+  width: 28px; height: 28px; border-radius: 50%;
+  background: var(--accent-subtle); border: 1px solid var(--border-mid);
+  display: flex; align-items: center; justify-content: center;
+  font-size: 10px; font-weight: 700; color: var(--accent);
+  cursor: pointer; font-family: var(--mono);
+}
+
+/* ── MAIN ── */
+.main { overflow: hidden; background: var(--bg); display: flex; flex-direction: column; }
+
+/* Run header strip */
+.run-header {
+  background: var(--surface); border-bottom: 1px solid var(--border);
+  padding: 10px 18px; flex-shrink: 0;
+  display: flex; align-items: center; gap: 12px; flex-wrap: wrap;
+}
+.run-id {
+  font-family: var(--mono); font-size: 13px; font-weight: 700;
+  color: var(--fg); letter-spacing: 0.04em;
+}
+.run-title { font-size: 13px; font-weight: 500; color: var(--fg-2); flex: 1; }
+.run-meta { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+.run-meta-item { display: flex; align-items: center; gap: 5px; font-size: 11.5px; color: var(--fg-2); white-space: nowrap; }
+.run-meta-item .label { color: var(--muted); }
+.run-meta-item .val { font-family: var(--mono); font-variant-numeric: tabular-nums; }
+
+.status-badge {
+  display: inline-flex; align-items: center; gap: 4px;
+  padding: 2px 8px; border-radius: 9999px;
+  font-size: 11px; font-weight: 600; letter-spacing: 0.02em; white-space: nowrap;
+}
+.sb-complete { background: var(--success-subtle); border: 1px solid rgba(34,197,94,.3); color: var(--success); }
+.sb-partial  { background: var(--warn-subtle);    border: 1px solid rgba(245,158,11,.3); color: var(--warn); }
+.sb-failed   { background: var(--danger-subtle);  border: 1px solid rgba(239,68,68,.3);  color: var(--danger); }
+.sb-running  { background: var(--accent-subtle);  border: 1px solid rgba(59,130,246,.3); color: #93b4fd; }
+
+.btn-ghost-sm {
+  height: 26px; padding: 0 10px;
+  border: 1px solid var(--border-mid); border-radius: var(--r);
+  background: transparent; color: var(--fg-2); font-size: 11.5px;
+  font-family: var(--font); cursor: pointer; white-space: nowrap;
+  transition: background 100ms, color 100ms; display: inline-flex; align-items: center; gap: 5px;
+}
+.btn-ghost-sm:hover { background: var(--surface-2); color: var(--fg); }
+
+/* KPI ribbon */
+.kpi-ribbon {
+  display: grid; grid-template-columns: repeat(5, 1fr);
+  border-bottom: 1px solid var(--border); flex-shrink: 0;
+}
+.kpi-tile {
+  padding: 10px 16px; border-right: 1px solid var(--border);
+}
+.kpi-tile:last-child { border-right: none; }
+.kpi-val {
+  font-size: 20px; font-weight: 600; font-family: var(--mono);
+  font-variant-numeric: tabular-nums; letter-spacing: -0.03em;
+  color: var(--fg); line-height: 1.1; margin-bottom: 2px;
+}
+.kpi-val.warn   { color: var(--warn); }
+.kpi-val.danger { color: var(--danger); }
+.kpi-val.good   { color: var(--success); }
+.kpi-label { font-size: 11px; font-weight: 500; color: var(--fg-2); margin-bottom: 1px; }
+.kpi-sub   { font-size: 10.5px; color: var(--muted); font-family: var(--mono); }
+
+/* Scrollable body */
+.scroll-body {
+  flex: 1; overflow-y: auto; padding: 16px;
+  scrollbar-width: thin; scrollbar-color: var(--border-mid) transparent;
+  display: flex; flex-direction: column; gap: 14px;
+}
+
+/* Section header */
+.sec-head { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; }
+.sec-label { font-size: 10px; font-weight: 700; letter-spacing: 0.09em; text-transform: uppercase; color: var(--muted); font-family: var(--mono); flex: 1; }
+.sec-link { font-size: 11px; color: var(--accent); cursor: pointer; text-decoration: none; transition: opacity 100ms; }
+.sec-link:hover { opacity: .75; }
+.sec-meta { font-size: 11px; color: var(--muted); font-family: var(--mono); }
+
+/* Two-col layout for outcome + layers */
+.two-col { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+.three-col { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 10px; }
+
+/* Card base */
+.card {
+  background: var(--surface); border: 1px solid var(--border);
+  border-radius: var(--r); overflow: hidden;
+}
+.card-head {
+  padding: 8px 12px; border-bottom: 1px solid var(--border);
+  display: flex; align-items: center; gap: 8px;
+}
+.card-title { font-size: 11px; font-weight: 600; color: var(--fg-2); flex: 1; letter-spacing: -0.005em; }
+.card-body { padding: 10px 12px; }
+
+/* Outcome bars */
+.outcome-row {
+  display: flex; align-items: center; gap: 8px;
+  padding: 6px 0; border-bottom: 1px solid var(--border);
+}
+.outcome-row:last-child { border-bottom: none; }
+.outcome-dot { width: 7px; height: 7px; border-radius: 50%; flex-shrink: 0; }
+.outcome-label { font-size: 12px; color: var(--fg-2); flex: 1; }
+.outcome-count { font-family: var(--mono); font-size: 12px; font-weight: 600; font-variant-numeric: tabular-nums; color: var(--fg); width: 32px; text-align: right; flex-shrink: 0; }
+.outcome-bar-track { flex: 1; height: 5px; background: var(--border-mid); border-radius: 9999px; overflow: hidden; max-width: 120px; }
+.outcome-bar-fill { height: 100%; border-radius: 9999px; transition: width 400ms; }
+.outcome-pct { font-family: var(--mono); font-size: 10.5px; color: var(--muted); width: 34px; text-align: right; flex-shrink: 0; }
+
+/* Layer panels */
+.layer-card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--r); }
+.layer-head {
+  padding: 8px 12px; border-bottom: 1px solid var(--border);
+  display: flex; align-items: center; gap: 7px;
+}
+.layer-num {
+  width: 18px; height: 18px; border-radius: 3px;
+  background: var(--accent-subtle); border: 1px solid rgba(59,130,246,.3);
+  display: flex; align-items: center; justify-content: center;
+  font-size: 10px; font-weight: 700; color: var(--accent);
+  font-family: var(--mono); flex-shrink: 0;
+}
+.layer-name { font-size: 12px; font-weight: 500; color: var(--fg); flex: 1; }
+.layer-badge {
+  font-size: 10px; font-family: var(--mono); font-variant-numeric: tabular-nums;
+  color: var(--muted); background: var(--bg); border: 1px solid var(--border);
+  padding: 1px 5px; border-radius: 9999px; line-height: 1.7; white-space: nowrap;
+}
+.layer-stats { padding: 8px 12px; display: flex; gap: 0; }
+.layer-stat { flex: 1; padding: 0 8px; border-right: 1px solid var(--border); }
+.layer-stat:first-child { padding-left: 0; }
+.layer-stat:last-child { border-right: none; padding-right: 0; }
+.ls-val {
+  font-size: 17px; font-weight: 600; font-family: var(--mono);
+  font-variant-numeric: tabular-nums; color: var(--fg); display: block; line-height: 1.2;
+}
+.ls-val.warn   { color: var(--warn); }
+.ls-val.danger { color: var(--danger); }
+.ls-val.good   { color: var(--success); }
+.ls-label { font-size: 10px; color: var(--muted); display: block; margin-top: 1px; }
+
+/* Dense table */
+.table-wrap { overflow-x: auto; }
+table { width: 100%; border-collapse: collapse; min-width: 800px; }
+thead th {
+  background: var(--surface); border-bottom: 1px solid var(--border);
+  padding: 7px 10px; font-size: 10.5px; font-weight: 600;
+  letter-spacing: 0.045em; text-transform: uppercase; color: var(--muted);
+  text-align: left; white-space: nowrap; user-select: none;
+  position: sticky; top: 0; z-index: 1;
+}
+thead th:hover { color: var(--fg-2); }
+tbody tr { border-bottom: 1px solid var(--border); transition: background 70ms; }
+tbody tr:hover { background: var(--surface-2); }
+td { padding: 8px 10px; vertical-align: middle; }
+
+/* Outcome chip */
+.outcome-chip {
+  display: inline-flex; align-items: center; gap: 4px;
+  padding: 1px 6px; border-radius: 9999px;
+  font-size: 10.5px; font-weight: 500; white-space: nowrap;
+}
+.oc-parsed    { background: var(--success-subtle); border: 1px solid rgba(34,197,94,.3);  color: var(--success); }
+.oc-empty     { background: rgba(59,130,246,.08);  border: 1px solid rgba(59,130,246,.25); color: #93b4fd; }
+.oc-parse-err { background: var(--warn-subtle);    border: 1px solid rgba(245,158,11,.3);  color: var(--warn); }
+.oc-unreach   { background: var(--danger-subtle);  border: 1px solid rgba(239,68,68,.3);   color: var(--danger); }
+
+.outcome-chip::before {
+  content: ''; width: 5px; height: 5px; border-radius: 50%; flex-shrink: 0;
+}
+.oc-parsed::before    { background: var(--success); }
+.oc-empty::before     { background: var(--accent); }
+.oc-parse-err::before { background: var(--warn); }
+.oc-unreach::before   { background: var(--danger); }
+
+.layer-tag {
+  font-size: 10px; font-family: var(--mono); font-weight: 600;
+  color: var(--muted); background: var(--bg); border: 1px solid var(--border);
+  padding: 1px 5px; border-radius: 3px; letter-spacing: 0.04em;
+  text-transform: uppercase; white-space: nowrap;
+}
+.http-code { font-family: var(--mono); font-size: 12px; font-variant-numeric: tabular-nums; }
+.http-ok   { color: var(--success); }
+.http-warn { color: var(--warn); }
+.http-err  { color: var(--danger); }
+.streak { font-family: var(--mono); font-size: 12px; font-variant-numeric: tabular-nums; }
+.streak-ok   { color: var(--fg-2); }
+.streak-warn { color: var(--warn); }
+.streak-err  { color: var(--danger); font-weight: 600; }
+.td-url { font-size: 12px; color: var(--fg); max-width: 240px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.td-url a { color: var(--fg); text-decoration: none; }
+.td-url a:hover { color: var(--accent); }
+.td-count { font-family: var(--mono); font-size: 12px; font-variant-numeric: tabular-nums; color: var(--fg-2); text-align: right; }
+.action-link { font-size: 11px; color: var(--accent); text-decoration: none; white-space: nowrap; }
+.action-link:hover { opacity: .75; }
+
+/* Risk badges */
+.risk { display: inline-flex; align-items: center; padding: 1px 5px; border-radius: 3px; font-size: 10px; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; font-family: var(--mono); white-space: nowrap; }
+.risk-high { background: var(--danger-subtle); border: 1px solid rgba(239,68,68,.3); color: var(--danger); }
+.risk-med  { background: var(--warn-subtle);   border: 1px solid rgba(245,158,11,.3); color: var(--warn); }
+.risk-low  { background: var(--success-subtle);border: 1px solid rgba(34,197,94,.3);  color: var(--success); }
+
+/* Triage readiness */
+.triage-badge { display: inline-flex; align-items: center; gap: 3px; padding: 1px 6px; border-radius: 9999px; font-size: 10.5px; font-weight: 500; }
+.tb-ready   { background: var(--success-subtle); border: 1px solid rgba(34,197,94,.3);  color: var(--success); }
+.tb-held    { background: var(--warn-subtle);    border: 1px solid rgba(245,158,11,.3); color: var(--warn); }
+.tb-dup     { background: rgba(75,86,114,.12);   border: 1px solid var(--border-mid);   color: var(--muted); }
+.tb-escl    { background: var(--danger-subtle);  border: 1px solid rgba(239,68,68,.3);  color: var(--danger); }
+
+/* Candidate id */
+.cand-id { font-family: var(--mono); font-size: 10.5px; color: var(--muted); white-space: nowrap; }
+
+/* Bottom two-col */
+.bot-two { display: grid; grid-template-columns: 1fr 360px; gap: 12px; }
+
+/* Escalation / log entries */
+.log-item { padding: 9px 12px; border-bottom: 1px solid var(--border); display: flex; align-items: flex-start; gap: 9px; }
+.log-item:last-child { border-bottom: none; }
+.log-dot { width: 7px; height: 7px; border-radius: 50%; flex-shrink: 0; margin-top: 4px; }
+.log-body { flex: 1; min-width: 0; }
+.log-top { display: flex; align-items: center; gap: 6px; margin-bottom: 2px; }
+.log-type-badge {
+  display: inline-flex; padding: 1px 5px; border-radius: 3px;
+  font-size: 9.5px; font-weight: 700; letter-spacing: 0.05em; text-transform: uppercase;
+  font-family: var(--mono);
+}
+.lt-rec  { background: var(--accent-subtle); border: 1px solid rgba(59,130,246,.3); color: #93b4fd; }
+.lt-esc  { background: var(--danger-subtle); border: 1px solid rgba(239,68,68,.3);  color: #fca5a5; }
+.lt-ops  { background: var(--warn-subtle);   border: 1px solid rgba(245,158,11,.3); color: var(--warn); }
+.lt-info { background: rgba(75,86,114,.12);  border: 1px solid var(--border-mid);   color: var(--fg-2); }
+.log-ref { font-size: 11px; font-family: var(--mono); color: var(--accent); }
+.log-text { font-size: 12px; color: var(--fg-2); line-height: 1.4; }
+.log-time { font-size: 10.5px; font-family: var(--mono); color: var(--muted); margin-left: auto; white-space: nowrap; }
+</style>
+</head>
+<body>
+<div class="shell">
+
+  <!-- SIDEBAR -->
+  <aside class="sidebar">
+    <div class="sidebar-pub">
+      <span class="pub-name">Union Media</span>
+      <span class="pub-meta">unionmedia.co.uk · Editorial Ops</span>
+    </div>
+        <nav class="sidebar-nav">
+    <div class="nav-section">Overview</div>
+    <a href="dashboard.html" class="nav-item">
+      <svg class="nav-icon" viewBox="0 0 15 15" fill="none"><rect x="1.5" y="1.5" width="5" height="5" rx="1" fill="currentColor"/><rect x="8.5" y="1.5" width="5" height="5" rx="1" fill="currentColor"/><rect x="1.5" y="8.5" width="5" height="5" rx="1" fill="currentColor"/><rect x="8.5" y="8.5" width="5" height="5" rx="1" fill="currentColor"/></svg>
+      Dashboard
+    </a>
+    <div class="nav-section">Editorial</div>
+    <a href="pipeline-dashboard.html" class="nav-item">
+      <svg class="nav-icon" viewBox="0 0 15 15" fill="none"><rect x="1.5" y="2.5" width="12" height="1.5" rx=".5" fill="currentColor"/><rect x="1.5" y="6.5" width="12" height="1.5" rx=".5" fill="currentColor"/><rect x="1.5" y="10.5" width="12" height="1.5" rx=".5" fill="currentColor"/></svg>
+      Pipeline
+    </a>
+    <a href="pipeline-board.html" class="nav-item">
+      <svg class="nav-icon" viewBox="0 0 15 15" fill="none"><rect x="1" y="1.5" width="4" height="12" rx="1" fill="currentColor"/><rect x="6" y="1.5" width="4" height="8.5" rx="1" fill="currentColor"/><rect x="11" y="1.5" width="3" height="5.5" rx="1" fill="currentColor"/></svg>
+      Board
+    </a>
+    <a href="#" class="nav-item">
+      <svg class="nav-icon" viewBox="0 0 15 15" fill="none"><rect x="1.5" y="2.5" width="12" height="11" rx="1.5" stroke="currentColor" stroke-width="1.3"/><path d="M1.5 6h12" stroke="currentColor" stroke-width="1.3"/><path d="M5 1.5V4M10 1.5V4" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/></svg>
+      Calendar
+      <span class="nav-badge">18</span>
+    </a>
+    <a href="article-dossier.html" class="nav-item">
+      <svg class="nav-icon" viewBox="0 0 15 15" fill="none"><path d="M3.5 1.5h5.5l3 3v9h-8.5v-12z" stroke="currentColor" stroke-width="1.3" stroke-linejoin="round"/><path d="M9 1.5v3.5h3" stroke="currentColor" stroke-width="1.3"/><path d="M5 7.5h5M5 9.5h3" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/></svg>
+      Article Dossier
+    </a>
+    <div class="nav-section">Management</div>
+    <a href="approvals.html" class="nav-item">
+      <svg class="nav-icon" viewBox="0 0 15 15" fill="none"><path d="M2 7.5L6 11.5L13 3.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      Approvals
+      <span class="nav-badge urgent">4</span>
+    </a>
+    <a href="#" class="nav-item">
+      <svg class="nav-icon" viewBox="0 0 15 15" fill="none"><circle cx="5" cy="5.5" r="2" stroke="currentColor" stroke-width="1.3"/><circle cx="10.5" cy="5.5" r="2" stroke="currentColor" stroke-width="1.3"/><path d="M1 13c0-2 1.79-3.5 4-3.5h5c2.21 0 4 1.5 4 3.5" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/></svg>
+      Team
+    </a>
+    <div class="nav-section">Discovery</div>
+    <a href="discovery.html" class="nav-item">
+      <svg class="nav-icon" viewBox="0 0 15 15" fill="none"><circle cx="6.5" cy="6.5" r="4" stroke="currentColor" stroke-width="1.3"/><path d="M11 11l2.5 2.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
+      Discovery Overview
+      <span class="nav-badge urgent">3</span>
+    </a>
+    <a href="candidate-inbox.html" class="nav-item">
+      <svg class="nav-icon" viewBox="0 0 15 15" fill="none"><path d="M1.5 4.5h12v8.5h-12z" stroke="currentColor" stroke-width="1.3" stroke-linejoin="round"/><path d="M1.5 4.5l6 4 6-4" stroke="currentColor" stroke-width="1.3" stroke-linejoin="round"/></svg>
+      Candidate Inbox
+      <span class="nav-badge">89</span>
+    </a>
+    <a href="ops-rr-queue.html" class="nav-item">
+      <svg class="nav-icon" viewBox="0 0 15 15" fill="none"><path d="M7.5 1.5v5M7.5 9.5v.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/><circle cx="7.5" cy="7.5" r="6" stroke="currentColor" stroke-width="1.3"/></svg>
+      OPS-RR Queue
+      <span class="nav-badge urgent">7</span>
+    </a>
+    <a href="sweep-run-detail.html" class="nav-item active">
+      <svg class="nav-icon" viewBox="0 0 15 15" fill="none"><circle cx="7.5" cy="7.5" r="6" stroke="currentColor" stroke-width="1.3"/><path d="M7.5 4.5v3l2 2" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/></svg>
+      Sweep Run Detail
+    </a>
+    <div class="nav-section">System</div>
+    <a href="discovery-config.html" class="nav-item">
+      <svg class="nav-icon" viewBox="0 0 15 15" fill="none"><circle cx="7.5" cy="7.5" r="3" stroke="currentColor" stroke-width="1.3"/><path d="M7.5 1v1.5M7.5 12.5V14M1 7.5h1.5M12.5 7.5H14M2.9 2.9l1.1 1.1M11 11l1.1 1.1M11 2.9L9.9 4M4 11l-1.1 1.1" stroke="currentColor" stroke-width="1.2" stroke-linecap="round"/></svg>
+      Discovery Config
+    </a>
+    <a href="source-monitor.html" class="nav-item">
+      <svg class="nav-icon" viewBox="0 0 15 15" fill="none"><path d="M1.5 10.5l4-4 3 3 5-6" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"/><circle cx="13" cy="4.5" r="1" fill="currentColor"/></svg>
+      Source Health Monitor
+    </a>
+    <a href="discovery-2.html" class="nav-item">
+      <svg class="nav-icon" viewBox="0 0 15 15" fill="none"><path d="M2.5 5.5h10M2.5 8.5h8M2.5 11.5h5" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/><rect x="1.5" y="1.5" width="12" height="12" rx="1.5" stroke="currentColor" stroke-width="1.3"/></svg>
+      Discovery Audit Log
+    </a>
+    <a href="design-system.html" class="nav-item">
+      <svg class="nav-icon" viewBox="0 0 15 15" fill="none"><circle cx="4" cy="4" r="1.5" fill="currentColor"/><circle cx="11" cy="4" r="1.5" fill="currentColor"/><circle cx="4" cy="11" r="1.5" fill="currentColor"/><circle cx="11" cy="11" r="1.5" fill="currentColor"/><circle cx="7.5" cy="7.5" r="1.5" fill="currentColor"/></svg>
+      Design System
+    </a>
+    <a href="#" class="nav-item">
+      <svg class="nav-icon" viewBox="0 0 15 15" fill="none"><circle cx="7.5" cy="7.5" r="5.5" stroke="currentColor" stroke-width="1.3"/><circle cx="7.5" cy="7.5" r="2" stroke="currentColor" stroke-width="1.3"/></svg>
+      Settings
+    </a>
+  </nav>
+    <div class="sidebar-user">
+      <div class="avatar-sm">DM</div>
+      <div style="min-width:0">
+        <span class="user-name">D. Mackenzie</span>
+        <span class="user-role">Senior Editor</span>
+      </div>
+    </div>
+  </aside>
+
+  <!-- TOPBAR -->
+  <header class="topbar">
+    <a href="discovery.html" class="topbar-back">
+      <svg width="13" height="13" viewBox="0 0 13 13" fill="none"><path d="M8 2.5L4 6.5L8 10.5" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      Discovery
+    </a>
+    <span class="topbar-sep">/</span>
+    <span class="topbar-id">RR-2841</span>
+    <span class="topbar-sep">/</span>
+    <span class="topbar-name">AM Sweep · 28 May 2026</span>
+    <span class="topbar-clock" id="clock">09:14:22</span>
+    <button class="theme-toggle" onclick="document.documentElement.dataset.theme = document.documentElement.dataset.theme==='dark'?'light':'dark'">
+      <svg width="13" height="13" viewBox="0 0 13 13" fill="none"><circle cx="6.5" cy="6.5" r="2.5" stroke="currentColor" stroke-width="1.3"/><path d="M6.5 1v1M6.5 11v1M1 6.5h1M11 6.5h1M2.93 2.93l.71.71M9.36 9.36l.71.71M2.93 10.07l.71-.71M9.36 3.64l.71-.71" stroke="currentColor" stroke-width="1.2" stroke-linecap="round"/></svg>
+      Theme
+    </button>
+    <button class="btn-ghost-sm">
+      <svg width="13" height="13" viewBox="0 0 13 13" fill="none"><path d="M2 6.5h9M7.5 3L11 6.5L7.5 10" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      Compare previous
+    </button>
+    <button class="icon-btn" title="Audit log">
+      <svg width="13" height="13" viewBox="0 0 13 13" fill="none"><rect x="2" y="1.5" width="9" height="11" rx="1.5" stroke="currentColor" stroke-width="1.3"/><path d="M4.5 5h4M4.5 7.5h2.5" stroke="currentColor" stroke-width="1.2" stroke-linecap="round"/></svg>
+    </button>
+    <div class="topbar-avatar">DM</div>
+  </header>
+
+  <!-- MAIN -->
+  <main class="main">
+
+    <!-- Run header strip -->
+    <div class="run-header">
+      <div class="run-id">RR-2841</div>
+      <span class="status-badge sb-complete">
+        <svg width="8" height="8" viewBox="0 0 8 8" fill="none"><path d="M1.5 4L3 5.5L6.5 2" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        Complete
+      </span>
+      <div class="run-meta">
+        <div class="run-meta-item"><span class="label">Slot</span><span class="val">AM · 06:00</span></div>
+        <div class="run-meta-item"><span class="label">Triggered</span><span class="val">28 May 2026, 06:00:04</span></div>
+        <div class="run-meta-item"><span class="label">Completed</span><span class="val">06:04:38</span></div>
+        <div class="run-meta-item"><span class="label">Duration</span><span class="val">4m 34s</span></div>
+        <div class="run-meta-item"><span class="label">Trigger</span><span class="val">Scheduled cron</span></div>
+        <div class="run-meta-item"><span class="label">Runner</span><span class="val">ranger-recon-v2.3.1</span></div>
+      </div>
+      <div style="margin-left:auto; display:flex; gap:6px;">
+        <button class="btn-ghost-sm">Raise OPS-RR issue</button>
+        <button class="btn-ghost-sm">Download report</button>
+      </div>
+    </div>
+
+    <!-- KPI ribbon -->
+    <div class="kpi-ribbon">
+      <div class="kpi-tile">
+        <div class="kpi-val">42</div>
+        <div class="kpi-label">Sites checked</div>
+        <div class="kpi-sub">4 layers</div>
+      </div>
+      <div class="kpi-tile">
+        <div class="kpi-val good">88.1%</div>
+        <div class="kpi-label">Reached &amp; parsed</div>
+        <div class="kpi-sub">37 of 42</div>
+      </div>
+      <div class="kpi-tile">
+        <div class="kpi-val">247</div>
+        <div class="kpi-label">Candidates surfaced</div>
+        <div class="kpi-sub">+18 vs prior run</div>
+      </div>
+      <div class="kpi-tile">
+        <div class="kpi-val warn">31</div>
+        <div class="kpi-label">Duplicate holds</div>
+        <div class="kpi-sub">12.6% of surfaced</div>
+      </div>
+      <div class="kpi-tile">
+        <div class="kpi-val warn">3</div>
+        <div class="kpi-label">Escalations generated</div>
+        <div class="kpi-sub">2 OPS-RR · 1 REC-ESC</div>
+      </div>
+    </div>
+
+    <!-- Scrollable body -->
+    <div class="scroll-body">
+
+      <!-- Outcome breakdown + Layer panels -->
+      <div class="two-col">
+
+        <!-- Outcome breakdown -->
+        <div>
+          <div class="sec-head">
+            <span class="sec-label">Outcome breakdown</span>
+          </div>
+          <div class="card">
+            <div class="card-body" style="padding:12px;">
+              <div class="outcome-row">
+                <div class="outcome-dot" style="background:var(--success)"></div>
+                <div class="outcome-label">Reached with items</div>
+                <div class="outcome-count">31</div>
+                <div class="outcome-bar-track">
+                  <div class="outcome-bar-fill" style="width:73.8%; background:var(--success)"></div>
+                </div>
+                <div class="outcome-pct">73.8%</div>
+              </div>
+              <div class="outcome-row">
+                <div class="outcome-dot" style="background:var(--accent)"></div>
+                <div class="outcome-label">Reached — no items</div>
+                <div class="outcome-count">6</div>
+                <div class="outcome-bar-track">
+                  <div class="outcome-bar-fill" style="width:14.3%; background:var(--accent)"></div>
+                </div>
+                <div class="outcome-pct">14.3%</div>
+              </div>
+              <div class="outcome-row">
+                <div class="outcome-dot" style="background:var(--warn)"></div>
+                <div class="outcome-label">Parse failure</div>
+                <div class="outcome-count">4</div>
+                <div class="outcome-bar-track">
+                  <div class="outcome-bar-fill" style="width:9.5%; background:var(--warn)"></div>
+                </div>
+                <div class="outcome-pct">9.5%</div>
+              </div>
+              <div class="outcome-row">
+                <div class="outcome-dot" style="background:var(--danger)"></div>
+                <div class="outcome-label">Not reached</div>
+                <div class="outcome-count">1</div>
+                <div class="outcome-bar-track">
+                  <div class="outcome-bar-fill" style="width:2.4%; background:var(--danger)"></div>
+                </div>
+                <div class="outcome-pct">2.4%</div>
+              </div>
+            </div>
+            <div style="border-top:1px solid var(--border); padding:8px 12px; display:flex; gap:16px;">
+              <span style="font-size:11px; color:var(--fg-2);">Total items scraped: <strong style="color:var(--fg); font-family:var(--mono);">1,842</strong></span>
+              <span style="font-size:11px; color:var(--fg-2);">After dedup: <strong style="color:var(--fg); font-family:var(--mono);">247</strong></span>
+              <span style="font-size:11px; color:var(--fg-2);">Dedup rate: <strong style="color:var(--warn); font-family:var(--mono);">86.6%</strong></span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Layer summary -->
+        <div>
+          <div class="sec-head">
+            <span class="sec-label">Per-layer summary</span>
+          </div>
+          <div style="display:flex; flex-direction:column; gap:7px;">
+
+            <div class="layer-card">
+              <div class="layer-head">
+                <div class="layer-num">1</div>
+                <div class="layer-name">Corporate newsrooms</div>
+                <div class="layer-badge">14 sites</div>
+              </div>
+              <div class="layer-stats">
+                <div class="layer-stat"><span class="ls-val good">14</span><span class="ls-label">Reached</span></div>
+                <div class="layer-stat"><span class="ls-val">127</span><span class="ls-label">Candidates</span></div>
+                <div class="layer-stat"><span class="ls-val">0</span><span class="ls-label">Failures</span></div>
+                <div class="layer-stat"><span class="ls-val">0</span><span class="ls-label">Escalations</span></div>
+              </div>
+            </div>
+
+            <div class="layer-card">
+              <div class="layer-head">
+                <div class="layer-num">2</div>
+                <div class="layer-name">Institutional press</div>
+                <div class="layer-badge">16 sites</div>
+              </div>
+              <div class="layer-stats">
+                <div class="layer-stat"><span class="ls-val warn">13</span><span class="ls-label">Reached</span></div>
+                <div class="layer-stat"><span class="ls-val">89</span><span class="ls-label">Candidates</span></div>
+                <div class="layer-stat"><span class="ls-val warn">3</span><span class="ls-label">Parse fail</span></div>
+                <div class="layer-stat"><span class="ls-val warn">2</span><span class="ls-label">Escalations</span></div>
+              </div>
+            </div>
+
+            <div class="layer-card">
+              <div class="layer-head">
+                <div class="layer-num">3</div>
+                <div class="layer-name">National cross-reference</div>
+                <div class="layer-badge">8 sites</div>
+              </div>
+              <div class="layer-stats">
+                <div class="layer-stat"><span class="ls-val good">7</span><span class="ls-label">Reached</span></div>
+                <div class="layer-stat"><span class="ls-val">24</span><span class="ls-label">Candidates</span></div>
+                <div class="layer-stat"><span class="ls-val warn">1</span><span class="ls-label">No items</span></div>
+                <div class="layer-stat"><span class="ls-val">0</span><span class="ls-label">Escalations</span></div>
+              </div>
+            </div>
+
+            <div class="layer-card">
+              <div class="layer-head">
+                <div class="layer-num">4</div>
+                <div class="layer-name">Signal-only pointers</div>
+                <div class="layer-badge">4 sites</div>
+              </div>
+              <div class="layer-stats">
+                <div class="layer-stat"><span class="ls-val warn">3</span><span class="ls-label">Reached</span></div>
+                <div class="layer-stat"><span class="ls-val">7</span><span class="ls-label">Candidates</span></div>
+                <div class="layer-stat"><span class="ls-val danger">1</span><span class="ls-label">Not reached</span></div>
+                <div class="layer-stat"><span class="ls-val warn">1</span><span class="ls-label">Escalations</span></div>
+              </div>
+            </div>
+
+          </div>
+        </div>
+      </div>
+
+      <!-- Site outcomes table -->
+      <div>
+        <div class="sec-head">
+          <span class="sec-label">Site outcomes — all 42 sources</span>
+          <span class="sec-meta">Showing 42 of 42</span>
+          <a href="source-health.html" class="sec-link">Source Health Monitor →</a>
+        </div>
+        <div class="card table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>Source</th>
+                <th>Layer</th>
+                <th>Outcome</th>
+                <th>HTTP</th>
+                <th style="text-align:right">Candidates</th>
+                <th>Failure streak</th>
+                <th>Action</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td class="td-url"><a href="#">pa.press/rss/scotland</a></td>
+                <td><span class="layer-tag">L1</span></td>
+                <td><span class="outcome-chip oc-parsed">Reached · items</span></td>
+                <td><span class="http-code http-ok">200</span></td>
+                <td class="td-count">43</td>
+                <td><span class="streak streak-ok">0</span></td>
+                <td><a href="#" class="action-link">View in inbox</a></td>
+              </tr>
+              <tr>
+                <td class="td-url"><a href="#">bbc.co.uk/news/scotland/rss</a></td>
+                <td><span class="layer-tag">L1</span></td>
+                <td><span class="outcome-chip oc-parsed">Reached · items</span></td>
+                <td><span class="http-code http-ok">200</span></td>
+                <td class="td-count">31</td>
+                <td><span class="streak streak-ok">0</span></td>
+                <td><a href="#" class="action-link">View in inbox</a></td>
+              </tr>
+              <tr>
+                <td class="td-url"><a href="#">scotsman.com/news/rss</a></td>
+                <td><span class="layer-tag">L1</span></td>
+                <td><span class="outcome-chip oc-parsed">Reached · items</span></td>
+                <td><span class="http-code http-ok">200</span></td>
+                <td class="td-count">18</td>
+                <td><span class="streak streak-ok">0</span></td>
+                <td><a href="#" class="action-link">View in inbox</a></td>
+              </tr>
+              <tr>
+                <td class="td-url"><a href="#">stv.tv/news/rss</a></td>
+                <td><span class="layer-tag">L1</span></td>
+                <td><span class="outcome-chip oc-parsed">Reached · items</span></td>
+                <td><span class="http-code http-ok">200</span></td>
+                <td class="td-count">12</td>
+                <td><span class="streak streak-ok">0</span></td>
+                <td><a href="#" class="action-link">View in inbox</a></td>
+              </tr>
+              <tr>
+                <td class="td-url"><a href="#">aberdeenjournal.co.uk/rss</a></td>
+                <td><span class="layer-tag">L1</span></td>
+                <td><span class="outcome-chip oc-parsed">Reached · items</span></td>
+                <td><span class="http-code http-ok">200</span></td>
+                <td class="td-count">9</td>
+                <td><span class="streak streak-ok">0</span></td>
+                <td><a href="#" class="action-link">View in inbox</a></td>
+              </tr>
+              <tr>
+                <td class="td-url"><a href="#">pressandjournal.co.uk/feed</a></td>
+                <td><span class="layer-tag">L1</span></td>
+                <td><span class="outcome-chip oc-parsed">Reached · items</span></td>
+                <td><span class="http-code http-ok">200</span></td>
+                <td class="td-count">14</td>
+                <td><span class="streak streak-ok">0</span></td>
+                <td><a href="#" class="action-link">View in inbox</a></td>
+              </tr>
+              <tr>
+                <td class="td-url"><a href="#">companieshouse.gov.uk/api/rss</a></td>
+                <td><span class="layer-tag">L2</span></td>
+                <td><span class="outcome-chip oc-parse-err">Parse failure</span></td>
+                <td><span class="http-code http-ok">200</span></td>
+                <td class="td-count">0</td>
+                <td><span class="streak streak-warn">3</span></td>
+                <td><a href="#" class="action-link">Open OPS-RR →</a></td>
+              </tr>
+              <tr>
+                <td class="td-url"><a href="#">scottishlegal.com/rss</a></td>
+                <td><span class="layer-tag">L2</span></td>
+                <td><span class="outcome-chip oc-parse-err">Parse failure</span></td>
+                <td><span class="http-code http-ok">200</span></td>
+                <td class="td-count">0</td>
+                <td><span class="streak streak-warn">2</span></td>
+                <td><a href="#" class="action-link">Open OPS-RR →</a></td>
+              </tr>
+              <tr>
+                <td class="td-url"><a href="#">holyrood.com/rss</a></td>
+                <td><span class="layer-tag">L2</span></td>
+                <td><span class="outcome-chip oc-empty">Reached · no items</span></td>
+                <td><span class="http-code http-ok">200</span></td>
+                <td class="td-count">0</td>
+                <td><span class="streak streak-ok">0</span></td>
+                <td><a href="source-health.html" class="action-link">Source health</a></td>
+              </tr>
+              <tr>
+                <td class="td-url"><a href="#">parliament.scot/api/news</a></td>
+                <td><span class="layer-tag">L2</span></td>
+                <td><span class="outcome-chip oc-parsed">Reached · items</span></td>
+                <td><span class="http-code http-ok">200</span></td>
+                <td class="td-count">6</td>
+                <td><span class="streak streak-ok">0</span></td>
+                <td><a href="#" class="action-link">View in inbox</a></td>
+              </tr>
+              <tr>
+                <td class="td-url"><a href="#">aberdeencity.gov.uk/news/rss</a></td>
+                <td><span class="layer-tag">L2</span></td>
+                <td><span class="outcome-chip oc-parsed">Reached · items</span></td>
+                <td><span class="http-code http-ok">200</span></td>
+                <td class="td-count">4</td>
+                <td><span class="streak streak-ok">0</span></td>
+                <td><a href="#" class="action-link">View in inbox</a></td>
+              </tr>
+              <tr>
+                <td class="td-url"><a href="#">ons.gov.uk/rss/releases</a></td>
+                <td><span class="layer-tag">L2</span></td>
+                <td><span class="outcome-chip oc-parse-err">Parse failure</span></td>
+                <td><span class="http-code http-warn">206</span></td>
+                <td class="td-count">0</td>
+                <td><span class="streak streak-warn">1</span></td>
+                <td><a href="source-health.html" class="action-link">Source health</a></td>
+              </tr>
+              <tr>
+                <td class="td-url"><a href="#">guardian.com/scotland/rss</a></td>
+                <td><span class="layer-tag">L3</span></td>
+                <td><span class="outcome-chip oc-parsed">Reached · items</span></td>
+                <td><span class="http-code http-ok">200</span></td>
+                <td class="td-count">11</td>
+                <td><span class="streak streak-ok">0</span></td>
+                <td><a href="#" class="action-link">View in inbox</a></td>
+              </tr>
+              <tr>
+                <td class="td-url"><a href="#">heraldscotland.com/rss</a></td>
+                <td><span class="layer-tag">L3</span></td>
+                <td><span class="outcome-chip oc-parsed">Reached · items</span></td>
+                <td><span class="http-code http-ok">200</span></td>
+                <td class="td-count">8</td>
+                <td><span class="streak streak-ok">0</span></td>
+                <td><a href="#" class="action-link">View in inbox</a></td>
+              </tr>
+              <tr>
+                <td class="td-url"><a href="#">scotgov-api.scot/news/feed</a></td>
+                <td><span class="layer-tag">L3</span></td>
+                <td><span class="outcome-chip oc-empty">Reached · no items</span></td>
+                <td><span class="http-code http-ok">200</span></td>
+                <td class="td-count">0</td>
+                <td><span class="streak streak-ok">0</span></td>
+                <td><a href="source-health.html" class="action-link">Source health</a></td>
+              </tr>
+              <tr>
+                <td class="td-url"><a href="#">energyvoice.com/rss</a></td>
+                <td><span class="layer-tag">L4</span></td>
+                <td><span class="outcome-chip oc-parsed">Reached · items</span></td>
+                <td><span class="http-code http-ok">200</span></td>
+                <td class="td-count">7</td>
+                <td><span class="streak streak-ok">0</span></td>
+                <td><a href="#" class="action-link">View in inbox</a></td>
+              </tr>
+              <tr>
+                <td class="td-url"><a href="#">northsea.com/api/news</a></td>
+                <td><span class="layer-tag">L4</span></td>
+                <td><span class="outcome-chip oc-unreach">Not reached</span></td>
+                <td><span class="http-code http-err">503</span></td>
+                <td class="td-count">0</td>
+                <td><span class="streak streak-err">7</span></td>
+                <td><a href="#" class="action-link">Open OPS-RR →</a></td>
+              </tr>
+              <tr>
+                <td class="td-url"><a href="#">globalsubsea.com/rss</a></td>
+                <td><span class="layer-tag">L4</span></td>
+                <td><span class="outcome-chip oc-empty">Reached · no items</span></td>
+                <td><span class="http-code http-ok">200</span></td>
+                <td class="td-count">0</td>
+                <td><span class="streak streak-ok">0</span></td>
+                <td><a href="source-health.html" class="action-link">Source health</a></td>
+              </tr>
+            </tbody>
+          </table>
+          <div style="padding:7px 12px; border-top:1px solid var(--border); font-size:11px; color:var(--muted);">
+            Showing 18 of 42 sources — <a href="#" style="color:var(--accent); text-decoration:none;">View all 42</a>
+          </div>
+        </div>
+      </div>
+
+      <!-- Candidates + Escalations -->
+      <div class="bot-two">
+
+        <!-- Candidates generated -->
+        <div>
+          <div class="sec-head">
+            <span class="sec-label">Candidates from this run</span>
+            <span class="sec-meta">247 total · 89 awaiting triage</span>
+            <a href="#" class="sec-link">Open Candidate Inbox →</a>
+          </div>
+          <div class="card table-wrap">
+            <table style="min-width:580px;">
+              <thead>
+                <tr>
+                  <th>Candidate ID</th>
+                  <th>Headline</th>
+                  <th>Source</th>
+                  <th>Risk</th>
+                  <th>Status</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td class="cand-id">CND-18402</td>
+                  <td style="font-size:12px; color:var(--fg); max-width:220px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;"><a href="#" style="color:var(--fg); text-decoration:none;" onmouseenter="this.style.color='var(--accent)'" onmouseleave="this.style.color='var(--fg)'">Aberdeen council defers housing vote amid legal challenge</a></td>
+                  <td style="font-size:11px; color:var(--muted); white-space:nowrap;">Aberdeen City Council</td>
+                  <td><span class="risk risk-high">HIGH</span></td>
+                  <td><span class="triage-badge tb-ready">Ready</span></td>
+                </tr>
+                <tr>
+                  <td class="cand-id">CND-18403</td>
+                  <td style="font-size:12px; color:var(--fg); max-width:220px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;"><a href="#" style="color:var(--fg); text-decoration:none;" onmouseenter="this.style.color='var(--accent)'" onmouseleave="this.style.color='var(--fg)'">North Sea decommissioning levy provokes operator backlash</a></td>
+                  <td style="font-size:11px; color:var(--muted); white-space:nowrap;">Energy Voice</td>
+                  <td><span class="risk risk-high">HIGH</span></td>
+                  <td><span class="triage-badge tb-escl">Escalated</span></td>
+                </tr>
+                <tr>
+                  <td class="cand-id">CND-18404</td>
+                  <td style="font-size:12px; color:var(--fg); max-width:220px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;"><a href="#" style="color:var(--fg); text-decoration:none;" onmouseenter="this.style.color='var(--accent)'" onmouseleave="this.style.color='var(--fg)'">Police Scotland winter recruitment campaign targets north-east</a></td>
+                  <td style="font-size:11px; color:var(--muted); white-space:nowrap;">BBC Scotland</td>
+                  <td><span class="risk risk-low">LOW</span></td>
+                  <td><span class="triage-badge tb-ready">Ready</span></td>
+                </tr>
+                <tr>
+                  <td class="cand-id">CND-18405</td>
+                  <td style="font-size:12px; color:var(--fg); max-width:220px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;"><a href="#" style="color:var(--fg); text-decoration:none;" onmouseenter="this.style.color='var(--accent)'" onmouseleave="this.style.color='var(--fg)'">Scottish Procurement Index shows 4.2% public sector contraction</a></td>
+                  <td style="font-size:11px; color:var(--muted); white-space:nowrap;">ONS / ScotGov</td>
+                  <td><span class="risk risk-med">MED</span></td>
+                  <td><span class="triage-badge tb-held">Held — dedup</span></td>
+                </tr>
+                <tr>
+                  <td class="cand-id">CND-18406</td>
+                  <td style="font-size:12px; color:var(--fg); max-width:220px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;"><a href="#" style="color:var(--fg); text-decoration:none;" onmouseenter="this.style.color='var(--accent)'" onmouseleave="this.style.color='var(--fg)'">Robert Gordon University secures £8m engineering partnership</a></td>
+                  <td style="font-size:11px; color:var(--muted); white-space:nowrap;">PA Wire</td>
+                  <td><span class="risk risk-low">LOW</span></td>
+                  <td><span class="triage-badge tb-ready">Ready</span></td>
+                </tr>
+                <tr>
+                  <td class="cand-id">CND-18407</td>
+                  <td style="font-size:12px; color:var(--fg); max-width:220px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;"><a href="#" style="color:var(--fg); text-decoration:none;" onmouseenter="this.style.color='var(--accent)'" onmouseleave="this.style.color='var(--fg)'">MSP calls for independent review of Aberdeen bypass contract</a></td>
+                  <td style="font-size:11px; color:var(--muted); white-space:nowrap;">Holyrood</td>
+                  <td><span class="risk risk-med">MED</span></td>
+                  <td><span class="triage-badge tb-ready">Ready</span></td>
+                </tr>
+                <tr>
+                  <td class="cand-id">CND-18408</td>
+                  <td style="font-size:12px; color:var(--fg); max-width:220px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;"><a href="#" style="color:var(--fg); text-decoration:none;" onmouseenter="this.style.color='var(--accent)'" onmouseleave="this.style.color='var(--fg)'">Heritage trust granted listed building consent for Marischal quarter</a></td>
+                  <td style="font-size:11px; color:var(--muted); white-space:nowrap;">Aberdeen City Council</td>
+                  <td><span class="risk risk-low">LOW</span></td>
+                  <td><span class="triage-badge tb-dup">Duplicate</span></td>
+                </tr>
+                <tr>
+                  <td class="cand-id">CND-18409</td>
+                  <td style="font-size:12px; color:var(--fg); max-width:220px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;"><a href="#" style="color:var(--fg); text-decoration:none;" onmouseenter="this.style.color='var(--accent)'" onmouseleave="this.style.color='var(--fg)'">Grampian NHS board approves winter capacity plan after delays</a></td>
+                  <td style="font-size:11px; color:var(--muted); white-space:nowrap;">STV News</td>
+                  <td><span class="risk risk-med">MED</span></td>
+                  <td><span class="triage-badge tb-ready">Ready</span></td>
+                </tr>
+              </tbody>
+            </table>
+            <div style="padding:7px 12px; border-top:1px solid var(--border); font-size:11px; color:var(--muted);">
+              Showing 8 of 247 candidates — <a href="#" style="color:var(--accent); text-decoration:none;">View all in inbox</a>
+            </div>
+          </div>
+        </div>
+
+        <!-- Escalations & log -->
+        <div>
+          <div class="sec-head">
+            <span class="sec-label">Escalations &amp; run log</span>
+            <a href="#" class="sec-link">OPS-RR Queue →</a>
+          </div>
+          <div class="card" style="margin-bottom:10px;">
+            <div class="card-head">
+              <span class="card-title">Generated escalations</span>
+              <span style="font-family:var(--mono); font-size:11px; color:var(--warn);">3 open</span>
+            </div>
+            <div>
+              <div class="log-item">
+                <div class="log-dot" style="background:var(--warn)"></div>
+                <div class="log-body">
+                  <div class="log-top">
+                    <span class="log-type-badge lt-ops">OPS-RR</span>
+                    <a href="#" class="log-ref">OPS-RR-0142</a>
+                    <span class="log-time">06:03:11</span>
+                  </div>
+                  <div class="log-text">companieshouse.gov.uk parse failure — streak 3. Schema mismatch on field <code style="font-family:var(--mono); font-size:11px; color:var(--fg-2)">datePublished</code>. Auto-raised threshold: streak ≥ 3.</div>
+                </div>
+              </div>
+              <div class="log-item">
+                <div class="log-dot" style="background:var(--danger)"></div>
+                <div class="log-body">
+                  <div class="log-top">
+                    <span class="log-type-badge lt-esc">REC-ESC</span>
+                    <a href="#" class="log-ref">REC-ESC-0071</a>
+                    <span class="log-time">06:01:47</span>
+                  </div>
+                  <div class="log-text">northsea.com unreachable — streak 7 (threshold 5). Source coverage gap on energy sector. REC candidate CND-18403 flagged for editorial escalation.</div>
+                </div>
+              </div>
+              <div class="log-item">
+                <div class="log-dot" style="background:var(--warn)"></div>
+                <div class="log-body">
+                  <div class="log-top">
+                    <span class="log-type-badge lt-ops">OPS-RR</span>
+                    <a href="#" class="log-ref">OPS-RR-0143</a>
+                    <span class="log-time">06:03:51</span>
+                  </div>
+                  <div class="log-text">scottishlegal.com parse failure — streak 2. Content-type change detected (text/html returned, application/rss+xml expected). Monitoring.</div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div class="card">
+            <div class="card-head">
+              <span class="card-title">Run activity log</span>
+            </div>
+            <div>
+              <div class="log-item">
+                <div class="log-dot" style="background:var(--success)"></div>
+                <div class="log-body">
+                  <div class="log-top"><span class="log-type-badge lt-info">Start</span><span class="log-time">06:00:04</span></div>
+                  <div class="log-text">Run RR-2841 started. 42 sources queued across 4 layers.</div>
+                </div>
+              </div>
+              <div class="log-item">
+                <div class="log-dot" style="background:var(--accent)"></div>
+                <div class="log-body">
+                  <div class="log-top"><span class="log-type-badge lt-rec">Rec post</span><span class="log-time">06:00:31</span></div>
+                  <div class="log-text">Heartbeat record REC-2841-AM posted to audit log. Run ID confirmed.</div>
+                </div>
+              </div>
+              <div class="log-item">
+                <div class="log-dot" style="background:var(--warn)"></div>
+                <div class="log-body">
+                  <div class="log-top"><span class="log-type-badge lt-ops">OPS-RR</span><a href="#" class="log-ref" style="font-size:11px; color:var(--accent);">OPS-RR-0142</a><span class="log-time">06:03:11</span></div>
+                  <div class="log-text">Parse failure escalation auto-raised for companieshouse.gov.uk.</div>
+                </div>
+              </div>
+              <div class="log-item">
+                <div class="log-dot" style="background:var(--success)"></div>
+                <div class="log-body">
+                  <div class="log-top"><span class="log-type-badge lt-info">Dedup</span><span class="log-time">06:04:12</span></div>
+                  <div class="log-text">Deduplication pass complete. 1,595 items matched to prior corpus. 247 candidates queued for triage.</div>
+                </div>
+              </div>
+              <div class="log-item">
+                <div class="log-dot" style="background:var(--success)"></div>
+                <div class="log-body">
+                  <div class="log-top"><span class="log-type-badge lt-info">Complete</span><span class="log-time">06:04:38</span></div>
+                  <div class="log-text">Run completed. 3 escalations raised. Summary report written to audit log.</div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+      </div>
+    </div><!-- /scroll-body -->
+  </main>
+</div>
+
+<script>
+  function tick() {
+    const now = new Date();
+    const h = String(now.getHours()).padStart(2,'0');
+    const m = String(now.getMinutes()).padStart(2,'0');
+    const s = String(now.getSeconds()).padStart(2,'0');
+    const el = document.getElementById('clock');
+    if (el) el.textContent = `${h}:${m}:${s}`;
+  }
+  tick(); setInterval(tick, 1000);
+</script>
+</body>
+</html>

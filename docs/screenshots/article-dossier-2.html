@@ -1,0 +1,733 @@
+
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>CHR-2847 — Union Media</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet">
+<style>
+/* ── TOKENS: dark-first editorial ops — identical to pipeline.html ── */
+:root {
+  --bg:             #0b0d12;
+  --surface:        #10131c;
+  --surface-2:      #161d2e;
+  --fg:             #dde4f0;
+  --fg-2:           #7e8ea8;
+  --muted:          #4b5672;
+  --border:         #1c2438;
+  --border-mid:     #273047;
+  --accent:         #3b82f6;
+  --accent-on:      #fff;
+  --accent-hover:   #2563eb;
+  --accent-subtle:  rgba(59,130,246,.10);
+  --success:        #22c55e;
+  --success-subtle: rgba(34,197,94,.08);
+  --warn:           #f59e0b;
+  --warn-subtle:    rgba(245,158,11,.08);
+  --danger:         #ef4444;
+  --danger-subtle:  rgba(239,68,68,.08);
+  --font: Inter, "Helvetica Neue", system-ui, sans-serif;
+  --mono: "SF Mono", "Cascadia Code", ui-monospace, Menlo, monospace;
+  --sidebar-w: 216px;
+  --topbar-h:  48px;
+  --sem-w:     276px;
+  --r:         6px;
+}
+
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+html, body {
+  height: 100%; background: var(--bg); color: var(--fg);
+  font-family: var(--font); font-size: 13px; line-height: 1.45;
+  -webkit-font-smoothing: antialiased;
+}
+
+.shell {
+  display: grid;
+  grid-template-columns: var(--sidebar-w) 1fr;
+  grid-template-rows: var(--topbar-h) 1fr;
+  height: 100vh; overflow: hidden;
+}
+
+.sidebar {
+  grid-row: 1 / 3; background: var(--surface);
+  border-right: 1px solid var(--border);
+  display: flex; flex-direction: column; overflow-y: auto;
+}
+.sidebar-pub { padding: 14px 16px 12px; border-bottom: 1px solid var(--border); }
+.pub-name { font-size: 13px; font-weight: 600; color: var(--fg); letter-spacing: -0.015em; display: block; }
+.pub-meta { font-size: 11px; color: var(--muted); margin-top: 2px; font-family: var(--mono); font-variant-numeric: tabular-nums; }
+.sidebar-nav { padding: 8px 0; flex: 1; }
+.nav-section { padding: 14px 16px 4px; font-size: 10px; font-weight: 600; letter-spacing: 0.07em; text-transform: uppercase; color: var(--muted); }
+.nav-item {
+  display: flex; align-items: center; gap: 9px;
+  padding: 7px 16px; font-size: 13px; color: var(--fg-2);
+  cursor: pointer; text-decoration: none; position: relative;
+  transition: background 100ms, color 100ms;
+}
+.nav-item:hover { background: var(--surface-2); color: var(--fg); }
+.nav-item.active { color: var(--fg); background: var(--accent-subtle); }
+.nav-item.active::before {
+  content: ''; position: absolute; left: 0; top: 4px; bottom: 4px;
+  width: 2px; background: var(--accent); border-radius: 0 2px 2px 0;
+}
+.nav-icon { width: 15px; height: 15px; flex-shrink: 0; opacity: .65; }
+.nav-item.active .nav-icon, .nav-item:hover .nav-icon { opacity: 1; }
+.nav-badge {
+  margin-left: auto; font-size: 10px; font-family: var(--mono);
+  font-variant-numeric: tabular-nums; color: var(--muted);
+  background: var(--bg); border: 1px solid var(--border);
+  padding: 1px 6px; border-radius: 9999px; line-height: 1.6;
+}
+.sidebar-user {
+  padding: 12px 16px; border-top: 1px solid var(--border);
+  display: flex; align-items: center; gap: 9px;
+}
+.avatar-sm {
+  width: 26px; height: 26px; border-radius: 50%;
+  background: var(--accent-subtle); border: 1px solid var(--border-mid);
+  display: flex; align-items: center; justify-content: center;
+  font-size: 10px; font-weight: 700; color: var(--accent);
+  flex-shrink: 0; font-family: var(--mono);
+}
+.user-name { font-size: 12px; font-weight: 500; color: var(--fg); display: block; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.user-role { font-size: 11px; color: var(--muted); display: block; }
+
+.topbar {
+  background: var(--surface); border-bottom: 1px solid var(--border);
+  display: flex; align-items: center; padding: 0 18px; gap: 7px;
+}
+.topbar-back {
+  display: flex; align-items: center; gap: 4px;
+  font-size: 12px; color: var(--fg-2); cursor: pointer;
+  padding: 3px 7px 3px 3px; border-radius: var(--r);
+  text-decoration: none; transition: background 100ms, color 100ms; flex-shrink: 0;
+}
+.topbar-back:hover { background: var(--surface-2); color: var(--fg); }
+.topbar-sep { color: var(--border-mid); font-size: 14px; line-height: 1; }
+.topbar-crumb { font-size: 12px; color: var(--fg-2); flex-shrink: 0; }
+.topbar-crumb.active { color: var(--fg); font-weight: 500; }
+.topbar-spacer { flex: 1; }
+.icon-btn {
+  width: 28px; height: 28px; display: flex; align-items: center; justify-content: center;
+  border: 1px solid var(--border); background: transparent;
+  border-radius: var(--r); color: var(--fg-2); cursor: pointer;
+  transition: background 100ms, color 100ms; flex-shrink: 0;
+}
+.icon-btn:hover { background: var(--surface-2); color: var(--fg); }
+.topbar-avatar {
+  width: 28px; height: 28px; border-radius: 50%;
+  background: var(--accent-subtle); border: 1px solid var(--border-mid);
+  display: flex; align-items: center; justify-content: center;
+  font-size: 10px; font-weight: 700; color: var(--accent);
+  cursor: pointer; font-family: var(--mono); flex-shrink: 0;
+}
+
+.main { overflow: hidden; background: var(--bg); display: flex; flex-direction: column; }
+
+.art-header {
+  background: var(--surface); border-bottom: 1px solid var(--border);
+  padding: 13px 18px 11px; flex-shrink: 0;
+}
+.art-header-top { display: flex; align-items: flex-start; gap: 10px; margin-bottom: 9px; }
+.art-id {
+  font-family: var(--mono); font-size: 11px; font-weight: 600;
+  color: var(--muted); letter-spacing: 0.06em; text-transform: uppercase;
+  flex-shrink: 0; padding-top: 3px; white-space: nowrap;
+}
+.art-title-block { flex: 1; min-width: 0; }
+.art-headline { font-size: 15px; font-weight: 600; color: var(--fg); letter-spacing: -0.02em; line-height: 1.3; display: block; margin-bottom: 4px; }
+.art-deck { font-size: 11.5px; color: var(--fg-2); line-height: 1.5; display: block; }
+.art-badges { display: flex; align-items: center; gap: 5px; flex-shrink: 0; padding-top: 2px; flex-wrap: wrap; }
+.art-actions { display: flex; gap: 5px; flex-shrink: 0; padding-top: 1px; align-items: flex-start; }
+
+.badge-hold {
+  display: inline-flex; align-items: center; gap: 4px;
+  padding: 2px 7px; border-radius: 9999px; font-size: 10.5px; font-weight: 700; letter-spacing: 0.04em; text-transform: uppercase;
+  background: var(--warn-subtle); border: 1px solid rgba(245,158,11,.4); color: var(--warn);
+}
+.badge-hold::before { content: ''; width: 5px; height: 5px; border-radius: 50%; background: var(--warn); }
+.risk { display: inline-flex; align-items: center; padding: 2px 6px; border-radius: 3px; font-size: 10.5px; font-weight: 700; letter-spacing: 0.05em; text-transform: uppercase; }
+.risk-high { background: var(--danger-subtle); border: 1px solid rgba(239,68,68,.35); color: var(--danger); }
+.stage-badge { display: inline-flex; align-items: center; gap: 4px; padding: 2px 7px; border-radius: 9999px; font-size: 11px; font-weight: 500; }
+.stage-pack { background: rgba(168,85,247,.12); border: 1px solid rgba(168,85,247,.35); color: #c084fc; }
+.stage-pack::before { content: ''; width: 5px; height: 5px; border-radius: 50%; background: #c084fc; flex-shrink: 0; }
+
+.btn {
+  height: 27px; padding: 0 11px; border-radius: var(--r);
+  font-size: 12px; font-weight: 500; font-family: var(--font); cursor: pointer;
+  transition: background 100ms, color 100ms, border-color 100ms;
+  display: flex; align-items: center; gap: 5px; white-space: nowrap; border: 1px solid transparent;
+}
+.btn-ghost { background: transparent; border-color: var(--border-mid); color: var(--fg-2); }
+.btn-ghost:hover { background: var(--surface-2); color: var(--fg); }
+.btn-primary { background: var(--accent); border-color: var(--accent); color: var(--accent-on); }
+.btn-primary:hover { background: var(--accent-hover); border-color: var(--accent-hover); }
+
+.art-meta-row { display: flex; align-items: center; flex-wrap: wrap; gap: 0; }
+.meta-item { display: flex; align-items: center; gap: 4px; padding-right: 13px; margin-right: 13px; border-right: 1px solid var(--border); font-size: 11.5px; }
+.meta-item:last-child { border-right: none; padding-right: 0; margin-right: 0; }
+.meta-label { color: var(--muted); }
+.meta-val   { color: var(--fg-2); font-weight: 500; }
+.meta-over  { color: var(--danger); font-weight: 600; }
+
+.timeline-strip { padding: 11px 18px 10px; background: var(--surface); border-bottom: 1px solid var(--border); flex-shrink: 0; }
+.timeline-inner { display: flex; align-items: center; position: relative; }
+.timeline-track { position: absolute; left: 5px; right: 5px; height: 1px; background: var(--border-mid); top: 5px; z-index: 0; }
+.tl-stage { display: flex; flex-direction: column; align-items: center; position: relative; z-index: 1; flex: 1; gap: 6px; }
+.tl-node { width: 10px; height: 10px; border-radius: 50%; border: 1.5px solid var(--border-mid); background: var(--bg); flex-shrink: 0; }
+.tl-node.done { background: var(--muted); border-color: var(--muted); }
+.tl-node.current { width: 12px; height: 12px; background: var(--accent); border-color: var(--accent); box-shadow: 0 0 0 3px rgba(59,130,246,.25); }
+.tl-label { font-size: 9.5px; font-weight: 500; color: var(--muted); text-align: center; white-space: nowrap; letter-spacing: 0.015em; }
+.tl-stage.done .tl-label    { color: var(--fg-2); }
+.tl-stage.current .tl-label { color: var(--fg); font-weight: 600; }
+
+.body-split { display: flex; flex: 1; overflow: hidden; min-height: 0; }
+.body-main  { flex: 1; min-width: 0; display: flex; flex-direction: column; overflow: hidden; border-right: 1px solid var(--border); }
+.body-sem   { width: var(--sem-w); flex-shrink: 0; background: var(--surface); overflow-y: auto; }
+
+.tab-bar { display: flex; align-items: flex-end; padding: 0 18px; background: var(--surface); border-bottom: 1px solid var(--border); flex-shrink: 0; }
+.tab { padding: 9px 10px 8px; font-size: 12px; font-weight: 500; color: var(--fg-2); cursor: pointer; border-bottom: 2px solid transparent; margin-bottom: -1px; transition: color 100ms, border-color 100ms; user-select: none; }
+.tab:hover { color: var(--fg); }
+.tab.active { color: var(--fg); border-bottom-color: var(--accent); }
+.tab-panels { flex: 1; overflow-y: auto; }
+.tab-panel  { display: none; padding: 16px 18px; }
+.tab-panel.active { display: block; }
+
+.p-heading { font-size: 10px; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted); margin-bottom: 9px; }
+.p-section { margin-bottom: 20px; }
+.p-section:last-child { margin-bottom: 0; }
+
+.source-table { width: 100%; border-collapse: collapse; }
+.source-table th { font-size: 10px; font-weight: 600; letter-spacing: 0.05em; text-transform: uppercase; color: var(--muted); padding: 0 10px 7px 0; border-bottom: 1px solid var(--border); text-align: left; }
+.source-table td { padding: 8px 10px 8px 0; border-bottom: 1px solid var(--border); font-size: 12px; color: var(--fg-2); vertical-align: top; }
+.source-table tr:last-child td { border-bottom: none; }
+.src-badge { display: inline-flex; padding: 1px 5px; border-radius: 3px; font-size: 9.5px; font-weight: 700; letter-spacing: 0.05em; text-transform: uppercase; white-space: nowrap; }
+.src-primary   { background: var(--accent-subtle); border: 1px solid rgba(59,130,246,.3); color: var(--accent); }
+.src-public    { background: var(--success-subtle); border: 1px solid rgba(34,197,94,.3); color: var(--success); }
+.src-interview { background: rgba(168,85,247,.1); border: 1px solid rgba(168,85,247,.3); color: #c084fc; }
+.src-anon      { background: var(--warn-subtle); border: 1px solid rgba(245,158,11,.3); color: var(--warn); }
+.src-name   { color: var(--fg); font-weight: 500; display: block; margin-bottom: 1px; }
+.src-detail { font-size: 11px; color: var(--muted); }
+.verify-ok   { color: var(--success); font-family: var(--mono); font-size: 11px; }
+.verify-pend { color: var(--warn); font-family: var(--mono); font-size: 11px; }
+.verify-date { font-size: 10.5px; font-family: var(--mono); color: var(--muted); display: block; margin-top: 1px; }
+
+.artifact-list { display: flex; flex-direction: column; gap: 6px; }
+.artifact-item { display: flex; align-items: center; padding: 9px 11px; gap: 10px; background: var(--surface-2); border: 1px solid var(--border); border-radius: var(--r); cursor: pointer; transition: border-color 100ms, background 100ms; }
+.artifact-item:hover { border-color: var(--border-mid); background: #1c2438; }
+.artifact-icon { width: 30px; height: 30px; border-radius: 5px; background: var(--bg); border: 1px solid var(--border); display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+.artifact-info { flex: 1; min-width: 0; }
+.artifact-name { font-size: 12px; font-weight: 500; color: var(--fg); display: block; }
+.artifact-meta { font-size: 11px; color: var(--muted); font-family: var(--mono); margin-top: 1px; }
+.artifact-badge { flex-shrink: 0; font-size: 10px; font-family: var(--mono); font-weight: 600; padding: 1px 5px; border-radius: 3px; background: var(--bg); border: 1px solid var(--border); color: var(--muted); }
+
+.comment-thread { display: flex; flex-direction: column; gap: 9px; }
+.comment-card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--r); overflow: hidden; }
+.comment-header { display: flex; align-items: center; gap: 7px; padding: 8px 11px 7px; border-bottom: 1px solid var(--border); }
+.c-avatar { width: 21px; height: 21px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 8.5px; font-weight: 700; flex-shrink: 0; font-family: var(--mono); }
+.c-name { font-size: 12px; font-weight: 600; color: var(--fg); }
+.c-role { font-size: 11px; color: var(--muted); margin-left: 2px; }
+.c-spacer { flex: 1; }
+.c-time { font-size: 10.5px; font-family: var(--mono); color: var(--muted); }
+.ct { display: inline-flex; padding: 1px 5px; border-radius: 3px; font-size: 9px; font-weight: 700; letter-spacing: 0.05em; text-transform: uppercase; }
+.ct-decision   { background: var(--warn-subtle); border: 1px solid rgba(245,158,11,.35); color: var(--warn); }
+.ct-legal      { background: var(--accent-subtle); border: 1px solid rgba(59,130,246,.35); color: var(--accent); }
+.ct-editorial  { background: var(--surface-2); border: 1px solid var(--border-mid); color: var(--fg-2); }
+.ct-commission { background: rgba(168,85,247,.1); border: 1px solid rgba(168,85,247,.3); color: #c084fc; }
+.comment-body { padding: 10px 11px; font-size: 12.5px; color: var(--fg); line-height: 1.55; }
+.comment-body cite { color: var(--fg-2); font-style: normal; font-size: 11.5px; }
+
+.comment-input-area { margin-top: 10px; }
+.comment-input-card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--r); overflow: hidden; }
+.comment-textarea { width: 100%; background: transparent; border: none; outline: none; font-family: var(--font); font-size: 12.5px; color: var(--fg); padding: 10px 12px 6px; line-height: 1.5; resize: none; min-height: 58px; display: block; }
+.comment-textarea::placeholder { color: var(--muted); }
+.comment-input-footer { display: flex; align-items: center; justify-content: space-between; padding: 6px 10px; border-top: 1px solid var(--border); }
+.ctype-row { display: flex; gap: 4px; }
+.ctype-btn { padding: 2px 7px; border-radius: 3px; font-size: 10.5px; font-weight: 500; border: 1px solid var(--border); background: transparent; color: var(--muted); cursor: pointer; font-family: var(--font); transition: background 100ms, color 100ms, border-color 100ms; }
+.ctype-btn.active { background: var(--accent-subtle); border-color: rgba(59,130,246,.35); color: var(--accent); }
+.ctype-btn:hover:not(.active) { color: var(--fg); border-color: var(--border-mid); }
+
+.activity-list { display: flex; flex-direction: column; }
+.activity-item { display: flex; gap: 10px; padding: 8px 0; border-bottom: 1px solid var(--border); }
+.activity-item:last-child { border-bottom: none; }
+.act-dot { width: 7px; height: 7px; border-radius: 50%; flex-shrink: 0; margin-top: 4px; }
+.act-dot.stage  { background: var(--accent); }
+.act-dot.note   { background: var(--muted); }
+.act-dot.assign { background: var(--success); }
+.act-dot.hold   { background: var(--warn); }
+.act-dot.legal  { background: #c084fc; }
+.act-dot.upload { background: var(--fg-2); }
+.act-body { flex: 1; min-width: 0; }
+.act-text { font-size: 12px; color: var(--fg-2); line-height: 1.45; }
+.act-text strong { color: var(--fg); font-weight: 500; }
+.act-time { font-size: 10.5px; font-family: var(--mono); color: var(--muted); margin-top: 1px; font-variant-numeric: tabular-nums; }
+
+.sem-section { border-bottom: 1px solid var(--border); }
+.sem-header { display: flex; align-items: center; justify-content: space-between; padding: 9px 14px 8px; cursor: pointer; user-select: none; transition: background 80ms; }
+.sem-header:hover { background: var(--surface-2); }
+.sem-title-row { display: flex; align-items: center; gap: 6px; }
+.sem-title { font-size: 10px; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted); }
+.sem-count { font-size: 9.5px; font-family: var(--mono); color: var(--muted); background: var(--bg); border: 1px solid var(--border); padding: 0 5px; border-radius: 9999px; line-height: 1.7; }
+.sem-chevron { color: var(--muted); transition: transform 150ms; flex-shrink: 0; }
+.sem-section.open .sem-chevron { transform: rotate(180deg); }
+.sem-body { display: none; }
+.sem-section.open .sem-body { display: block; }
+
+.sem-story { padding: 8px 14px; border-bottom: 1px solid var(--border); cursor: pointer; transition: background 80ms; }
+.sem-story:last-child { border-bottom: none; }
+.sem-story:hover { background: var(--surface-2); }
+.sem-story-id { font-size: 10px; font-family: var(--mono); color: var(--muted); letter-spacing: 0.04em; }
+.sem-story-hl { font-size: 12px; font-weight: 500; color: var(--fg-2); line-height: 1.35; margin-top: 2px; display: block; }
+.sem-story:hover .sem-story-hl { color: var(--fg); }
+.sem-story-meta { display: flex; gap: 8px; margin-top: 3px; font-size: 10.5px; color: var(--muted); font-family: var(--mono); }
+.sem-match { color: var(--accent); font-weight: 600; }
+
+.sem-rule { padding: 8px 14px; border-bottom: 1px solid var(--border); cursor: pointer; transition: background 80ms; }
+.sem-rule:last-child { border-bottom: none; }
+.sem-rule:hover { background: var(--surface-2); }
+.sem-rule-id { font-size: 9.5px; font-family: var(--mono); font-weight: 600; text-transform: uppercase; color: var(--muted); letter-spacing: 0.05em; }
+.sem-rule-text { font-size: 11.5px; color: var(--fg-2); margin-top: 2px; line-height: 1.4; }
+.sem-rule:hover .sem-rule-text { color: var(--fg); }
+
+.sem-corr { padding: 8px 14px; border-bottom: 1px solid var(--border); cursor: pointer; transition: background 80ms; }
+.sem-corr:last-child { border-bottom: none; }
+.sem-corr:hover { background: var(--surface-2); }
+.sem-corr-id { font-size: 9.5px; font-family: var(--mono); font-weight: 600; color: var(--danger); }
+.sem-corr-text { font-size: 11.5px; color: var(--fg-2); margin-top: 2px; line-height: 1.4; }
+.sem-corr:hover .sem-corr-text { color: var(--fg); }
+.sem-corr-story { font-size: 10.5px; color: var(--muted); font-family: var(--mono); margin-top: 1px; }
+
+.sem-opp { padding: 8px 14px; border-bottom: 1px solid var(--border); cursor: pointer; transition: background 80ms; }
+.sem-opp:last-child { border-bottom: none; }
+.sem-opp:hover { background: var(--surface-2); }
+.sem-opp-type { font-size: 9.5px; font-family: var(--mono); font-weight: 600; text-transform: uppercase; color: var(--success); letter-spacing: 0.05em; }
+.sem-opp-text { font-size: 11.5px; color: var(--fg-2); margin-top: 2px; line-height: 1.4; }
+.sem-opp:hover .sem-opp-text { color: var(--fg); }
+</style>
+</head>
+<body>
+<div class="shell">
+
+<nav class="sidebar">
+  <div class="sidebar-pub">
+    <span class="pub-name">Union Media</span>
+    <span class="pub-meta">1 pub · 38 active · Thu 28 May</span>
+  </div>
+        <nav class="sidebar-nav">
+    <div class="nav-section">Overview</div>
+    <a href="dashboard.html" class="nav-item">
+      <svg class="nav-icon" viewBox="0 0 15 15" fill="none"><rect x="1.5" y="1.5" width="5" height="5" rx="1" fill="currentColor"/><rect x="8.5" y="1.5" width="5" height="5" rx="1" fill="currentColor"/><rect x="1.5" y="8.5" width="5" height="5" rx="1" fill="currentColor"/><rect x="8.5" y="8.5" width="5" height="5" rx="1" fill="currentColor"/></svg>
+      Dashboard
+    </a>
+    <div class="nav-section">Editorial</div>
+    <a href="pipeline-dashboard.html" class="nav-item">
+      <svg class="nav-icon" viewBox="0 0 15 15" fill="none"><rect x="1.5" y="2.5" width="12" height="1.5" rx=".5" fill="currentColor"/><rect x="1.5" y="6.5" width="12" height="1.5" rx=".5" fill="currentColor"/><rect x="1.5" y="10.5" width="12" height="1.5" rx=".5" fill="currentColor"/></svg>
+      Pipeline
+    </a>
+    <a href="pipeline-board.html" class="nav-item">
+      <svg class="nav-icon" viewBox="0 0 15 15" fill="none"><rect x="1" y="1.5" width="4" height="12" rx="1" fill="currentColor"/><rect x="6" y="1.5" width="4" height="8.5" rx="1" fill="currentColor"/><rect x="11" y="1.5" width="3" height="5.5" rx="1" fill="currentColor"/></svg>
+      Board
+    </a>
+    <a href="#" class="nav-item">
+      <svg class="nav-icon" viewBox="0 0 15 15" fill="none"><rect x="1.5" y="2.5" width="12" height="11" rx="1.5" stroke="currentColor" stroke-width="1.3"/><path d="M1.5 6h12" stroke="currentColor" stroke-width="1.3"/><path d="M5 1.5V4M10 1.5V4" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/></svg>
+      Calendar
+      <span class="nav-badge">18</span>
+    </a>
+    <a href="article-dossier.html" class="nav-item active">
+      <svg class="nav-icon" viewBox="0 0 15 15" fill="none"><path d="M3.5 1.5h5.5l3 3v9h-8.5v-12z" stroke="currentColor" stroke-width="1.3" stroke-linejoin="round"/><path d="M9 1.5v3.5h3" stroke="currentColor" stroke-width="1.3"/><path d="M5 7.5h5M5 9.5h3" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/></svg>
+      Article Dossier
+    </a>
+    <div class="nav-section">Management</div>
+    <a href="approvals.html" class="nav-item">
+      <svg class="nav-icon" viewBox="0 0 15 15" fill="none"><path d="M2 7.5L6 11.5L13 3.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      Approvals
+      <span class="nav-badge urgent">4</span>
+    </a>
+    <a href="#" class="nav-item">
+      <svg class="nav-icon" viewBox="0 0 15 15" fill="none"><circle cx="5" cy="5.5" r="2" stroke="currentColor" stroke-width="1.3"/><circle cx="10.5" cy="5.5" r="2" stroke="currentColor" stroke-width="1.3"/><path d="M1 13c0-2 1.79-3.5 4-3.5h5c2.21 0 4 1.5 4 3.5" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/></svg>
+      Team
+    </a>
+    <div class="nav-section">Discovery</div>
+    <a href="discovery.html" class="nav-item">
+      <svg class="nav-icon" viewBox="0 0 15 15" fill="none"><circle cx="6.5" cy="6.5" r="4" stroke="currentColor" stroke-width="1.3"/><path d="M11 11l2.5 2.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
+      Discovery Overview
+      <span class="nav-badge urgent">3</span>
+    </a>
+    <a href="candidate-inbox.html" class="nav-item">
+      <svg class="nav-icon" viewBox="0 0 15 15" fill="none"><path d="M1.5 4.5h12v8.5h-12z" stroke="currentColor" stroke-width="1.3" stroke-linejoin="round"/><path d="M1.5 4.5l6 4 6-4" stroke="currentColor" stroke-width="1.3" stroke-linejoin="round"/></svg>
+      Candidate Inbox
+      <span class="nav-badge">89</span>
+    </a>
+    <a href="ops-rr-queue.html" class="nav-item">
+      <svg class="nav-icon" viewBox="0 0 15 15" fill="none"><path d="M7.5 1.5v5M7.5 9.5v.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/><circle cx="7.5" cy="7.5" r="6" stroke="currentColor" stroke-width="1.3"/></svg>
+      OPS-RR Queue
+      <span class="nav-badge urgent">7</span>
+    </a>
+    <a href="sweep-run-detail.html" class="nav-item">
+      <svg class="nav-icon" viewBox="0 0 15 15" fill="none"><circle cx="7.5" cy="7.5" r="6" stroke="currentColor" stroke-width="1.3"/><path d="M7.5 4.5v3l2 2" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/></svg>
+      Sweep Run Detail
+    </a>
+    <div class="nav-section">System</div>
+    <a href="discovery-config.html" class="nav-item">
+      <svg class="nav-icon" viewBox="0 0 15 15" fill="none"><circle cx="7.5" cy="7.5" r="3" stroke="currentColor" stroke-width="1.3"/><path d="M7.5 1v1.5M7.5 12.5V14M1 7.5h1.5M12.5 7.5H14M2.9 2.9l1.1 1.1M11 11l1.1 1.1M11 2.9L9.9 4M4 11l-1.1 1.1" stroke="currentColor" stroke-width="1.2" stroke-linecap="round"/></svg>
+      Discovery Config
+    </a>
+    <a href="source-monitor.html" class="nav-item">
+      <svg class="nav-icon" viewBox="0 0 15 15" fill="none"><path d="M1.5 10.5l4-4 3 3 5-6" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"/><circle cx="13" cy="4.5" r="1" fill="currentColor"/></svg>
+      Source Health Monitor
+    </a>
+    <a href="discovery-2.html" class="nav-item">
+      <svg class="nav-icon" viewBox="0 0 15 15" fill="none"><path d="M2.5 5.5h10M2.5 8.5h8M2.5 11.5h5" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/><rect x="1.5" y="1.5" width="12" height="12" rx="1.5" stroke="currentColor" stroke-width="1.3"/></svg>
+      Discovery Audit Log
+    </a>
+    <a href="design-system.html" class="nav-item">
+      <svg class="nav-icon" viewBox="0 0 15 15" fill="none"><circle cx="4" cy="4" r="1.5" fill="currentColor"/><circle cx="11" cy="4" r="1.5" fill="currentColor"/><circle cx="4" cy="11" r="1.5" fill="currentColor"/><circle cx="11" cy="11" r="1.5" fill="currentColor"/><circle cx="7.5" cy="7.5" r="1.5" fill="currentColor"/></svg>
+      Design System
+    </a>
+    <a href="#" class="nav-item">
+      <svg class="nav-icon" viewBox="0 0 15 15" fill="none"><circle cx="7.5" cy="7.5" r="5.5" stroke="currentColor" stroke-width="1.3"/><circle cx="7.5" cy="7.5" r="2" stroke="currentColor" stroke-width="1.3"/></svg>
+      Settings
+    </a>
+  </nav>
+  <div class="sidebar-user">
+    <div class="avatar-sm">SC</div>
+    <div>
+      <span class="user-name">Sarah Connelly</span>
+      <span class="user-role">Deputy Editor</span>
+    </div>
+  </div>
+</nav>
+
+<header class="topbar">
+  <a class="topbar-back" href="pipeline.html">
+    <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M9 11L5 7l4-4"/></svg>
+    Pipeline
+  </a>
+  <span class="topbar-sep">/</span>
+  <span class="topbar-crumb active">CHR-2847</span>
+  <div class="topbar-spacer"></div>
+  <button class="icon-btn" title="Share">
+    <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="11" cy="3" r="1.5"/><circle cx="3" cy="7" r="1.5"/><circle cx="11" cy="11" r="1.5"/><path d="M4.4 7.8l5.2 2.4M9.6 3.8L4.4 6.2"/></svg>
+  </button>
+  <button class="icon-btn" title="Export">
+    <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M4 1h6v4H4z"/><rect x="1" y="4" width="12" height="7" rx="1"/><path d="M4 9h6v4H4z"/><circle cx="10.5" cy="7.5" r=".75" fill="currentColor" stroke="none"/></svg>
+  </button>
+  <div class="topbar-avatar" title="Sarah Connelly — Deputy Editor">SC</div>
+</header>
+
+<main class="main">
+
+  <div class="art-header">
+    <div class="art-header-top">
+      <span class="art-id">CHR-2847</span>
+      <div class="art-title-block">
+        <span class="art-headline">Rising Housing Costs Leave North-East's Young Workers Behind</span>
+        <span class="art-deck">Exclusive: ACSEF analysis shows average rentals up 34% since 2022 — outpacing wage growth by 2.8× in Aberdeen and Aberdeenshire.</span>
+      </div>
+      <div class="art-badges">
+        <span class="badge-hold">HOLD</span>
+        <span class="risk risk-high">HIGH</span>
+        <span class="stage-badge stage-pack">Pre-publish Pack</span>
+      </div>
+      <div class="art-actions">
+        <button class="btn btn-ghost">Request Legal Sign-off</button>
+        <button class="btn btn-primary" style="opacity:.42;cursor:not-allowed;" title="On HOLD — resolve council verification before progressing">Move to Awaiting Decision</button>
+      </div>
+    </div>
+    <div class="art-meta-row">
+      <div class="meta-item"><span class="meta-label">Desk</span><span class="meta-val" style="color:var(--fg);">Economics</span></div>
+      <div class="meta-item"><span class="meta-label">Assignee</span><span class="meta-val" style="color:var(--fg);">Fiona Mackay</span></div>
+      <div class="meta-item"><span class="meta-label">Words</span><span class="meta-val"><span class="meta-over">1,842</span> / 1,800</span></div>
+      <div class="meta-item"><span class="meta-label">Commissioned</span><span class="meta-val">14 May 2026</span></div>
+      <div class="meta-item"><span class="meta-label">Deadline</span><span class="meta-val">29 May · 15:00</span></div>
+      <div class="meta-item"><span class="meta-label">Exclusivity</span><span class="meta-val">Until 30 May</span></div>
+      <div class="meta-item"><span class="meta-label">Section</span><span class="meta-val">Economics</span></div>
+    </div>
+  </div>
+
+  <div class="timeline-strip">
+    <div class="timeline-inner">
+      <div class="timeline-track"></div>
+      <div class="tl-stage done"><div class="tl-node done"></div><div class="tl-label">Discovery</div></div>
+      <div class="tl-stage done"><div class="tl-node done"></div><div class="tl-label">Triage</div></div>
+      <div class="tl-stage done"><div class="tl-node done"></div><div class="tl-label">Research</div></div>
+      <div class="tl-stage done"><div class="tl-node done"></div><div class="tl-label">Draft</div></div>
+      <div class="tl-stage done"><div class="tl-node done"></div><div class="tl-label">Interlink</div></div>
+      <div class="tl-stage done"><div class="tl-node done"></div><div class="tl-label">Edit</div></div>
+      <div class="tl-stage done"><div class="tl-node done"></div><div class="tl-label">Review</div></div>
+      <div class="tl-stage current"><div class="tl-node current"></div><div class="tl-label">Pre-publish Pack</div></div>
+      <div class="tl-stage"><div class="tl-node"></div><div class="tl-label">Awaiting Decision</div></div>
+      <div class="tl-stage"><div class="tl-node"></div><div class="tl-label">Publishing Prep</div></div>
+      <div class="tl-stage"><div class="tl-node"></div><div class="tl-label">Published</div></div>
+    </div>
+  </div>
+
+  <div class="body-split">
+
+    <div class="body-main">
+      <div class="tab-bar">
+        <div class="tab active" data-tab="comments">Comments &amp; Decisions</div>
+        <div class="tab" data-tab="sources">Sources &amp; Artifacts</div>
+        <div class="tab" data-tab="activity">Activity Log</div>
+      </div>
+
+      <div class="tab-panels">
+
+        <div class="tab-panel active" id="tab-comments">
+          <div class="comment-thread">
+            <div class="comment-card">
+              <div class="comment-header">
+                <div class="c-avatar" style="background:rgba(245,158,11,.12);color:var(--warn);">SC</div>
+                <span class="c-name">Sarah Connelly</span><span class="c-role">Deputy Editor</span>
+                <span class="ct ct-decision" style="margin-left:6px;">Decision</span>
+                <span class="c-spacer"></span><span class="c-time">28 May · 09:14</span>
+              </div>
+              <div class="comment-body">HOLD — moving to hold pending council verification of the planning minutes referenced in paragraph 6. The Cllr. Rennie quotes are cleared by legal. Do not progress to <strong>Awaiting Decision</strong> until Aberdeen City Council confirms the planning committee date cited in para. 6. Assign verification to Fiona or Marcus before end of day 28 May.</div>
+            </div>
+            <div class="comment-card">
+              <div class="comment-header">
+                <div class="c-avatar" style="background:var(--accent-subtle);color:var(--accent);">RA</div>
+                <span class="c-name">Rachel Ahmed</span><span class="c-role">Legal</span>
+                <span class="ct ct-legal" style="margin-left:6px;">Legal Approval</span>
+                <span class="c-spacer"></span><span class="c-time">27 May · 17:41</span>
+              </div>
+              <div class="comment-body">Cllr. Douglas Rennie direct quotes approved for publication. Consent form <cite>CHR-2847-LEGAL-01</cite> on file. Anonymised source treated per Editorial Code §4.2 — age, city, and occupation sector only, no identifiable detail. No defamation risk identified with current draft. Clear to publish subject to editorial sign-off.</div>
+            </div>
+            <div class="comment-card">
+              <div class="comment-header">
+                <div class="c-avatar" style="background:rgba(75,86,114,.2);color:var(--fg-2);">PT</div>
+                <span class="c-name">Pete Thornton</span><span class="c-role">Sub-editor</span>
+                <span class="ct ct-editorial" style="margin-left:6px;">Editorial</span>
+                <span class="c-spacer"></span><span class="c-time">27 May · 14:22</span>
+              </div>
+              <div class="comment-body">Housing stat in para. 3 cross-referenced against <cite>ONS Scottish Housing Rental Index Q1 2026</cite> — figures align. Word count at 1,842 against a 1,800-word brief (+42). Left for author; no hard cap on this desk. Headline reads clean. Review Pack v1.0 uploaded.</div>
+            </div>
+            <div class="comment-card">
+              <div class="comment-header">
+                <div class="c-avatar" style="background:rgba(168,85,247,.12);color:#c084fc;">MW</div>
+                <span class="c-name">Marcus Wells</span><span class="c-role">Features Editor</span>
+                <span class="ct ct-commission" style="margin-left:6px;">Commissioning</span>
+                <span class="c-spacer"></span><span class="c-time">14 May · 11:03</span>
+              </div>
+              <div class="comment-body">Commissioned off the back of the ACSEF embargo briefing (11 May). Exclusive data rights on the rental index figures until 30 May — coordinate with ACSEF comms. Fiona has a prior working contact with Cllr. Rennie. Priority piece. Brief: lead with the rental data, personal case study second, council comment third. Target 1,800 words.</div>
+            </div>
+          </div>
+          <div class="comment-input-area">
+            <div class="comment-input-card">
+              <textarea class="comment-textarea" placeholder="Add a note, decision, or editorial instruction…" rows="3"></textarea>
+              <div class="comment-input-footer">
+                <div class="ctype-row">
+                  <button class="ctype-btn active">Note</button>
+                  <button class="ctype-btn">Decision</button>
+                  <button class="ctype-btn">Legal</button>
+                  <button class="ctype-btn">Commissioning</button>
+                </div>
+                <button class="btn btn-primary" style="height:24px;font-size:11px;padding:0 9px;">Add</button>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="tab-panel" id="tab-sources">
+          <div class="p-section">
+            <div class="p-heading">Source Provenance</div>
+            <table class="source-table">
+              <thead><tr><th style="width:88px;">Type</th><th>Source</th><th style="width:92px;">Verification</th></tr></thead>
+              <tbody>
+                <tr>
+                  <td><span class="src-badge src-primary">Primary</span></td>
+                  <td><span class="src-name">ACSEF Housing Affordability Report 2026</span><span class="src-detail">Aberdeen City &amp; Shire Economic Future · Embargo expires 30 May</span></td>
+                  <td><span class="verify-ok">✓ Verified</span><span class="verify-date">22 May 2026</span></td>
+                </tr>
+                <tr>
+                  <td><span class="src-badge src-primary">Primary</span></td>
+                  <td><span class="src-name">ONS Scottish Housing Rental Index Q1 2026</span><span class="src-detail">Office for National Statistics · Public release</span></td>
+                  <td><span class="verify-ok">✓ Verified</span><span class="verify-date">20 May 2026</span></td>
+                </tr>
+                <tr>
+                  <td><span class="src-badge src-public">Public Record</span></td>
+                  <td><span class="src-name">Aberdeen City Council Planning Committee Minutes</span><span class="src-detail">March 2026 · Para. 6 reference — <strong style="color:var(--warn);">under verification</strong></span></td>
+                  <td><span class="verify-pend">⏳ Pending</span><span class="verify-date">Flagged 28 May</span></td>
+                </tr>
+                <tr>
+                  <td><span class="src-badge src-interview">Interview</span></td>
+                  <td><span class="src-name">Cllr. Douglas Rennie</span><span class="src-detail">Aberdeen City Council · On record · Consent: CHR-2847-LEGAL-01</span></td>
+                  <td><span class="verify-ok">✓ Legal</span><span class="verify-date">27 May 2026</span></td>
+                </tr>
+                <tr>
+                  <td><span class="src-badge src-anon">Anonymised</span></td>
+                  <td><span class="src-name">"H.M." — Aberdeen, 27, healthcare admin</span><span class="src-detail">Off record · Anonymised per Ed. Code §4.2 · Notes secured on file</span></td>
+                  <td><span class="verify-ok">✓ Verified</span><span class="verify-date">25 May 2026</span></td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+          <div class="p-section">
+            <div class="p-heading">Artifacts</div>
+            <div class="artifact-list">
+              <div class="artifact-item">
+                <div class="artifact-icon">
+                  <svg width="15" height="15" viewBox="0 0 15 15" fill="none" stroke="var(--accent)" stroke-width="1.5"><path d="M3 2h6l3 3v8a1 1 0 0 1-1 1H3a1 1 0 0 1-1-1V3a1 1 0 0 1 1-1z"/><path d="M9 2v4h4"/></svg>
+                </div>
+                <div class="artifact-info">
+                  <span class="artifact-name">Source Pack</span>
+                  <span class="artifact-meta">PDF · 4.2 MB · Fiona Mackay · 26 May 16:52</span>
+                </div>
+                <span class="artifact-badge">v2.0</span>
+              </div>
+              <div class="artifact-item">
+                <div class="artifact-icon">
+                  <svg width="15" height="15" viewBox="0 0 15 15" fill="none" stroke="#c084fc" stroke-width="1.5"><path d="M3 2h6l3 3v8a1 1 0 0 1-1 1H3a1 1 0 0 1-1-1V3a1 1 0 0 1 1-1z"/><path d="M9 2v4h4"/><path d="M5 9h5M5 11h3"/></svg>
+                </div>
+                <div class="artifact-info">
+                  <span class="artifact-name">Review Pack</span>
+                  <span class="artifact-meta">PDF · 1.1 MB · Pete Thornton · 27 May 14:18</span>
+                </div>
+                <span class="artifact-badge">v1.0</span>
+              </div>
+              <div class="artifact-item">
+                <div class="artifact-icon">
+                  <svg width="15" height="15" viewBox="0 0 15 15" fill="none" stroke="var(--fg-2)" stroke-width="1.5"><path d="M3 2h6l3 3v8a1 1 0 0 1-1 1H3a1 1 0 0 1-1-1V3a1 1 0 0 1 1-1z"/><path d="M9 2v4h4"/><path d="M5 7h5M5 9h5M5 11h2"/></svg>
+                </div>
+                <div class="artifact-info">
+                  <span class="artifact-name">Filed Draft — final</span>
+                  <span class="artifact-meta">DOCX · 1.3 MB · Fiona Mackay · 24 May 17:44</span>
+                </div>
+                <span class="artifact-badge">Final</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="tab-panel" id="tab-activity">
+          <div class="activity-list">
+            <div class="activity-item"><div class="act-dot hold"></div><div class="act-body"><div class="act-text"><strong>Sarah Connelly</strong> placed article on HOLD — council verification required (para. 6 planning minutes)</div><div class="act-time">28 May 2026 · 09:14</div></div></div>
+            <div class="activity-item"><div class="act-dot legal"></div><div class="act-body"><div class="act-text"><strong>Rachel Ahmed</strong> logged legal approval — consent form CHR-2847-LEGAL-01 on file</div><div class="act-time">27 May 2026 · 17:41</div></div></div>
+            <div class="activity-item"><div class="act-dot upload"></div><div class="act-body"><div class="act-text"><strong>Pete Thornton</strong> uploaded Review Pack v1.0 (PDF, 1.1 MB)</div><div class="act-time">27 May 2026 · 14:18</div></div></div>
+            <div class="activity-item"><div class="act-dot note"></div><div class="act-body"><div class="act-text"><strong>Pete Thornton</strong> added sub-edit note — stats verified, word count flagged (+42)</div><div class="act-time">27 May 2026 · 14:22</div></div></div>
+            <div class="activity-item"><div class="act-dot stage"></div><div class="act-body"><div class="act-text">Stage moved <strong>Review → Pre-publish Pack</strong> by Pete Thornton</div><div class="act-time">26 May 2026 · 16:52</div></div></div>
+            <div class="activity-item"><div class="act-dot upload"></div><div class="act-body"><div class="act-text"><strong>Fiona Mackay</strong> uploaded Source Pack v2.0 (PDF, 4.2 MB)</div><div class="act-time">26 May 2026 · 11:30</div></div></div>
+            <div class="activity-item"><div class="act-dot stage"></div><div class="act-body"><div class="act-text">Stage moved <strong>Edit → Review</strong> by Marcus Wells</div><div class="act-time">25 May 2026 · 09:01</div></div></div>
+            <div class="activity-item"><div class="act-dot upload"></div><div class="act-body"><div class="act-text"><strong>Fiona Mackay</strong> uploaded Filed Draft — final (DOCX, 1.3 MB)</div><div class="act-time">24 May 2026 · 17:44</div></div></div>
+            <div class="activity-item"><div class="act-dot assign"></div><div class="act-body"><div class="act-text">Article commissioned and assigned to <strong>Fiona Mackay</strong> by Marcus Wells</div><div class="act-time">14 May 2026 · 11:03</div></div></div>
+          </div>
+        </div>
+
+      </div>
+    </div>
+
+    <aside class="body-sem">
+
+      <div class="sem-section open" data-sem="similar">
+        <div class="sem-header">
+          <div class="sem-title-row"><span class="sem-title">Similar Stories</span><span class="sem-count">3</span></div>
+          <svg class="sem-chevron" width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M2.5 4.5l3.5 3.5 3.5-3.5"/></svg>
+        </div>
+        <div class="sem-body">
+          <div class="sem-story">
+            <div class="sem-story-id">CHR-2211</div>
+            <span class="sem-story-hl">Aberdeen's Build-to-Rent Surge Draws Institutional Capital</span>
+            <div class="sem-story-meta"><span class="sem-match">82% match</span><span>Live · 3 Apr 2026</span></div>
+          </div>
+          <div class="sem-story">
+            <div class="sem-story-id">CHR-2640</div>
+            <span class="sem-story-hl">ONS: Scottish Rental Inflation Hits 11% Annual Rate</span>
+            <div class="sem-story-meta"><span class="sem-match">71% match</span><span>Pre-publish Pack</span></div>
+          </div>
+          <div class="sem-story">
+            <div class="sem-story-id">CHR-2091</div>
+            <span class="sem-story-hl">Young Professionals Bypass Aberdeen for Remote-Friendly Cities</span>
+            <div class="sem-story-meta"><span class="sem-match">68% match</span><span>Live · 9 Jan 2026</span></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="sem-section open" data-sem="rules">
+        <div class="sem-header">
+          <div class="sem-title-row"><span class="sem-title">House Rules</span><span class="sem-count">2</span></div>
+          <svg class="sem-chevron" width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M2.5 4.5l3.5 3.5 3.5-3.5"/></svg>
+        </div>
+        <div class="sem-body">
+          <div class="sem-rule">
+            <div class="sem-rule-id">ECON-04</div>
+            <div class="sem-rule-text">Housing statistics from ONS must cite the specific index name and reference quarter in body copy, not only a footnote.</div>
+          </div>
+          <div class="sem-rule">
+            <div class="sem-rule-id">SRC-12</div>
+            <div class="sem-rule-text">Anonymised sources: describe with age, city, and occupation sector only. Full interview notes must be secured on-file before publication.</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="sem-section open" data-sem="corrections">
+        <div class="sem-header">
+          <div class="sem-title-row"><span class="sem-title">Correction Precedents</span><span class="sem-count">2</span></div>
+          <svg class="sem-chevron" width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M2.5 4.5l3.5 3.5 3.5-3.5"/></svg>
+        </div>
+        <div class="sem-body">
+          <div class="sem-corr">
+            <div class="sem-corr-id">CORR-0441</div>
+            <div class="sem-corr-text">ONS figure cited as £1,240 — corrected to £1,242 after ONS amended release. Post-publish correction issued.</div>
+            <div class="sem-corr-story">CHR-2103 · 12 Feb 2026</div>
+          </div>
+          <div class="sem-corr">
+            <div class="sem-corr-id">CORR-0389</div>
+            <div class="sem-corr-text">Council planning minutes: wrong committee meeting date cited. Caught at pre-publish pack stage, corrected before live.</div>
+            <div class="sem-corr-story">CHR-1988 · 4 Oct 2025</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="sem-section open" data-sem="opportunities">
+        <div class="sem-header">
+          <div class="sem-title-row"><span class="sem-title">Editorial Opportunities</span><span class="sem-count">2</span></div>
+          <svg class="sem-chevron" width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M2.5 4.5l3.5 3.5 3.5-3.5"/></svg>
+        </div>
+        <div class="sem-body">
+          <div class="sem-opp">
+            <div class="sem-opp-type">Series</div>
+            <div class="sem-opp-text">"Housing North" — this piece fits as Part 3. Parts 1 &amp; 2 published Jan/Feb. Coordinate with features desk before scheduling.</div>
+          </div>
+          <div class="sem-opp">
+            <div class="sem-opp-type">Follow-up</div>
+            <div class="sem-opp-text">Aberdeen Council housing committee meets 4 Jun. Strong follow-up angle if planning data verification confirms the cited decision.</div>
+          </div>
+        </div>
+      </div>
+
+    </aside>
+
+  </div>
+</main>
+
+</div>
+
+<script>
+document.querySelectorAll('.tab').forEach(tab => {
+  tab.addEventListener('click', () => {
+    const id = tab.dataset.tab;
+    document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+    document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
+    tab.classList.add('active');
+    const panel = document.getElementById('tab-' + id);
+    if (panel) panel.classList.add('active');
+  });
+});
+
+document.querySelectorAll('.sem-section').forEach(section => {
+  section.querySelector('.sem-header').addEventListener('click', () => {
+    section.classList.toggle('open');
+  });
+});
+
+document.querySelectorAll('.ctype-btn').forEach(btn => {
+  btn.addEventListener('click', () => {
+    btn.closest('.ctype-row').querySelectorAll('.ctype-btn').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+  });
+});
+</script>
+</body>
+</html>

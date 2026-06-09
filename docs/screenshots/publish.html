@@ -1,0 +1,864 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Publish CHR-2847 — Union Media</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg:             #0b0d12;
+  --surface:        #10131c;
+  --surface-2:      #161d2e;
+  --fg:             #dde4f0;
+  --fg-2:           #7e8ea8;
+  --muted:          #4b5672;
+  --border:         #1c2438;
+  --border-mid:     #273047;
+  --accent:         #3b82f6;
+  --accent-on:      #fff;
+  --accent-hover:   #2563eb;
+  --accent-subtle:  rgba(59,130,246,.10);
+  --success:        #22c55e;
+  --success-subtle: rgba(34,197,94,.08);
+  --warn:           #f59e0b;
+  --warn-subtle:    rgba(245,158,11,.08);
+  --danger:         #ef4444;
+  --danger-subtle:  rgba(239,68,68,.08);
+  --font: Inter, "Helvetica Neue", system-ui, sans-serif;
+  --mono: "SF Mono", "Cascadia Code", ui-monospace, Menlo, monospace;
+  --sidebar-w: 216px;
+  --topbar-h:  48px;
+  --r: 6px;
+}
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+html, body {
+  height: 100%; background: var(--bg); color: var(--fg);
+  font-family: var(--font); font-size: 13px; line-height: 1.45;
+  -webkit-font-smoothing: antialiased;
+}
+.shell {
+  display: grid;
+  grid-template-columns: var(--sidebar-w) 1fr;
+  grid-template-rows: var(--topbar-h) 1fr;
+  height: 100vh; overflow: hidden;
+}
+
+/* ── SIDEBAR ── */
+.sidebar {
+  grid-row: 1 / 3; background: var(--surface);
+  border-right: 1px solid var(--border);
+  display: flex; flex-direction: column; overflow-y: auto;
+}
+.sidebar-pub { padding: 14px 16px 12px; border-bottom: 1px solid var(--border); }
+.pub-name { font-size: 13px; font-weight: 600; color: var(--fg); letter-spacing: -0.015em; display: block; }
+.pub-meta { font-size: 11px; color: var(--muted); margin-top: 2px; font-family: var(--mono); font-variant-numeric: tabular-nums; }
+.sidebar-nav { padding: 8px 0; flex: 1; }
+.nav-section { padding: 14px 16px 4px; font-size: 10px; font-weight: 600; letter-spacing: 0.07em; text-transform: uppercase; color: var(--muted); }
+.nav-item {
+  display: flex; align-items: center; gap: 9px;
+  padding: 7px 16px; font-size: 13px; color: var(--fg-2);
+  cursor: pointer; text-decoration: none; position: relative;
+  transition: background 100ms, color 100ms;
+}
+.nav-item:hover { background: var(--surface-2); color: var(--fg); }
+.nav-item.active { color: var(--fg); background: var(--accent-subtle); }
+.nav-item.active::before {
+  content: ''; position: absolute; left: 0; top: 4px; bottom: 4px;
+  width: 2px; background: var(--accent); border-radius: 0 2px 2px 0;
+}
+.nav-icon { width: 15px; height: 15px; flex-shrink: 0; opacity: .65; }
+.nav-item.active .nav-icon, .nav-item:hover .nav-icon { opacity: 1; }
+.nav-badge {
+  margin-left: auto; font-size: 10px; font-family: var(--mono);
+  font-variant-numeric: tabular-nums; color: var(--muted);
+  background: var(--bg); border: 1px solid var(--border);
+  padding: 1px 6px; border-radius: 9999px; line-height: 1.6;
+}
+.nav-badge.urgent { color: var(--warn); border-color: rgba(245,158,11,.4); background: var(--warn-subtle); }
+.sidebar-user {
+  padding: 12px 16px; border-top: 1px solid var(--border);
+  display: flex; align-items: center; gap: 9px;
+}
+.avatar-sm {
+  width: 26px; height: 26px; border-radius: 50%;
+  background: var(--accent-subtle); border: 1px solid var(--border-mid);
+  display: flex; align-items: center; justify-content: center;
+  font-size: 10px; font-weight: 700; color: var(--accent);
+  flex-shrink: 0; font-family: var(--mono);
+}
+.user-name { font-size: 12px; font-weight: 500; color: var(--fg); display: block; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.user-role { font-size: 11px; color: var(--muted); display: block; }
+
+/* ── TOPBAR ── */
+.topbar {
+  background: var(--surface); border-bottom: 1px solid var(--border);
+  display: flex; align-items: center; padding: 0 18px; gap: 6px;
+}
+.topbar-back {
+  display: flex; align-items: center; gap: 4px;
+  font-size: 12px; color: var(--fg-2); cursor: pointer;
+  padding: 3px 7px 3px 3px; border-radius: var(--r);
+  text-decoration: none; transition: background 100ms, color 100ms;
+}
+.topbar-back:hover { background: var(--surface-2); color: var(--fg); }
+.topbar-sep { color: var(--border-mid); font-size: 15px; line-height: 1; }
+.topbar-crumb { font-size: 12px; color: var(--fg-2); }
+.topbar-crumb.active { color: var(--fg); font-weight: 500; }
+.topbar-spacer { flex: 1; }
+.icon-btn {
+  width: 28px; height: 28px; display: flex; align-items: center; justify-content: center;
+  border: 1px solid var(--border); background: transparent; border-radius: var(--r);
+  color: var(--fg-2); cursor: pointer; transition: background 100ms, color 100ms;
+}
+.icon-btn:hover { background: var(--surface-2); color: var(--fg); }
+.topbar-avatar {
+  width: 28px; height: 28px; border-radius: 50%;
+  background: var(--accent-subtle); border: 1px solid var(--border-mid);
+  display: flex; align-items: center; justify-content: center;
+  font-size: 10px; font-weight: 700; color: var(--accent);
+  cursor: pointer; font-family: var(--mono);
+}
+
+/* ── MAIN ── */
+.main { overflow: hidden; display: flex; flex-direction: column; }
+.pub-scroll { flex: 1; overflow-y: auto; scrollbar-width: thin; scrollbar-color: var(--border-mid) transparent; }
+.pub-wrap { max-width: 780px; width: 100%; margin: 0 auto; padding: 22px 28px 88px; }
+
+/* ── STORY CONTEXT ── */
+.story-ctx {
+  background: var(--surface); border: 1px solid var(--border);
+  border-radius: var(--r); padding: 13px 16px 11px; margin-bottom: 22px;
+}
+.ctx-top { display: flex; align-items: flex-start; gap: 10px; margin-bottom: 9px; }
+.ctx-id { font-family: var(--mono); font-size: 10px; font-weight: 600; color: var(--muted); letter-spacing: 0.06em; text-transform: uppercase; flex-shrink: 0; padding-top: 3px; }
+.ctx-headline { font-size: 14px; font-weight: 600; color: var(--fg); letter-spacing: -0.015em; line-height: 1.3; flex: 1; }
+.ctx-badges { display: flex; align-items: center; gap: 5px; flex-shrink: 0; padding-top: 2px; flex-wrap: wrap; }
+.ctx-actions { display: flex; align-items: center; gap: 6px; flex-shrink: 0; }
+.ctx-meta { display: flex; align-items: center; flex-wrap: wrap; gap: 0; }
+.ctx-meta-item {
+  display: flex; align-items: center; gap: 4px;
+  padding-right: 11px; margin-right: 11px;
+  border-right: 1px solid var(--border); font-size: 11.5px;
+}
+.ctx-meta-item:last-child { border-right: none; padding-right: 0; margin-right: 0; }
+.ctx-meta-label { color: var(--muted); }
+.ctx-meta-val { color: var(--fg-2); font-weight: 500; }
+.ctx-meta-warn { color: var(--warn); font-weight: 600; font-family: var(--mono); font-variant-numeric: tabular-nums; }
+.ctx-meta-ok { color: var(--success); font-weight: 500; }
+
+/* ── BADGES ── */
+.risk { display: inline-flex; align-items: center; padding: 2px 6px; border-radius: 3px; font-size: 10.5px; font-weight: 700; letter-spacing: 0.05em; text-transform: uppercase; font-family: var(--mono); }
+.risk-high { background: var(--danger-subtle); border: 1px solid rgba(239,68,68,.35); color: var(--danger); }
+.badge-approved { display: inline-flex; align-items: center; gap: 4px; padding: 2px 7px; border-radius: 9999px; font-size: 10.5px; font-weight: 500; background: var(--success-subtle); border: 1px solid rgba(34,197,94,.35); color: var(--success); }
+.badge-approved::before { content: ''; width: 5px; height: 5px; border-radius: 50%; background: var(--success); flex-shrink: 0; }
+.stage-ready { display: inline-flex; align-items: center; gap: 4px; padding: 2px 7px; border-radius: 9999px; font-size: 11px; font-weight: 500; background: rgba(34,197,94,.10); border: 1px solid rgba(34,197,94,.35); color: #86efac; }
+.stage-ready::before { content: ''; width: 5px; height: 5px; border-radius: 50%; background: var(--success); flex-shrink: 0; }
+
+/* ── BUTTONS ── */
+.btn {
+  height: 27px; padding: 0 11px; border-radius: var(--r);
+  font-size: 12px; font-weight: 500; font-family: var(--font); cursor: pointer;
+  transition: background 100ms, color 100ms, border-color 100ms;
+  display: inline-flex; align-items: center; gap: 5px;
+  white-space: nowrap; border: 1px solid transparent; text-decoration: none;
+}
+.btn-ghost { background: transparent; border-color: var(--border-mid); color: var(--fg-2); }
+.btn-ghost:hover { background: var(--surface-2); color: var(--fg); }
+.btn-primary { background: var(--accent); border-color: var(--accent); color: var(--accent-on); font-size: 13px; font-weight: 600; height: 34px; padding: 0 16px; }
+.btn-primary:hover:not(:disabled) { background: var(--accent-hover); border-color: var(--accent-hover); }
+.btn-primary:disabled { opacity: .38; cursor: not-allowed; }
+.btn-sm { height: 24px; font-size: 11.5px; padding: 0 9px; }
+
+/* ── SECTION HEADER ── */
+.pub-section { margin-bottom: 24px; }
+.section-hd { display: flex; align-items: center; gap: 10px; margin-bottom: 12px; padding-bottom: 8px; border-bottom: 1px solid var(--border); }
+.section-label { font-size: 10px; font-weight: 700; letter-spacing: 0.07em; text-transform: uppercase; color: var(--muted); }
+.section-meta { font-size: 11.5px; color: var(--muted); margin-left: auto; }
+
+/* ── DESTINATION CARDS ── */
+.dest-list { display: flex; flex-direction: column; gap: 6px; }
+.dest-card {
+  background: var(--surface); border: 1px solid var(--border);
+  border-radius: var(--r); padding: 12px 14px;
+  cursor: pointer; transition: background 80ms, border-color 80ms;
+  display: flex; align-items: flex-start; gap: 11px; user-select: none;
+}
+.dest-card:hover { background: var(--surface-2); border-color: var(--border-mid); }
+.dest-card.selected { background: var(--accent-subtle); border-color: rgba(59,130,246,.3); }
+.dest-check {
+  width: 16px; height: 16px; border-radius: 4px;
+  border: 1.5px solid var(--border-mid); background: var(--bg);
+  flex-shrink: 0; margin-top: 2px;
+  display: flex; align-items: center; justify-content: center;
+  transition: background 80ms, border-color 80ms;
+}
+.dest-card.selected .dest-check { background: var(--accent); border-color: var(--accent); }
+.check-svg { display: none; }
+.dest-card.selected .check-svg { display: block; }
+.dest-info { flex: 1; min-width: 0; }
+.dest-name { font-size: 13px; font-weight: 600; color: var(--fg); letter-spacing: -0.01em; margin-bottom: 2px; }
+.dest-detail { font-size: 11.5px; color: var(--fg-2); margin-bottom: 5px; }
+.dest-dup { font-size: 11px; display: flex; align-items: center; gap: 4px; flex-wrap: wrap; color: var(--muted); }
+.dup-pass { color: var(--success); font-weight: 500; }
+.dup-warn { color: var(--warn); font-weight: 500; }
+.dest-right { display: flex; flex-direction: column; align-items: flex-end; gap: 6px; flex-shrink: 0; }
+.dest-reach { text-align: right; }
+.reach-val { font-size: 13px; font-weight: 600; color: var(--fg); font-family: var(--mono); font-variant-numeric: tabular-nums; display: block; }
+.reach-label { font-size: 10.5px; color: var(--muted); display: block; }
+.check-badge {
+  display: inline-flex; align-items: center; padding: 1px 6px; border-radius: 9999px;
+  font-size: 10px; font-weight: 700; font-family: var(--mono); letter-spacing: 0.05em;
+}
+.cb-pass { background: var(--success-subtle); border: 1px solid rgba(34,197,94,.3); color: var(--success); }
+.cb-warn { background: var(--warn-subtle); border: 1px solid rgba(245,158,11,.3); color: var(--warn); }
+
+/* ── SCHEDULE ── */
+.sched-list { display: flex; flex-direction: column; gap: 6px; }
+.sched-opt {
+  display: flex; align-items: center; gap: 11px;
+  padding: 10px 14px; background: var(--surface); border: 1px solid var(--border);
+  border-radius: var(--r); cursor: pointer;
+  transition: background 80ms, border-color 80ms; user-select: none;
+}
+.sched-opt:hover { background: var(--surface-2); border-color: var(--border-mid); }
+.sched-opt.sel { background: var(--accent-subtle); border-color: rgba(59,130,246,.3); }
+.radio-ring {
+  width: 16px; height: 16px; border-radius: 50%; border: 1.5px solid var(--border-mid);
+  background: var(--bg); flex-shrink: 0;
+  display: flex; align-items: center; justify-content: center;
+  transition: border-color 80ms;
+}
+.sched-opt.sel .radio-ring { border-color: var(--accent); }
+.radio-fill { width: 8px; height: 8px; border-radius: 50%; background: var(--accent); display: none; }
+.sched-opt.sel .radio-fill { display: block; }
+.sched-label { font-size: 13px; font-weight: 500; color: var(--fg); }
+.sched-hint { font-size: 11.5px; color: var(--muted); margin-left: auto; }
+.datetime-expand {
+  display: none; align-items: center; gap: 8px;
+  padding: 8px 14px 10px 41px;
+  background: var(--accent-subtle); border: 1px solid rgba(59,130,246,.25);
+  border-top: none; border-radius: 0 0 var(--r) var(--r); margin-top: -6px; margin-bottom: 6px;
+}
+.datetime-expand.vis { display: flex; }
+.dt-input {
+  background: var(--bg); border: 1px solid var(--border-mid);
+  border-radius: var(--r); color: var(--fg); font-size: 12px; font-family: var(--font);
+  padding: 4px 9px; height: 28px; outline: none; transition: border-color 120ms;
+}
+.dt-input:focus { border-color: var(--accent); }
+.dt-sep { font-size: 12px; color: var(--muted); }
+
+/* ── METADATA GRID ── */
+.meta-grid {
+  display: grid; grid-template-columns: 1fr 1fr;
+  background: var(--surface); border: 1px solid var(--border);
+  border-radius: var(--r); overflow: hidden;
+}
+.meta-cell { padding: 9px 13px; border-bottom: 1px solid var(--border); border-right: 1px solid var(--border); }
+.meta-cell:nth-child(2n) { border-right: none; }
+.meta-cell:nth-last-child(-n+2) { border-bottom: none; }
+.meta-key { font-size: 10px; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; color: var(--muted); margin-bottom: 3px; }
+.meta-val { font-size: 12.5px; color: var(--fg-2); font-family: var(--mono); line-height: 1.4; word-break: break-all; }
+.meta-val.text { font-family: var(--font); }
+.meta-val.warn { color: var(--warn); }
+.meta-val.ok { color: var(--success); }
+
+/* ── PREFLIGHT TABLE ── */
+.preflight {
+  width: 100%; background: var(--surface); border: 1px solid var(--border);
+  border-radius: var(--r); border-collapse: separate; border-spacing: 0; overflow: hidden;
+}
+.preflight th {
+  padding: 7px 14px; font-size: 10px; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase;
+  color: var(--muted); text-align: left; border-bottom: 1px solid var(--border);
+}
+.preflight td { padding: 9px 14px; border-bottom: 1px solid var(--border); font-size: 12px; vertical-align: middle; }
+.preflight tr:last-child td { border-bottom: none; }
+.pf-name { color: var(--fg-2); font-weight: 500; }
+.pf-val { color: var(--muted); font-family: var(--mono); font-variant-numeric: tabular-nums; }
+.pf-ok, .pf-warn, .pf-fail { display: flex; align-items: center; justify-content: flex-end; gap: 4px; font-size: 11.5px; font-weight: 600; }
+.pf-ok { color: var(--success); }
+.pf-warn { color: var(--warn); }
+.pf-fail { color: var(--danger); }
+
+/* ── STICKY FOOTER ── */
+.pub-footer {
+  position: fixed; bottom: 0; left: var(--sidebar-w); right: 0;
+  height: 58px; background: var(--surface); border-top: 1px solid var(--border);
+  display: flex; align-items: center; padding: 0 28px; gap: 10px; z-index: 20;
+}
+.footer-info { font-size: 12px; color: var(--fg-2); display: flex; align-items: center; gap: 6px; }
+.footer-count { font-family: var(--mono); font-weight: 600; color: var(--fg); font-variant-numeric: tabular-nums; }
+.footer-advisory { font-size: 11px; color: var(--warn); display: flex; align-items: center; gap: 4px; }
+.footer-sp { flex: 1; }
+
+/* ── MODAL ── */
+.modal-bg {
+  position: fixed; inset: 0; background: rgba(0,0,0,.65);
+  backdrop-filter: blur(2px); display: none;
+  align-items: center; justify-content: center; z-index: 100;
+}
+.modal-bg.open { display: flex; }
+.modal-panel {
+  background: var(--surface); border: 1px solid var(--border-mid);
+  border-radius: 10px; width: 560px; max-width: 95vw;
+  box-shadow: 0 24px 64px rgba(0,0,0,.55); overflow: hidden;
+}
+.modal-hd {
+  padding: 16px 20px 14px; border-bottom: 1px solid var(--border);
+  display: flex; align-items: flex-start; gap: 10px;
+}
+.modal-title { font-size: 14px; font-weight: 600; color: var(--fg); letter-spacing: -0.015em; flex: 1; }
+.modal-sub { font-size: 11.5px; color: var(--fg-2); margin-top: 3px; display: block; }
+.modal-x {
+  width: 26px; height: 26px; display: flex; align-items: center; justify-content: center;
+  background: transparent; border: 1px solid transparent; border-radius: var(--r);
+  color: var(--fg-2); cursor: pointer; font-size: 17px; line-height: 1;
+  transition: background 100ms; flex-shrink: 0;
+}
+.modal-x:hover { background: var(--surface-2); }
+.modal-body { padding: 16px 20px; }
+.modal-ft { padding: 14px 20px; border-top: 1px solid var(--border); display: flex; gap: 8px; justify-content: flex-end; }
+
+/* Status banner inside modal */
+.status-banner {
+  display: flex; align-items: center; gap: 10px;
+  padding: 10px 14px; border-radius: var(--r); margin-bottom: 14px; font-size: 12.5px;
+}
+.sb-idle { background: var(--surface-2); border: 1px solid var(--border-mid); color: var(--fg-2); }
+.sb-ok   { background: var(--success-subtle); border: 1px solid rgba(34,197,94,.25); color: var(--success); }
+.sb-part { background: var(--warn-subtle); border: 1px solid rgba(245,158,11,.25); color: var(--warn); }
+.sb-fail { background: var(--danger-subtle); border: 1px solid rgba(239,68,68,.25); color: var(--danger); }
+
+/* Destination publish rows */
+.pr-row {
+  display: flex; align-items: flex-start; gap: 12px;
+  padding: 10px 0; border-bottom: 1px solid var(--border);
+}
+.pr-row:last-child { border-bottom: none; }
+.pr-info { flex: 1; }
+.pr-name { font-size: 13px; font-weight: 500; color: var(--fg); }
+.pr-type { font-size: 11px; color: var(--muted); margin-top: 1px; display: block; }
+.pr-status { flex-shrink: 0; min-width: 160px; text-align: right; font-size: 12px; font-family: var(--mono); font-variant-numeric: tabular-nums; }
+.ps-q    { color: var(--fg-2); }
+.ps-go   { color: var(--accent); display: flex; align-items: center; justify-content: flex-end; gap: 5px; }
+.ps-ok   { color: var(--success); font-weight: 600; display: flex; align-items: center; justify-content: flex-end; gap: 5px; }
+.ps-warn { color: var(--warn); font-weight: 600; display: flex; align-items: center; justify-content: flex-end; gap: 5px; }
+.ps-fail { color: var(--danger); font-weight: 600; display: flex; align-items: center; justify-content: flex-end; gap: 5px; }
+
+@keyframes blink { 0%,100%{opacity:.2}50%{opacity:1} }
+.dots { display: inline-flex; gap: 3px; margin-left: 2px; }
+.dots span { width: 4px; height: 4px; border-radius: 50%; background: currentColor; animation: blink 1.2s ease-in-out infinite; }
+.dots span:nth-child(2){animation-delay:.2s} .dots span:nth-child(3){animation-delay:.4s}
+
+@keyframes spin { to{transform:rotate(360deg)} }
+.spinner { width: 16px; height: 16px; border: 2px solid var(--border-mid); border-top-color: var(--accent); border-radius: 50%; animation: spin .7s linear infinite; flex-shrink: 0; }
+
+/* Published state overlay on footer */
+.footer-pub { display: flex; align-items: center; gap: 8px; font-size: 12px; }
+.fp-ok { color: var(--success); font-weight: 600; display: flex; align-items: center; gap: 5px; }
+</style>
+</head>
+<body>
+<div class="shell">
+
+  <aside class="sidebar">
+    <div class="sidebar-pub">
+      <span class="pub-name">Union Media</span>
+      <span class="pub-meta">Editorial Ops · 28 May 2026</span>
+    </div>
+          <nav class="sidebar-nav">
+    <div class="nav-section">Overview</div>
+    <a href="dashboard.html" class="nav-item">
+      <svg class="nav-icon" viewBox="0 0 15 15" fill="none"><rect x="1.5" y="1.5" width="5" height="5" rx="1" fill="currentColor"/><rect x="8.5" y="1.5" width="5" height="5" rx="1" fill="currentColor"/><rect x="1.5" y="8.5" width="5" height="5" rx="1" fill="currentColor"/><rect x="8.5" y="8.5" width="5" height="5" rx="1" fill="currentColor"/></svg>
+      Dashboard
+    </a>
+    <div class="nav-section">Editorial</div>
+    <a href="pipeline-dashboard.html" class="nav-item active">
+      <svg class="nav-icon" viewBox="0 0 15 15" fill="none"><rect x="1.5" y="2.5" width="12" height="1.5" rx=".5" fill="currentColor"/><rect x="1.5" y="6.5" width="12" height="1.5" rx=".5" fill="currentColor"/><rect x="1.5" y="10.5" width="12" height="1.5" rx=".5" fill="currentColor"/></svg>
+      Pipeline
+    </a>
+    <a href="pipeline-board.html" class="nav-item">
+      <svg class="nav-icon" viewBox="0 0 15 15" fill="none"><rect x="1" y="1.5" width="4" height="12" rx="1" fill="currentColor"/><rect x="6" y="1.5" width="4" height="8.5" rx="1" fill="currentColor"/><rect x="11" y="1.5" width="3" height="5.5" rx="1" fill="currentColor"/></svg>
+      Board
+    </a>
+    <a href="#" class="nav-item">
+      <svg class="nav-icon" viewBox="0 0 15 15" fill="none"><rect x="1.5" y="2.5" width="12" height="11" rx="1.5" stroke="currentColor" stroke-width="1.3"/><path d="M1.5 6h12" stroke="currentColor" stroke-width="1.3"/><path d="M5 1.5V4M10 1.5V4" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/></svg>
+      Calendar
+      <span class="nav-badge">18</span>
+    </a>
+    <a href="article-dossier.html" class="nav-item">
+      <svg class="nav-icon" viewBox="0 0 15 15" fill="none"><path d="M3.5 1.5h5.5l3 3v9h-8.5v-12z" stroke="currentColor" stroke-width="1.3" stroke-linejoin="round"/><path d="M9 1.5v3.5h3" stroke="currentColor" stroke-width="1.3"/><path d="M5 7.5h5M5 9.5h3" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/></svg>
+      Article Dossier
+    </a>
+    <div class="nav-section">Management</div>
+    <a href="approvals.html" class="nav-item">
+      <svg class="nav-icon" viewBox="0 0 15 15" fill="none"><path d="M2 7.5L6 11.5L13 3.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      Approvals
+      <span class="nav-badge urgent">4</span>
+    </a>
+    <a href="#" class="nav-item">
+      <svg class="nav-icon" viewBox="0 0 15 15" fill="none"><circle cx="5" cy="5.5" r="2" stroke="currentColor" stroke-width="1.3"/><circle cx="10.5" cy="5.5" r="2" stroke="currentColor" stroke-width="1.3"/><path d="M1 13c0-2 1.79-3.5 4-3.5h5c2.21 0 4 1.5 4 3.5" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/></svg>
+      Team
+    </a>
+    <div class="nav-section">Discovery</div>
+    <a href="discovery.html" class="nav-item">
+      <svg class="nav-icon" viewBox="0 0 15 15" fill="none"><circle cx="6.5" cy="6.5" r="4" stroke="currentColor" stroke-width="1.3"/><path d="M11 11l2.5 2.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
+      Discovery Overview
+      <span class="nav-badge urgent">3</span>
+    </a>
+    <a href="candidate-inbox.html" class="nav-item">
+      <svg class="nav-icon" viewBox="0 0 15 15" fill="none"><path d="M1.5 4.5h12v8.5h-12z" stroke="currentColor" stroke-width="1.3" stroke-linejoin="round"/><path d="M1.5 4.5l6 4 6-4" stroke="currentColor" stroke-width="1.3" stroke-linejoin="round"/></svg>
+      Candidate Inbox
+      <span class="nav-badge">89</span>
+    </a>
+    <a href="ops-rr-queue.html" class="nav-item">
+      <svg class="nav-icon" viewBox="0 0 15 15" fill="none"><path d="M7.5 1.5v5M7.5 9.5v.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/><circle cx="7.5" cy="7.5" r="6" stroke="currentColor" stroke-width="1.3"/></svg>
+      OPS-RR Queue
+      <span class="nav-badge urgent">7</span>
+    </a>
+    <a href="sweep-run-detail.html" class="nav-item">
+      <svg class="nav-icon" viewBox="0 0 15 15" fill="none"><circle cx="7.5" cy="7.5" r="6" stroke="currentColor" stroke-width="1.3"/><path d="M7.5 4.5v3l2 2" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/></svg>
+      Sweep Run Detail
+    </a>
+    <div class="nav-section">System</div>
+    <a href="discovery-config.html" class="nav-item">
+      <svg class="nav-icon" viewBox="0 0 15 15" fill="none"><circle cx="7.5" cy="7.5" r="3" stroke="currentColor" stroke-width="1.3"/><path d="M7.5 1v1.5M7.5 12.5V14M1 7.5h1.5M12.5 7.5H14M2.9 2.9l1.1 1.1M11 11l1.1 1.1M11 2.9L9.9 4M4 11l-1.1 1.1" stroke="currentColor" stroke-width="1.2" stroke-linecap="round"/></svg>
+      Discovery Config
+    </a>
+    <a href="source-monitor.html" class="nav-item">
+      <svg class="nav-icon" viewBox="0 0 15 15" fill="none"><path d="M1.5 10.5l4-4 3 3 5-6" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"/><circle cx="13" cy="4.5" r="1" fill="currentColor"/></svg>
+      Source Health Monitor
+    </a>
+    <a href="discovery-2.html" class="nav-item">
+      <svg class="nav-icon" viewBox="0 0 15 15" fill="none"><path d="M2.5 5.5h10M2.5 8.5h8M2.5 11.5h5" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/><rect x="1.5" y="1.5" width="12" height="12" rx="1.5" stroke="currentColor" stroke-width="1.3"/></svg>
+      Discovery Audit Log
+    </a>
+    <a href="design-system.html" class="nav-item">
+      <svg class="nav-icon" viewBox="0 0 15 15" fill="none"><circle cx="4" cy="4" r="1.5" fill="currentColor"/><circle cx="11" cy="4" r="1.5" fill="currentColor"/><circle cx="4" cy="11" r="1.5" fill="currentColor"/><circle cx="11" cy="11" r="1.5" fill="currentColor"/><circle cx="7.5" cy="7.5" r="1.5" fill="currentColor"/></svg>
+      Design System
+    </a>
+    <a href="#" class="nav-item">
+      <svg class="nav-icon" viewBox="0 0 15 15" fill="none"><circle cx="7.5" cy="7.5" r="5.5" stroke="currentColor" stroke-width="1.3"/><circle cx="7.5" cy="7.5" r="2" stroke="currentColor" stroke-width="1.3"/></svg>
+      Settings
+    </a>
+  </nav>
+    <div class="sidebar-user">
+      <div class="avatar-sm">EW</div>
+      <div style="min-width:0">
+        <span class="user-name">Eleanor Whitfield</span>
+        <span class="user-role">Deputy Editor</span>
+      </div>
+    </div>
+  </aside>
+
+  <header class="topbar">
+    <a href="article-dossier-2.html" class="topbar-back">
+      <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M10 3L5 8l5 5"/></svg>
+      CHR-2847
+    </a>
+    <span class="topbar-sep">›</span>
+    <span class="topbar-crumb active">Publish</span>
+    <span class="topbar-spacer"></span>
+    <button class="icon-btn" title="Notifications">
+      <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4"><path d="M8 1.5a4.5 4.5 0 0 1 4.5 4.5v2.5l1 2H2.5l1-2V6A4.5 4.5 0 0 1 8 1.5z"/><path d="M6.5 13.5a1.5 1.5 0 0 0 3 0"/></svg>
+    </button>
+    <div class="topbar-avatar">EW</div>
+  </header>
+
+  <div class="main">
+    <div class="pub-scroll">
+      <div class="pub-wrap">
+
+        <!-- Story context -->
+        <div class="story-ctx">
+          <div class="ctx-top">
+            <span class="ctx-id">CHR-2847</span>
+            <span class="ctx-headline">Council Data Leak Reveals Housing Target Shortfall — Aberdeen City's Failure to Disclose Planning Statistics</span>
+            <div class="ctx-badges">
+              <span class="risk risk-high">HIGH</span>
+              <span class="badge-approved" id="approval-badge">Approved</span>
+              <span class="stage-ready" id="stage-badge">Publishing Prep</span>
+            </div>
+            <div class="ctx-actions">
+              <a href="article-dossier-2.html" class="btn btn-ghost btn-sm">View dossier</a>
+            </div>
+          </div>
+          <div class="ctx-meta">
+            <div class="ctx-meta-item"><span class="ctx-meta-label">Author</span><span class="ctx-meta-val">Andrew MacLean</span></div>
+            <div class="ctx-meta-item"><span class="ctx-meta-label">Desk</span><span class="ctx-meta-val">Features</span></div>
+            <div class="ctx-meta-item"><span class="ctx-meta-label">Words</span><span class="ctx-meta-warn">1,842</span><span class="ctx-meta-label">&nbsp;/ target 1,500</span></div>
+            <div class="ctx-meta-item"><span class="ctx-meta-label">Approved by</span><span class="ctx-meta-val">E. Whitfield&nbsp;·&nbsp;09:47</span></div>
+            <div class="ctx-meta-item"><span class="ctx-meta-label">Excl. window</span><span class="ctx-meta-ok">48h</span></div>
+          </div>
+        </div>
+
+        <!-- Destinations -->
+        <div class="pub-section">
+          <div class="section-hd">
+            <span class="section-label">Destinations</span>
+            <span class="section-meta" id="dest-sec-meta">4 configured · 3 selected</span>
+          </div>
+          <div class="dest-list">
+
+            <div class="dest-card selected" data-idx="0" onclick="toggleDest(this)">
+              <div class="dest-check">
+                <svg class="check-svg" width="9" height="9" viewBox="0 0 9 9" fill="none"><path d="M1.5 4.5L3.5 6.5L7.5 2.5" stroke="white" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+              </div>
+              <div class="dest-info">
+                <div class="dest-name">Union Media Web</div>
+                <div class="dest-detail">unionmedia.co.uk · Web CMS (WordPress)</div>
+                <div class="dest-dup"><span class="dup-pass">✓ Clear —</span>&nbsp;no duplicate content found in last 180 days</div>
+              </div>
+              <div class="dest-right">
+                <div class="dest-reach"><span class="reach-val">124k</span><span class="reach-label">monthly</span></div>
+                <span class="check-badge cb-pass">PASS</span>
+              </div>
+            </div>
+
+            <div class="dest-card selected" data-idx="1" onclick="toggleDest(this)">
+              <div class="dest-check">
+                <svg class="check-svg" width="9" height="9" viewBox="0 0 9 9" fill="none"><path d="M1.5 4.5L3.5 6.5L7.5 2.5" stroke="white" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+              </div>
+              <div class="dest-info">
+                <div class="dest-name">Apple News</div>
+                <div class="dest-detail">apple.news/chronicle · Platform syndication</div>
+                <div class="dest-dup"><span class="dup-pass">✓ Clear —</span>&nbsp;no match in last 180 days</div>
+              </div>
+              <div class="dest-right">
+                <div class="dest-reach"><span class="reach-val">18.4k</span><span class="reach-label">subscribers</span></div>
+                <span class="check-badge cb-pass">PASS</span>
+              </div>
+            </div>
+
+            <div class="dest-card selected" data-idx="2" data-warn="1" onclick="toggleDest(this)">
+              <div class="dest-check">
+                <svg class="check-svg" width="9" height="9" viewBox="0 0 9 9" fill="none"><path d="M1.5 4.5L3.5 6.5L7.5 2.5" stroke="white" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+              </div>
+              <div class="dest-info">
+                <div class="dest-name">Google Discover Feed</div>
+                <div class="dest-detail">SEO distribution via canonical URL</div>
+                <div class="dest-dup"><span class="dup-warn">⚠ Similar —</span>&nbsp;CHR-2701 "Housing shortfall" published 3 months ago. Review before releasing.</div>
+              </div>
+              <div class="dest-right">
+                <div class="dest-reach"><span class="reach-val">auto</span><span class="reach-label">via SEO</span></div>
+                <span class="check-badge cb-warn">WARN</span>
+              </div>
+            </div>
+
+            <div class="dest-card" data-idx="3" data-warn="1" onclick="toggleDest(this)">
+              <div class="dest-check">
+                <svg class="check-svg" width="9" height="9" viewBox="0 0 9 9" fill="none"><path d="M1.5 4.5L3.5 6.5L7.5 2.5" stroke="white" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+              </div>
+              <div class="dest-info">
+                <div class="dest-name">Daily Briefing Newsletter</div>
+                <div class="dest-detail">Email · 14,200 subscribers · dispatches Fri 09:00</div>
+                <div class="dest-dup"><span class="dup-warn">⚠ Conflict —</span>&nbsp;Fri 09:00 slot occupied by CHR-2853. Coordinate with newsletter editor before selecting.</div>
+              </div>
+              <div class="dest-right">
+                <div class="dest-reach"><span class="reach-val">14.2k</span><span class="reach-label">subscribers</span></div>
+                <span class="check-badge cb-warn">WARN</span>
+              </div>
+            </div>
+
+          </div>
+        </div>
+
+        <!-- Schedule -->
+        <div class="pub-section">
+          <div class="section-hd"><span class="section-label">Schedule</span></div>
+          <div class="sched-list">
+            <div class="sched-opt sel" onclick="selectSched(this,'now')">
+              <div class="radio-ring"><div class="radio-fill"></div></div>
+              <span class="sched-label">Publish immediately</span>
+              <span class="sched-hint">Release as soon as queue is processed</span>
+            </div>
+            <div class="sched-opt" onclick="selectSched(this,'sched')">
+              <div class="radio-ring"><div class="radio-fill"></div></div>
+              <span class="sched-label">Schedule for a specific time</span>
+              <span class="sched-hint">Pick a date and time below</span>
+            </div>
+            <div class="datetime-expand" id="dt-expand">
+              <input type="date" class="dt-input" value="2026-05-29">
+              <span class="dt-sep">at</span>
+              <input type="time" class="dt-input" value="09:00">
+              <span class="dt-sep">BST</span>
+            </div>
+            <div class="sched-opt" onclick="selectSched(this,'hold')">
+              <div class="radio-ring"><div class="radio-fill"></div></div>
+              <span class="sched-label">Hold — save selections only</span>
+              <span class="sched-hint">Do not release; save destination choices</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Metadata -->
+        <div class="pub-section">
+          <div class="section-hd">
+            <span class="section-label">Metadata</span>
+            <span class="section-meta">Read-only · edit in dossier</span>
+          </div>
+          <div class="meta-grid">
+            <div class="meta-cell">
+              <div class="meta-key">Slug</div>
+              <div class="meta-val">council-data-leak-housing-target-shortfall</div>
+            </div>
+            <div class="meta-cell">
+              <div class="meta-key">Author</div>
+              <div class="meta-val text">Andrew MacLean</div>
+            </div>
+            <div class="meta-cell">
+              <div class="meta-key">Canonical URL</div>
+              <div class="meta-val" style="font-size:11px">/news/local-government/council-data-leak-housing-target-shortfall</div>
+            </div>
+            <div class="meta-cell">
+              <div class="meta-key">Section</div>
+              <div class="meta-val text">News / Local Government</div>
+            </div>
+            <div class="meta-cell">
+              <div class="meta-key">Tags</div>
+              <div class="meta-val text" style="font-size:12px">Aberdeen City Council · Housing · Data Leak · Planning</div>
+            </div>
+            <div class="meta-cell">
+              <div class="meta-key">Word count</div>
+              <div class="meta-val warn">1,842 <span style="font-family:var(--font);font-weight:400;color:var(--muted);font-size:11.5px">/ target 1,500</span></div>
+            </div>
+            <div class="meta-cell">
+              <div class="meta-key">Legal clearance</div>
+              <div class="meta-val ok text">Approved 2026-05-27</div>
+            </div>
+            <div class="meta-cell">
+              <div class="meta-key">Approved by</div>
+              <div class="meta-val text">E. Whitfield · 09:47</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Pre-flight -->
+        <div class="pub-section">
+          <div class="section-hd">
+            <span class="section-label">Pre-flight checks</span>
+            <span class="section-meta">7 pass · 1 advisory</span>
+          </div>
+          <table class="preflight">
+            <thead>
+              <tr>
+                <th>Check</th>
+                <th>Value</th>
+                <th style="text-align:right">Status</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr><td class="pf-name">SEO title length</td><td class="pf-val">52 chars</td><td style="text-align:right"><span class="pf-ok"><svg width="11" height="11" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M3 8l3.5 3.5L13 5"/></svg>Optimal (45–60)</span></td></tr>
+              <tr><td class="pf-name">Meta description</td><td class="pf-val">158 chars</td><td style="text-align:right"><span class="pf-ok"><svg width="11" height="11" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M3 8l3.5 3.5L13 5"/></svg>Present</span></td></tr>
+              <tr><td class="pf-name">OpenGraph image</td><td class="pf-val">1200 × 630</td><td style="text-align:right"><span class="pf-ok"><svg width="11" height="11" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M3 8l3.5 3.5L13 5"/></svg>Present</span></td></tr>
+              <tr><td class="pf-name">Canonical URL</td><td class="pf-val">set</td><td style="text-align:right"><span class="pf-ok"><svg width="11" height="11" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M3 8l3.5 3.5L13 5"/></svg>Configured</span></td></tr>
+              <tr><td class="pf-name">Author profile</td><td class="pf-val">A. MacLean</td><td style="text-align:right"><span class="pf-ok"><svg width="11" height="11" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M3 8l3.5 3.5L13 5"/></svg>Published</span></td></tr>
+              <tr><td class="pf-name">Word count</td><td class="pf-val">1,842 words</td><td style="text-align:right"><span class="pf-warn"><svg width="11" height="11" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M8 4v5M8 11.5v.5"/><path d="M2 13h12L8 3z"/></svg>Over target (1,500)</span></td></tr>
+              <tr><td class="pf-name">Legal clearance</td><td class="pf-val">Approved 2026-05-27</td><td style="text-align:right"><span class="pf-ok"><svg width="11" height="11" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M3 8l3.5 3.5L13 5"/></svg>Cleared</span></td></tr>
+              <tr><td class="pf-name">Section routing</td><td class="pf-val">News / Local Government</td><td style="text-align:right"><span class="pf-ok"><svg width="11" height="11" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M3 8l3.5 3.5L13 5"/></svg>Routed</span></td></tr>
+            </tbody>
+          </table>
+        </div>
+
+      </div>
+    </div><!-- .pub-scroll -->
+
+    <!-- Sticky footer -->
+    <div class="pub-footer" id="pub-footer">
+      <div class="footer-info">
+        <span class="footer-count" id="f-count">3</span>
+        <span>destinations selected</span>
+      </div>
+      <div class="footer-advisory" id="f-advisory">
+        <svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M8 4v5M8 11.5v.5"/><path d="M2 13h12L8 3z"/></svg>
+        1 advisory — confirm before releasing
+      </div>
+      <span class="footer-sp"></span>
+      <button class="btn btn-ghost" id="save-btn" onclick="saveSel()">Save selections</button>
+      <button class="btn btn-primary" id="release-btn" onclick="openModal()">
+        Release to <span id="f-count-btn">3</span> destinations
+        <svg width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M3 8h10M9 4l4 4-4 4"/></svg>
+      </button>
+    </div>
+  </div>
+
+</div>
+
+<!-- Modal -->
+<div class="modal-bg" id="modal-bg">
+  <div class="modal-panel">
+    <div class="modal-hd">
+      <div>
+        <div class="modal-title">Releasing CHR-2847</div>
+        <span class="modal-sub">Council Data Leak Reveals Housing Target Shortfall</span>
+      </div>
+      <button class="modal-x" id="modal-x" onclick="closeModal()">×</button>
+    </div>
+    <div class="modal-body" id="modal-body"></div>
+    <div class="modal-ft" id="modal-ft"></div>
+  </div>
+</div>
+
+<script>
+const DESTS = [
+  { idx:0, name:'Union Media Web',      type:'unionmedia.co.uk · Web CMS',   warn:false, reach:'124k monthly'     },
+  { idx:1, name:'Apple News',             type:'Platform syndication',             warn:false, reach:'18.4k subscribers'},
+  { idx:2, name:'Google Discover Feed',   type:'SEO distribution',                 warn:true,  reach:'auto via SEO'     },
+  { idx:3, name:'Daily Briefing Newsletter', type:'Email newsletter',              warn:true,  reach:'14.2k subscribers'},
+];
+const PUB_TIMES = ['10:14:31','10:14:33','10:14:35','10:14:36'];
+
+let selected = new Set([0,1,2]);
+let released = false;
+
+function getCards() { return document.querySelectorAll('.dest-card'); }
+
+function toggleDest(card) {
+  if (released) return;
+  const idx = +card.dataset.idx;
+  if (selected.has(idx)) { selected.delete(idx); card.classList.remove('selected'); }
+  else { selected.add(idx); card.classList.add('selected'); }
+  syncFooter();
+}
+
+function syncFooter() {
+  const n = selected.size;
+  document.getElementById('f-count').textContent = n;
+  document.getElementById('f-count-btn').textContent = n;
+  document.getElementById('release-btn').disabled = n === 0;
+  document.getElementById('dest-sec-meta').textContent = `4 configured · ${n} selected`;
+  // advisory if any selected dest has warn
+  const hasWarn = [...selected].some(i => DESTS[i].warn);
+  document.getElementById('f-advisory').style.display = hasWarn ? 'flex' : 'none';
+}
+
+function selectSched(el, mode) {
+  document.querySelectorAll('.sched-opt').forEach(o => o.classList.remove('sel'));
+  el.classList.add('sel');
+  document.getElementById('dt-expand').classList.toggle('vis', mode === 'sched');
+}
+
+function saveSel() {
+  const btn = document.getElementById('save-btn');
+  btn.textContent = 'Saved';
+  btn.disabled = true;
+  setTimeout(() => { btn.textContent = 'Save selections'; btn.disabled = false; }, 1400);
+}
+
+function openModal() {
+  if (selected.size === 0) return;
+  const bg = document.getElementById('modal-bg');
+  const body = document.getElementById('modal-body');
+  const ft = document.getElementById('modal-ft');
+
+  // Collect selected dests in order
+  const sel = DESTS.filter(d => selected.has(d.idx));
+
+  // Build initial "queued" state
+  body.innerHTML = '';
+
+  const banner = document.createElement('div');
+  banner.className = 'status-banner sb-idle';
+  banner.innerHTML = '<div class="spinner"></div><span>Allocating publish slot&hellip;</span>';
+  body.appendChild(banner);
+
+  const rows = sel.map((d, i) => {
+    const row = document.createElement('div');
+    row.className = 'pr-row';
+    row.innerHTML = `
+      <div class="pr-info">
+        <div class="pr-name">${d.name}</div>
+        <span class="pr-type">${d.type}</span>
+      </div>
+      <div class="pr-status ps-q" id="pr-st-${i}">Queued</div>`;
+    body.appendChild(row);
+    return row;
+  });
+
+  ft.innerHTML = `<button class="btn btn-ghost" style="opacity:.4;pointer-events:none">Cancel</button>`;
+  document.getElementById('modal-x').style.cssText = 'opacity:.3;pointer-events:none';
+  bg.classList.add('open');
+
+  // Phase 1: confirm slot (700ms)
+  setTimeout(() => {
+    banner.className = 'status-banner sb-idle';
+    banner.style.borderColor = 'rgba(59,130,246,.25)';
+    banner.style.background = 'var(--accent-subtle)';
+    banner.innerHTML = `<svg width="15" height="15" viewBox="0 0 16 16" fill="none" stroke="var(--accent)" stroke-width="1.5"><path d="M3 8l3.5 3.5L13 5"/></svg><span style="color:var(--fg-2)">Slot confirmed — releasing to ${sel.length} destination${sel.length>1?'s':''}…</span>`;
+
+    // Switch all rows to publishing
+    rows.forEach((_, i) => {
+      const st = document.getElementById(`pr-st-${i}`);
+      st.className = 'pr-status ps-go';
+      st.innerHTML = `Publishing<span class="dots"><span></span><span></span><span></span></span>`;
+    });
+  }, 700);
+
+  // Phase 2: complete rows one by one
+  rows.forEach((_, i) => {
+    setTimeout(() => {
+      const d = sel[i];
+      const st = document.getElementById(`pr-st-${i}`);
+      if (d.warn) {
+        st.className = 'pr-status ps-warn';
+        st.innerHTML = `<svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M8 4v5M8 11.5v.5"/><path d="M2 13h12L8 3z"/></svg>${PUB_TIMES[d.idx]}`;
+      } else {
+        st.className = 'pr-status ps-ok';
+        st.innerHTML = `<svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M3 8l3.5 3.5L13 5"/></svg>${PUB_TIMES[d.idx]}`;
+      }
+    }, 1200 + i * 500);
+  });
+
+  // Phase 3: final summary
+  const finalDelay = 1200 + rows.length * 500 + 350;
+  setTimeout(() => {
+    const warnDests = sel.filter(d => d.warn);
+    const okDests   = sel.filter(d => !d.warn);
+    banner.replaceWith((() => {
+      const s = document.createElement('div');
+      if (warnDests.length > 0) {
+        s.className = 'status-banner sb-part';
+        s.innerHTML = `<strong>${okDests.length} published · ${warnDests.length} published with advisory.</strong>&nbsp;${warnDests.map(d=>d.name).join(', ')}: monitor indexation over 24h.`;
+      } else {
+        s.className = 'status-banner sb-ok';
+        s.innerHTML = `<strong>All ${sel.length} destination${sel.length>1?'s':''} published.</strong>&nbsp;Release logged at ${PUB_TIMES[0]}.`;
+      }
+      return s;
+    })());
+
+    ft.innerHTML = `<button class="btn btn-ghost" onclick="closeModal(true)">Done</button>`;
+    document.getElementById('modal-x').style.cssText = '';
+  }, finalDelay);
+}
+
+function closeModal(completed) {
+  document.getElementById('modal-bg').classList.remove('open');
+  if (!completed) return;
+
+  released = true;
+  // Update story context badges
+  document.getElementById('approval-badge').outerHTML =
+    `<span style="display:inline-flex;align-items:center;gap:4px;padding:2px 7px;border-radius:9999px;font-size:10.5px;font-weight:600;background:var(--success-subtle);border:1px solid rgba(34,197,94,.35);color:var(--success)"><span style="width:5px;height:5px;border-radius:50%;background:var(--success);display:inline-block;flex-shrink:0"></span>Published</span>`;
+  document.getElementById('stage-badge').remove();
+  // Disable dest cards
+  document.querySelectorAll('.dest-card').forEach(c => { c.style.pointerEvents='none'; c.style.opacity='.7'; });
+  // Replace footer
+  document.getElementById('pub-footer').innerHTML = `
+    <div class="footer-info">
+      <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="var(--success)" stroke-width="1.6"><path d="M3 8l3.5 3.5L13 5"/></svg>
+      <span style="color:var(--success);font-weight:600">Published 10:14:31</span>
+      <span style="color:var(--muted)">·</span>
+      <span style="color:var(--muted)">${selected.size} destination${selected.size>1?'s':''} · Release ID RLS-2847-A</span>
+    </div>
+    <span class="footer-sp"></span>
+    <a href="pipeline.html" class="btn btn-ghost">Back to pipeline</a>
+    <span class="btn btn-ghost" style="opacity:.5;cursor:default">View live ↗</span>`;
+}
+
+syncFooter();
+</script>
+</body>
+</html>

@@ -1,0 +1,810 @@
+
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Pipeline — Union Media</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet">
+<style>
+/* ── TOKENS: Application design system, dark-first override ── */
+:root {
+  --bg:             #0b0d12;
+  --surface:        #10131c;
+  --surface-2:      #161d2e;
+  --fg:             #dde4f0;
+  --fg-2:           #7e8ea8;
+  --muted:          #4b5672;
+  --border:         #1c2438;
+  --border-mid:     #273047;
+  --accent:         #3b82f6;
+  --accent-on:      #fff;
+  --accent-hover:   #2563eb;
+  --accent-subtle:  rgba(59,130,246,.10);
+  --success:        #22c55e;
+  --success-subtle: rgba(34,197,94,.08);
+  --warn:           #f59e0b;
+  --warn-subtle:    rgba(245,158,11,.08);
+  --danger:         #ef4444;
+  --danger-subtle:  rgba(239,68,68,.08);
+
+  /* Stage dot/pill palette — small status only */
+  --s-pitched:     #4b5672;
+  --s-comm:        #3b82f6;
+  --s-filed:       #0ea5e9;
+  --s-sub:         #a78bfa;
+  --s-legal:       #f59e0b;
+  --s-sched:       #14b8a6;
+  --s-live:        #22c55e;
+
+  --font: Inter, "Helvetica Neue", system-ui, sans-serif;
+  --mono: "SF Mono", "Cascadia Code", ui-monospace, Menlo, monospace;
+
+  --sidebar-w: 216px;
+  --topbar-h:  48px;
+  --r:         6px;
+}
+
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+html, body {
+  height: 100%;
+  background: var(--bg);
+  color: var(--fg);
+  font-family: var(--font);
+  font-size: 13px;
+  line-height: 1.45;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* ── SHELL ── */
+.shell {
+  display: grid;
+  grid-template-columns: var(--sidebar-w) 1fr;
+  grid-template-rows: var(--topbar-h) 1fr;
+  height: 100vh;
+  overflow: hidden;
+}
+
+/* ── SIDEBAR ── */
+.sidebar {
+  grid-row: 1 / 3;
+  background: var(--surface);
+  border-right: 1px solid var(--border);
+  display: flex;
+  flex-direction: column;
+  overflow-y: auto;
+}
+
+.sidebar-pub {
+  padding: 14px 16px 12px;
+  border-bottom: 1px solid var(--border);
+}
+.pub-name {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--fg);
+  letter-spacing: -0.015em;
+  display: block;
+}
+.pub-meta {
+  font-size: 11px;
+  color: var(--muted);
+  margin-top: 2px;
+  font-family: var(--mono);
+  font-variant-numeric: tabular-nums;
+}
+
+.sidebar-nav { padding: 8px 0; flex: 1; }
+
+.nav-section {
+  padding: 14px 16px 4px;
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+.nav-item {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  padding: 7px 16px;
+  font-size: 13px;
+  color: var(--fg-2);
+  cursor: pointer;
+  text-decoration: none;
+  position: relative;
+  transition: background 100ms, color 100ms;
+}
+.nav-item:hover { background: var(--surface-2); color: var(--fg); }
+.nav-item.active {
+  color: var(--fg);
+  background: var(--accent-subtle);
+}
+.nav-item.active::before {
+  content: '';
+  position: absolute;
+  left: 0; top: 4px; bottom: 4px;
+  width: 2px;
+  background: var(--accent);
+  border-radius: 0 2px 2px 0;
+}
+
+.nav-icon {
+  width: 15px; height: 15px;
+  flex-shrink: 0;
+  opacity: .65;
+}
+.nav-item.active .nav-icon, .nav-item:hover .nav-icon { opacity: 1; }
+
+.nav-badge {
+  margin-left: auto;
+  font-size: 10px;
+  font-family: var(--mono);
+  font-variant-numeric: tabular-nums;
+  color: var(--muted);
+  background: var(--bg);
+  border: 1px solid var(--border);
+  padding: 1px 6px;
+  border-radius: 9999px;
+  line-height: 1.6;
+}
+
+.sidebar-user {
+  padding: 12px 16px;
+  border-top: 1px solid var(--border);
+  display: flex;
+  align-items: center;
+  gap: 9px;
+}
+.avatar-sm {
+  width: 26px; height: 26px;
+  border-radius: 50%;
+  background: var(--accent-subtle);
+  border: 1px solid var(--border-mid);
+  display: flex; align-items: center; justify-content: center;
+  font-size: 10px; font-weight: 700;
+  color: var(--accent);
+  flex-shrink: 0;
+  font-family: var(--mono);
+}
+.user-name  { font-size: 12px; font-weight: 500; color: var(--fg); display: block; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.user-role  { font-size: 11px; color: var(--muted); display: block; }
+
+/* ── TOP BAR ── */
+.topbar {
+  background: var(--surface);
+  border-bottom: 1px solid var(--border);
+  display: flex;
+  align-items: center;
+  padding: 0 18px;
+  gap: 10px;
+}
+
+.topbar-breadcrumb {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--fg);
+  flex: 1;
+  letter-spacing: -0.01em;
+}
+.topbar-breadcrumb span {
+  color: var(--muted);
+  font-weight: 400;
+  margin: 0 4px;
+}
+
+.search-box {
+  display: flex;
+  align-items: center;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: var(--r);
+  padding: 0 9px;
+  gap: 6px;
+  height: 28px;
+  width: 200px;
+  transition: border-color 120ms;
+}
+.search-box:focus-within { border-color: var(--accent); }
+.search-box input {
+  border: none; background: transparent;
+  color: var(--fg);
+  font-size: 12px; font-family: var(--font);
+  outline: none; width: 100%;
+}
+.search-box input::placeholder { color: var(--muted); }
+
+.icon-btn {
+  width: 28px; height: 28px;
+  display: flex; align-items: center; justify-content: center;
+  border: 1px solid var(--border);
+  background: transparent;
+  border-radius: var(--r);
+  color: var(--fg-2);
+  cursor: pointer;
+  transition: background 100ms, color 100ms;
+}
+.icon-btn:hover { background: var(--surface-2); color: var(--fg); }
+
+.topbar-avatar {
+  width: 28px; height: 28px;
+  border-radius: 50%;
+  background: var(--accent-subtle);
+  border: 1px solid var(--border-mid);
+  display: flex; align-items: center; justify-content: center;
+  font-size: 10px; font-weight: 700;
+  color: var(--accent);
+  cursor: pointer;
+  font-family: var(--mono);
+}
+
+/* ── MAIN ── */
+.main {
+  overflow: hidden;
+  background: var(--bg);
+  display: flex;
+  flex-direction: column;
+}
+
+/* Stage tabs */
+.stage-tabs {
+  display: flex;
+  align-items: flex-end;
+  padding: 0 18px;
+  border-bottom: 1px solid var(--border);
+  background: var(--surface);
+  overflow-x: auto;
+  flex-shrink: 0;
+  gap: 0;
+}
+.stage-tab {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  padding: 10px 11px 9px;
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--fg-2);
+  cursor: pointer;
+  border-bottom: 2px solid transparent;
+  margin-bottom: -1px;
+  white-space: nowrap;
+  transition: color 100ms, border-color 100ms;
+  user-select: none;
+}
+.stage-tab:hover { color: var(--fg); }
+.stage-tab.active { color: var(--fg); border-bottom-color: var(--accent); }
+
+.tab-count {
+  font-size: 11px;
+  font-family: var(--mono);
+  font-variant-numeric: tabular-nums;
+  color: var(--muted);
+  background: var(--bg);
+  border: 1px solid var(--border);
+  padding: 0 5px;
+  border-radius: 9999px;
+  line-height: 1.7;
+  transition: background 100ms, color 100ms, border-color 100ms;
+}
+.stage-tab.active .tab-count {
+  background: var(--accent-subtle);
+  border-color: rgba(59,130,246,.35);
+  color: var(--accent);
+}
+
+/* Stats bar */
+.stats-bar {
+  display: flex;
+  align-items: center;
+  gap: 20px;
+  padding: 9px 18px;
+  border-bottom: 1px solid var(--border);
+  background: var(--surface);
+  flex-shrink: 0;
+}
+.stat { display: flex; align-items: center; gap: 6px; font-size: 12px; color: var(--fg-2); }
+.stat-val { font-weight: 600; font-variant-numeric: tabular-nums; color: var(--fg); }
+.stat-dot { width: 6px; height: 6px; border-radius: 50%; flex-shrink: 0; }
+
+.bar-actions { margin-left: auto; display: flex; gap: 5px; }
+
+.btn {
+  height: 27px;
+  padding: 0 10px;
+  border-radius: var(--r);
+  font-size: 12px;
+  font-weight: 500;
+  font-family: var(--font);
+  cursor: pointer;
+  transition: background 100ms, color 100ms, border-color 100ms;
+}
+.btn-ghost  { background: transparent; border: 1px solid var(--border-mid); color: var(--fg-2); }
+.btn-ghost:hover { background: var(--surface-2); color: var(--fg); }
+.btn-primary { background: var(--accent); border: 1px solid var(--accent); color: var(--accent-on); }
+.btn-primary:hover { background: var(--accent-hover); border-color: var(--accent-hover); }
+
+/* Table */
+.table-wrap {
+  flex: 1;
+  overflow-y: auto;
+}
+
+table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+thead th {
+  position: sticky; top: 0;
+  background: var(--surface);
+  border-bottom: 1px solid var(--border);
+  padding: 7px 12px;
+  font-size: 10.5px;
+  font-weight: 600;
+  letter-spacing: 0.045em;
+  text-transform: uppercase;
+  color: var(--muted);
+  text-align: left;
+  white-space: nowrap;
+  user-select: none;
+  cursor: pointer;
+}
+thead th:hover { color: var(--fg-2); }
+
+tbody tr {
+  border-bottom: 1px solid var(--border);
+  transition: background 70ms;
+}
+tbody tr:hover { background: var(--surface-2); }
+
+td { padding: 9px 12px; vertical-align: middle; }
+
+/* Headline cell */
+td.cell-hl { min-width: 260px; max-width: 380px; }
+
+.art-meta {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  margin-bottom: 2px;
+}
+.section-tag {
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.055em;
+  text-transform: uppercase;
+  color: var(--muted);
+  font-family: var(--mono);
+}
+.badge-new {
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--accent);
+  background: var(--accent-subtle);
+  border: 1px solid rgba(59,130,246,.35);
+  padding: 0 4px;
+  border-radius: 3px;
+  line-height: 1.7;
+}
+.priority-dot {
+  width: 5px; height: 5px;
+  border-radius: 50%;
+  background: var(--warn);
+  flex-shrink: 0;
+}
+
+.art-title {
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--fg);
+  display: block;
+  line-height: 1.35;
+  cursor: pointer;
+}
+.art-title:hover { color: var(--accent); }
+
+/* Person */
+.person { display: flex; align-items: center; gap: 6px; white-space: nowrap; }
+.p-dot {
+  width: 20px; height: 20px;
+  border-radius: 50%;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 9px; font-weight: 700;
+  flex-shrink: 0;
+  font-family: var(--mono);
+}
+.p-name { font-size: 12px; color: var(--fg-2); }
+
+/* Stage pill */
+.pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 7px;
+  border-radius: 9999px;
+  font-size: 11px;
+  font-weight: 500;
+  white-space: nowrap;
+  border: 1px solid transparent;
+}
+.pill::before {
+  content: '';
+  width: 5px; height: 5px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+.pill-discovery  { color: #7d8ea8; border-color: #202c44; background: rgba(75,86,114,.13); }
+.pill-discovery::before { background: #4b5672; }
+.pill-triage     { color: #93b4fd; border-color: #1d3064; background: rgba(59,130,246,.12); }
+.pill-triage::before { background: #3b82f6; }
+.pill-research   { color: #a5f3fc; border-color: #0c3254; background: rgba(14,165,233,.12); }
+.pill-research::before { background: #0ea5e9; }
+.pill-draft      { color: #7dd3fc; border-color: #0c3254; background: rgba(14,165,233,.10); }
+.pill-draft::before { background: #0284c7; }
+.pill-interlink  { color: #f9a8d4; border-color: #4a1232; background: rgba(236,72,153,.10); }
+.pill-interlink::before { background: #ec4899; }
+.pill-edit       { color: #c4b5fd; border-color: #2d1f5e; background: rgba(167,139,250,.12); }
+.pill-edit::before  { background: #8b5cf6; }
+.pill-review     { color: #fcd34d; border-color: #3d2900; background: rgba(245,158,11,.10); }
+.pill-review::before { background: #f59e0b; }
+.pill-prepub     { color: #5eead4; border-color: #0d3530; background: rgba(20,184,166,.10); }
+.pill-prepub::before { background: #14b8a6; }
+.pill-decision   { color: #fdba74; border-color: #3d1a00; background: rgba(249,115,22,.10); }
+.pill-decision::before { background: #f97316; }
+.pill-pubprep    { color: #86efac; border-color: #0d3320; background: rgba(34,197,94,.10); }
+.pill-pubprep::before { background: #22c55e; }
+.pill-published  { color: #a3e635; border-color: #1f3600; background: rgba(132,204,22,.10); }
+.pill-published::before { background: #84cc16; }
+
+/* Mono / numeric cells */
+.mono { font-family: var(--mono); font-size: 11px; color: var(--fg-2); font-variant-numeric: tabular-nums; white-space: nowrap; }
+.age-ok     { font-family: var(--mono); font-size: 11px; color: var(--muted); white-space: nowrap; }
+.age-warn   { font-family: var(--mono); font-size: 11px; color: var(--warn); font-weight: 600; white-space: nowrap; }
+.age-danger { font-family: var(--mono); font-size: 11px; color: var(--danger); font-weight: 600; white-space: nowrap; }
+.dl-ok      { font-family: var(--mono); font-size: 11px; color: var(--fg-2); white-space: nowrap; }
+.dl-today   { font-family: var(--mono); font-size: 11px; color: var(--warn); font-weight: 600; white-space: nowrap; }
+.dl-over    { font-family: var(--mono); font-size: 11px; color: var(--danger); font-weight: 600; white-space: nowrap; }
+
+/* Row actions */
+.cell-act { opacity: 0; transition: opacity 90ms; }
+tr:hover .cell-act { opacity: 1; }
+.row-acts { display: flex; gap: 4px; align-items: center; }
+.row-btn {
+  height: 22px;
+  padding: 0 7px;
+  border-radius: 4px;
+  font-size: 11px;
+  font-weight: 500;
+  font-family: var(--font);
+  cursor: pointer;
+  background: transparent;
+  border: 1px solid var(--border-mid);
+  color: var(--fg-2);
+  white-space: nowrap;
+  transition: background 90ms, color 90ms;
+}
+.row-btn:hover { background: var(--surface); color: var(--fg); }
+.row-btn.adv { border-color: var(--accent); color: var(--accent); }
+.row-btn.adv:hover { background: var(--accent-subtle); }
+
+.empty {
+  padding: 48px;
+  text-align: center;
+  color: var(--muted);
+  font-size: 13px;
+  display: none;
+}
+
+/* Scrollbar */
+::-webkit-scrollbar { width: 5px; height: 5px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: var(--border-mid); border-radius: 3px; }
+::-webkit-scrollbar-thumb:hover { background: var(--muted); }
+</style>
+</head>
+<body>
+<div class="shell">
+
+<!-- ─ Sidebar ─ -->
+<aside class="sidebar">
+  <div class="sidebar-pub">
+    <span class="pub-name">Union Media</span>
+    <span class="pub-meta">Vol 47 · Wk 22 · 28 May</span>
+  </div>
+
+        <nav class="sidebar-nav">
+    <div class="nav-section">Overview</div>
+    <a href="dashboard.html" class="nav-item">
+      <svg class="nav-icon" viewBox="0 0 15 15" fill="none"><rect x="1.5" y="1.5" width="5" height="5" rx="1" fill="currentColor"/><rect x="8.5" y="1.5" width="5" height="5" rx="1" fill="currentColor"/><rect x="1.5" y="8.5" width="5" height="5" rx="1" fill="currentColor"/><rect x="8.5" y="8.5" width="5" height="5" rx="1" fill="currentColor"/></svg>
+      Dashboard
+    </a>
+    <div class="nav-section">Editorial</div>
+    <a href="pipeline-dashboard.html" class="nav-item active">
+      <svg class="nav-icon" viewBox="0 0 15 15" fill="none"><rect x="1.5" y="2.5" width="12" height="1.5" rx=".5" fill="currentColor"/><rect x="1.5" y="6.5" width="12" height="1.5" rx=".5" fill="currentColor"/><rect x="1.5" y="10.5" width="12" height="1.5" rx=".5" fill="currentColor"/></svg>
+      Pipeline
+    </a>
+    <a href="pipeline-board.html" class="nav-item">
+      <svg class="nav-icon" viewBox="0 0 15 15" fill="none"><rect x="1" y="1.5" width="4" height="12" rx="1" fill="currentColor"/><rect x="6" y="1.5" width="4" height="8.5" rx="1" fill="currentColor"/><rect x="11" y="1.5" width="3" height="5.5" rx="1" fill="currentColor"/></svg>
+      Board
+    </a>
+    <a href="#" class="nav-item">
+      <svg class="nav-icon" viewBox="0 0 15 15" fill="none"><rect x="1.5" y="2.5" width="12" height="11" rx="1.5" stroke="currentColor" stroke-width="1.3"/><path d="M1.5 6h12" stroke="currentColor" stroke-width="1.3"/><path d="M5 1.5V4M10 1.5V4" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/></svg>
+      Calendar
+      <span class="nav-badge">18</span>
+    </a>
+    <a href="article-dossier.html" class="nav-item">
+      <svg class="nav-icon" viewBox="0 0 15 15" fill="none"><path d="M3.5 1.5h5.5l3 3v9h-8.5v-12z" stroke="currentColor" stroke-width="1.3" stroke-linejoin="round"/><path d="M9 1.5v3.5h3" stroke="currentColor" stroke-width="1.3"/><path d="M5 7.5h5M5 9.5h3" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/></svg>
+      Article Dossier
+    </a>
+    <div class="nav-section">Management</div>
+    <a href="approvals.html" class="nav-item">
+      <svg class="nav-icon" viewBox="0 0 15 15" fill="none"><path d="M2 7.5L6 11.5L13 3.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      Approvals
+      <span class="nav-badge urgent">4</span>
+    </a>
+    <a href="#" class="nav-item">
+      <svg class="nav-icon" viewBox="0 0 15 15" fill="none"><circle cx="5" cy="5.5" r="2" stroke="currentColor" stroke-width="1.3"/><circle cx="10.5" cy="5.5" r="2" stroke="currentColor" stroke-width="1.3"/><path d="M1 13c0-2 1.79-3.5 4-3.5h5c2.21 0 4 1.5 4 3.5" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/></svg>
+      Team
+    </a>
+    <div class="nav-section">Discovery</div>
+    <a href="discovery.html" class="nav-item">
+      <svg class="nav-icon" viewBox="0 0 15 15" fill="none"><circle cx="6.5" cy="6.5" r="4" stroke="currentColor" stroke-width="1.3"/><path d="M11 11l2.5 2.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
+      Discovery Overview
+      <span class="nav-badge urgent">3</span>
+    </a>
+    <a href="candidate-inbox.html" class="nav-item">
+      <svg class="nav-icon" viewBox="0 0 15 15" fill="none"><path d="M1.5 4.5h12v8.5h-12z" stroke="currentColor" stroke-width="1.3" stroke-linejoin="round"/><path d="M1.5 4.5l6 4 6-4" stroke="currentColor" stroke-width="1.3" stroke-linejoin="round"/></svg>
+      Candidate Inbox
+      <span class="nav-badge">89</span>
+    </a>
+    <a href="ops-rr-queue.html" class="nav-item">
+      <svg class="nav-icon" viewBox="0 0 15 15" fill="none"><path d="M7.5 1.5v5M7.5 9.5v.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/><circle cx="7.5" cy="7.5" r="6" stroke="currentColor" stroke-width="1.3"/></svg>
+      OPS-RR Queue
+      <span class="nav-badge urgent">7</span>
+    </a>
+    <a href="sweep-run-detail.html" class="nav-item">
+      <svg class="nav-icon" viewBox="0 0 15 15" fill="none"><circle cx="7.5" cy="7.5" r="6" stroke="currentColor" stroke-width="1.3"/><path d="M7.5 4.5v3l2 2" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/></svg>
+      Sweep Run Detail
+    </a>
+    <div class="nav-section">System</div>
+    <a href="discovery-config.html" class="nav-item">
+      <svg class="nav-icon" viewBox="0 0 15 15" fill="none"><circle cx="7.5" cy="7.5" r="3" stroke="currentColor" stroke-width="1.3"/><path d="M7.5 1v1.5M7.5 12.5V14M1 7.5h1.5M12.5 7.5H14M2.9 2.9l1.1 1.1M11 11l1.1 1.1M11 2.9L9.9 4M4 11l-1.1 1.1" stroke="currentColor" stroke-width="1.2" stroke-linecap="round"/></svg>
+      Discovery Config
+    </a>
+    <a href="source-monitor.html" class="nav-item">
+      <svg class="nav-icon" viewBox="0 0 15 15" fill="none"><path d="M1.5 10.5l4-4 3 3 5-6" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"/><circle cx="13" cy="4.5" r="1" fill="currentColor"/></svg>
+      Source Health Monitor
+    </a>
+    <a href="discovery-2.html" class="nav-item">
+      <svg class="nav-icon" viewBox="0 0 15 15" fill="none"><path d="M2.5 5.5h10M2.5 8.5h8M2.5 11.5h5" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/><rect x="1.5" y="1.5" width="12" height="12" rx="1.5" stroke="currentColor" stroke-width="1.3"/></svg>
+      Discovery Audit Log
+    </a>
+    <a href="design-system.html" class="nav-item">
+      <svg class="nav-icon" viewBox="0 0 15 15" fill="none"><circle cx="4" cy="4" r="1.5" fill="currentColor"/><circle cx="11" cy="4" r="1.5" fill="currentColor"/><circle cx="4" cy="11" r="1.5" fill="currentColor"/><circle cx="11" cy="11" r="1.5" fill="currentColor"/><circle cx="7.5" cy="7.5" r="1.5" fill="currentColor"/></svg>
+      Design System
+    </a>
+    <a href="#" class="nav-item">
+      <svg class="nav-icon" viewBox="0 0 15 15" fill="none"><circle cx="7.5" cy="7.5" r="5.5" stroke="currentColor" stroke-width="1.3"/><circle cx="7.5" cy="7.5" r="2" stroke="currentColor" stroke-width="1.3"/></svg>
+      Settings
+    </a>
+  </nav>
+
+  <div class="sidebar-user">
+    <div class="avatar-sm">JM</div>
+    <div>
+      <span class="user-name">Jamie Morrison</span>
+      <span class="user-role">Deputy Editor</span>
+    </div>
+  </div>
+</aside>
+
+<!-- ─ Top bar ─ -->
+<header class="topbar">
+  <div class="topbar-breadcrumb">
+    Union Media <span>/</span> Pipeline
+  </div>
+
+  <div class="search-box">
+    <svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.9" style="color:var(--muted);flex-shrink:0">
+      <circle cx="6.5" cy="6.5" r="5"/><path d="M10.5 10.5 14 14"/>
+    </svg>
+    <input type="text" placeholder="Search articles…" id="searchInput" oninput="handleSearch()">
+  </div>
+
+  <button class="icon-btn" title="Notifications">
+    <svg width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5">
+      <path d="M8 1a5 5 0 0 1 5 5v3l1.5 2.5h-13L3 9V6a5 5 0 0 1 5-5ZM6.5 13.5a1.5 1.5 0 0 0 3 0"/>
+    </svg>
+  </button>
+
+  <div class="topbar-avatar" title="Jamie Morrison">JM</div>
+</header>
+
+<!-- ─ Main ─ -->
+<main class="main">
+
+  <!-- Stage tabs -->
+  <div class="stage-tabs" id="stageTabs">
+    <div class="stage-tab active" data-stage="all"        onclick="setStage('all',this)">All <span class="tab-count" id="ct-all">—</span></div>
+    <div class="stage-tab"        data-stage="discovery"  onclick="setStage('discovery',this)">Discovery <span class="tab-count" id="ct-discovery">—</span></div>
+    <div class="stage-tab"        data-stage="triage"     onclick="setStage('triage',this)">Triage <span class="tab-count" id="ct-triage">—</span></div>
+    <div class="stage-tab"        data-stage="research"   onclick="setStage('research',this)">Research <span class="tab-count" id="ct-research">—</span></div>
+    <div class="stage-tab"        data-stage="draft"      onclick="setStage('draft',this)">Draft <span class="tab-count" id="ct-draft">—</span></div>
+    <div class="stage-tab"        data-stage="interlink"  onclick="setStage('interlink',this)">Interlink <span class="tab-count" id="ct-interlink">—</span></div>
+    <div class="stage-tab"        data-stage="edit"       onclick="setStage('edit',this)">Edit <span class="tab-count" id="ct-edit">—</span></div>
+    <div class="stage-tab"        data-stage="review"     onclick="setStage('review',this)">Review <span class="tab-count" id="ct-review">—</span></div>
+    <div class="stage-tab"        data-stage="prepub"     onclick="setStage('prepub',this)">Pre-pub Pack <span class="tab-count" id="ct-prepub">—</span></div>
+    <div class="stage-tab"        data-stage="decision"   onclick="setStage('decision',this)">Awaiting Dec. <span class="tab-count" id="ct-decision">—</span></div>
+    <div class="stage-tab"        data-stage="pubprep"    onclick="setStage('pubprep',this)">Publishing Prep <span class="tab-count" id="ct-pubprep">—</span></div>
+    <div class="stage-tab"        data-stage="published"  onclick="setStage('published',this)">Published <span class="tab-count" id="ct-published">—</span></div>
+  </div>
+
+  <!-- Stats bar -->
+  <div class="stats-bar">
+    <div class="stat"><span class="stat-val" id="statVisible">—</span> in view</div>
+    <div class="stat">
+      <span class="stat-dot" style="background:var(--warn)"></span>
+      <span class="stat-val">5</span> due today
+    </div>
+    <div class="stat">
+      <span class="stat-dot" style="background:var(--danger)"></span>
+      <span class="stat-val" style="color:var(--danger)">2</span> overdue
+    </div>
+    <div class="bar-actions">
+      <button class="btn btn-ghost">Filter</button>
+      <button class="btn btn-ghost">Sort</button>
+      <button class="btn btn-primary" onclick="alert('Commission flow — not yet built')">+ Commission</button>
+    </div>
+  </div>
+
+  <!-- Article table -->
+  <div class="table-wrap">
+    <table>
+      <thead>
+        <tr>
+          <th class="cell-hl">Article</th>
+          <th>Author</th>
+          <th>Editor</th>
+          <th>Stage</th>
+          <th>Words</th>
+          <th>Deadline</th>
+          <th>In stage</th>
+          <th></th>
+        </tr>
+      </thead>
+      <tbody id="tbody"></tbody>
+    </table>
+    <div class="empty" id="emptyMsg">No articles match the current filter.</div>
+  </div>
+
+</main>
+</div>
+
+<script>
+const ARTICLES = [
+  { id:1,  section:'Analysis', title:'What the Budget means for North Sea operators',                    author:'C. Mackenzie', aI:'CM', editor:'J. Morrison', eI:'JM', stage:'review',        wc:2140, wt:2000, dl:'Today 17:00', dlC:'dl-today', age:'1d 6h',  ageC:'age-warn',   pri:true,  isNew:false },
+  { id:2,  section:'News',     title:'Exclusive: whistleblower alleges safety lapses at NHS trust',      author:'R. Ahmed',     aI:'RA', editor:'S. Patel',    eI:'SP', stage:'review',        wc:1680, wt:1500, dl:'Today 12:00', dlC:'dl-over',  age:'2d 1h',  ageC:'age-danger', pri:true,  isNew:false },
+  { id:3,  section:'Business', title:'Council faces judicial review over harbour redevelopment',          author:'D. Forsyth',   aI:'DF', editor:'J. Morrison', eI:'JM', stage:'review',        wc:980,  wt:900,  dl:'3 Jun',       dlC:'dl-ok',    age:'18h',    ageC:'age-ok',     pri:false, isNew:false },
+  { id:4,  section:'Business', title:'UK rate decision clouds housing market as spring stalls',           author:'F. Chen',      aI:'FC', editor:'S. Patel',    eI:'SP', stage:'edit',   wc:1247, wt:1200, dl:'Today 15:00', dlC:'dl-today', age:'6h',     ageC:'age-ok',     pri:false, isNew:true  },
+  { id:5,  section:'News',     title:'New data reveals scale of city centre vacancy crisis',              author:'M. Bell',      aI:'MB', editor:'J. Morrison', eI:'JM', stage:'research',   wc:1580, wt:1500, dl:'Tomorrow',    dlC:'dl-ok',    age:'1d 2h',  ageC:'age-ok',     pri:false, isNew:false },
+  { id:6,  section:'Politics', title:'Mortgage approvals hit 18-month high amid rate speculation',       author:'A. Obi',       aI:'AO', editor:'S. Patel',    eI:'SP', stage:'edit',   wc:810,  wt:800,  dl:'Today 18:00', dlC:'dl-today', age:'9h',     ageC:'age-ok',     pri:false, isNew:false },
+  { id:7,  section:'Opinion',  title:'The SNP housing pledge: principled target, unrealistic timeline',  author:'P. Lim',       aI:'PL', editor:'J. Morrison', eI:'JM', stage:'edit',   wc:1030, wt:1000, dl:'4 Jun',       dlC:'dl-ok',    age:'20h',    ageC:'age-ok',     pri:false, isNew:false },
+  { id:8,  section:'Culture',  title:'The quiet revival of Scottish pub culture, one village at a time', author:'C. Mackenzie', aI:'CM', editor:'T. Walsh',    eI:'TW', stage:'edit',   wc:1890, wt:1800, dl:'5 Jun',       dlC:'dl-ok',    age:'3h',     ageC:'age-ok',     pri:false, isNew:true  },
+  { id:9,  section:'Tech',     title:'Energy firms race to meet North Sea decommissioning targets',      author:'R. Ahmed',     aI:'RA', editor:'S. Patel',    eI:'SP', stage:'edit',   wc:1360, wt:1200, dl:'4 Jun',       dlC:'dl-ok',    age:'14h',    ageC:'age-ok',     pri:false, isNew:false },
+  { id:10, section:'Sport',    title:'Aberdeen FC manager on squad rebuild and the Europa path',          author:'D. Forsyth',   aI:'DF', editor:'T. Walsh',    eI:'TW', stage:'edit',   wc:2020, wt:1800, dl:'Tomorrow',    dlC:'dl-ok',    age:'22h',    ageC:'age-ok',     pri:false, isNew:false },
+  { id:11, section:'News',     title:'Ferry service disruption enters third week as talks stall',         author:'M. Bell',      aI:'MB', editor:'J. Morrison', eI:'JM', stage:'draft',        wc:920,  wt:900,  dl:'Today 16:00', dlC:'dl-today', age:'4h',     ageC:'age-ok',     pri:true,  isNew:false },
+  { id:12, section:'Opinion',  title:'Why winter fuel cuts fall hardest outside the cities',              author:'P. Lim',       aI:'PL', editor:'J. Morrison', eI:'JM', stage:'draft',        wc:1050, wt:1000, dl:'Tomorrow',    dlC:'dl-ok',    age:'2h',     ageC:'age-ok',     pri:false, isNew:false },
+  { id:13, section:'Business', title:'Renewable energy jobs surge as turbine manufacturer expands',       author:'F. Chen',      aI:'FC', editor:'S. Patel',    eI:'SP', stage:'interlink',        wc:1140, wt:1200, dl:'4 Jun',       dlC:'dl-ok',    age:'1d',     ageC:'age-ok',     pri:false, isNew:false },
+  { id:14, section:'Culture',  title:'Inside Aberdeen\'s new dining scene: ambition on a tight budget',  author:'C. Mackenzie', aI:'CM', editor:'T. Walsh',    eI:'TW', stage:'prepub',        wc:1680, wt:1600, dl:'6 Jun',       dlC:'dl-ok',    age:'3d',     ageC:'age-warn',   pri:false, isNew:false },
+  { id:15, section:'Politics', title:'Winter fuel cuts hit rural constituencies hardest, new data shows', author:'A. Obi',       aI:'AO', editor:'J. Morrison', eI:'JM', stage:'decision',        wc:760,  wt:800,  dl:'Today 14:00', dlC:'dl-over',  age:'2d 8h',  ageC:'age-danger', pri:true,  isNew:false },
+  { id:16, section:'News',     title:'Council approves £240m waterfront regeneration plans',              author:'D. Forsyth',   aI:'DF', editor:'J. Morrison', eI:'JM', stage:'research', wc:0,    wt:1200, dl:'Tomorrow',    dlC:'dl-ok',    age:'6h',     ageC:'age-ok',     pri:false, isNew:true  },
+  { id:17, section:'Features', title:'Profile: head teacher who turned around Scotland\'s most challenged school', author:'M. Bell', aI:'MB', editor:'T. Walsh', eI:'TW', stage:'triage', wc:0, wt:2500, dl:'6 Jun',    dlC:'dl-ok',    age:'1d',     ageC:'age-ok',     pri:false, isNew:false },
+  { id:18, section:'Business', title:'The accountancy firm that quietly became a technology company',    author:'R. Ahmed',     aI:'RA', editor:'S. Patel',    eI:'SP', stage:'triage', wc:0,    wt:1500, dl:'5 Jun',       dlC:'dl-ok',    age:'2d',     ageC:'age-ok',     pri:false, isNew:false },
+  { id:19, section:'Culture',  title:'Scottish contemporary art\'s surprising new patrons',              author:'P. Lim',       aI:'PL', editor:'T. Walsh',    eI:'TW', stage:'triage', wc:0,    wt:1800, dl:'7 Jun',       dlC:'dl-ok',    age:'18h',    ageC:'age-ok',     pri:false, isNew:false },
+  { id:20, section:'Politics', title:'Devolution at 25: what Holyrood got right, and what it missed',   author:'F. Chen',      aI:'FC', editor:'J. Morrison', eI:'JM', stage:'triage', wc:0,    wt:2000, dl:'8 Jun',       dlC:'dl-ok',    age:'3d',     ageC:'age-warn',   pri:true,  isNew:false },
+  { id:21, section:'Features', title:'The haulage shortage no one is tracking',                          author:'—',            aI:'?',  editor:'J. Morrison', eI:'JM', stage:'discovery',      wc:0,    wt:1500, dl:'—',           dlC:'dl-ok',    age:'1d',     ageC:'age-ok',     pri:false, isNew:true  },
+  { id:22, section:'Culture',  title:'A week eating only food produced within 30 miles of the city',    author:'—',            aI:'?',  editor:'T. Walsh',    eI:'TW', stage:'discovery',      wc:0,    wt:1200, dl:'—',           dlC:'dl-ok',    age:'3d',     ageC:'age-warn',   pri:false, isNew:false },
+  { id:23, section:'Features', title:'Head teacher who reversed her school\'s decline — a profile',     author:'M. Bell',      aI:'MB', editor:'T. Walsh',    eI:'TW', stage:'pubprep',    wc:2480, wt:2500, dl:'4 Jun 09:00', dlC:'dl-ok',    age:'8h',     ageC:'age-ok',     pri:false, isNew:false },
+  { id:24, section:'News',     title:'City marathon raises £1.2m for North East hospice',               author:'D. Forsyth',   aI:'DF', editor:'J. Morrison', eI:'JM', stage:'pubprep',    wc:860,  wt:800,  dl:'3 Jun 08:00', dlC:'dl-today', age:'1h',     ageC:'age-ok',     pri:false, isNew:true  },
+  { id:25, section:'Politics', title:'Council votes to freeze council tax for a second consecutive year',author:'A. Obi',       aI:'AO', editor:'S. Patel',    eI:'SP', stage:'published',         wc:1080, wt:1000, dl:'Published',   dlC:'dl-ok',    age:'3h live',ageC:'age-ok',     pri:false, isNew:false },
+  { id:26, section:'Sport',    title:'Marathon raises £1.2m for local hospice in record year',           author:'R. Ahmed',     aI:'RA', editor:'T. Walsh',    eI:'TW', stage:'published',         wc:920,  wt:800,  dl:'Published',   dlC:'dl-ok',    age:'1d live',ageC:'age-ok',     pri:false, isNew:false },
+];
+
+const AVT = ['#1d4ed8','#0369a1','#0f766e','#7c3aed','#be185d','#b45309','#15803d'];
+const avC = {}; let avI = 0;
+function avColor(k) { if (!avC[k]) avC[k] = AVT[avI++ % AVT.length]; return avC[k]; }
+
+const PILL = {
+  discovery: { cls:'pill-discovery', label:'Discovery' },
+  triage:    { cls:'pill-triage',   label:'Triage' },
+  research:  { cls:'pill-research', label:'Research' },
+  draft:     { cls:'pill-draft',    label:'Draft' },
+  interlink: { cls:'pill-interlink',label:'Interlink' },
+  edit:      { cls:'pill-edit',     label:'Edit' },
+  review:    { cls:'pill-review',   label:'Review' },
+  prepub:    { cls:'pill-prepub',   label:'Pre-pub Pack' },
+  decision:  { cls:'pill-decision', label:'Awaiting Dec.' },
+  pubprep:   { cls:'pill-pubprep',  label:'Publishing Prep' },
+  published: { cls:'pill-published',label:'Published' },
+};
+const ADVANCE = { discovery:'Triage', triage:'Research', research:'Draft', draft:'Interlink', interlink:'Edit', edit:'Review', review:'Pre-pub Pack', prepub:'Awaiting Dec.', decision:'Pub Prep', pubprep:'Publish' };
+
+let activeStage = 'all';
+let query = '';
+
+function setStage(stage, el) {
+  activeStage = stage;
+  document.querySelectorAll('.stage-tab').forEach(t => t.classList.remove('active'));
+  el.classList.add('active');
+  render();
+}
+
+function handleSearch() {
+  query = document.getElementById('searchInput').value.toLowerCase().trim();
+  render();
+}
+
+function esc(s) { return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+
+function updateCounts() {
+  const m = {};
+  ARTICLES.forEach(a => { m[a.stage] = (m[a.stage]||0) + 1; });
+  document.getElementById('ct-all').textContent = ARTICLES.length;
+  ['pitched','commissioned','filed','subediting','legal','scheduled','live'].forEach(s => {
+    const el = document.getElementById('ct-'+s);
+    if (el) el.textContent = m[s] || 0;
+  });
+}
+
+function render() {
+  const visible = ARTICLES.filter(a => {
+    const sOk = activeStage === 'all' || a.stage === activeStage;
+    const qOk = !query || [a.title,a.author,a.section,a.editor].some(v => v.toLowerCase().includes(query));
+    return sOk && qOk;
+  });
+
+  document.getElementById('statVisible').textContent = visible.length;
+  const adv = a => ADVANCE[a.stage];
+  const ac = a => avColor(a.aI), ec = a => avColor(a.eI);
+
+  document.getElementById('tbody').innerHTML = visible.map(a => {
+    const { cls, label } = PILL[a.stage];
+    const w = a.wc > 0 ? `${a.wc.toLocaleString()}&thinsp;/&thinsp;${a.wt.toLocaleString()}w` : `—&thinsp;/&thinsp;${a.wt.toLocaleString()}w`;
+    const advance = adv(a);
+    return `<tr>
+      <td class="cell-hl">
+        <div class="art-meta">
+          <span class="section-tag">${esc(a.section)}</span>
+          ${a.isNew?'<span class="badge-new">New</span>':''}
+          ${a.pri?'<span class="priority-dot" title="Priority"></span>':''}
+        </div>
+        <span class="art-title">${esc(a.title)}</span>
+      </td>
+      <td><div class="person"><div class="p-dot" style="background:${ac(a)}1a;border:1px solid ${ac(a)}40;color:${ac(a)}">${esc(a.aI)}</div><span class="p-name">${esc(a.author)}</span></div></td>
+      <td><div class="person"><div class="p-dot" style="background:${ec(a)}1a;border:1px solid ${ec(a)}40;color:${ec(a)}">${esc(a.eI)}</div><span class="p-name">${esc(a.editor)}</span></div></td>
+      <td><span class="pill ${cls}">${label}</span></td>
+      <td><span class="mono">${w}</span></td>
+      <td><span class="${a.dlC}">${esc(a.dl)}</span></td>
+      <td><span class="${a.ageC}">${esc(a.age)}</span></td>
+      <td class="cell-act"><div class="row-acts">
+        ${advance?`<button class="row-btn adv" onclick="${advance==='Schedule'?`window.location.href='publish.html'`:`alert('Move → ${esc(advance)}')`}">${esc(advance)}</button>`:''}
+        <button class="row-btn" onclick="alert('Assign…')">Assign</button>
+      </div></td>
+    </tr>`;
+  }).join('');
+
+  document.getElementById('emptyMsg').style.display = visible.length ? 'none' : 'block';
+}
+
+updateCounts();
+render();
+</script>
+</body>
+</html>

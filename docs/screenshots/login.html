@@ -1,0 +1,583 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Sign in — Union Media</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg:             #0b0d12;
+  --surface:        #10131c;
+  --surface-2:      #161d2e;
+  --fg:             #dde4f0;
+  --fg-2:           #7e8ea8;
+  --muted:          #4b5672;
+  --border:         #1c2438;
+  --border-mid:     #273047;
+  --accent:         #3b82f6;
+  --accent-on:      #fff;
+  --accent-hover:   #2563eb;
+  --accent-subtle:  rgba(59,130,246,.10);
+  --danger:         #ef4444;
+  --danger-subtle:  rgba(239,68,68,.08);
+  --font: Inter, "Helvetica Neue", system-ui, sans-serif;
+  --mono: "SF Mono", "Cascadia Code", ui-monospace, Menlo, monospace;
+  --r: 6px;
+}
+
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+html, body {
+  height: 100%;
+  background: var(--bg);
+  color: var(--fg);
+  font-family: var(--font);
+  font-size: 13px;
+  line-height: 1.45;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* ── LAYOUT ── */
+.page {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 24px 16px;
+  position: relative;
+}
+
+/* Subtle grid overlay — structural, not decorative */
+.page::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  background-image:
+    linear-gradient(var(--border) 1px, transparent 1px),
+    linear-gradient(90deg, var(--border) 1px, transparent 1px);
+  background-size: 48px 48px;
+  opacity: .35;
+  pointer-events: none;
+}
+
+/* ── CARD ── */
+.card {
+  width: 100%;
+  max-width: 360px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 32px 28px 28px;
+  position: relative;
+  z-index: 1;
+}
+
+/* ── WORDMARK ── */
+.wordmark {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 26px;
+}
+
+.wm-icon {
+  width: 32px;
+  height: 32px;
+  border-radius: 7px;
+  background: var(--accent);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.wm-icon svg {
+  display: block;
+}
+
+.wm-text {
+  flex: 1;
+  min-width: 0;
+}
+
+.wm-name {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--fg);
+  letter-spacing: -0.02em;
+  display: block;
+  line-height: 1.1;
+}
+
+.wm-sub {
+  font-size: 10.5px;
+  color: var(--muted);
+  font-family: var(--mono);
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  display: block;
+  margin-top: 2px;
+}
+
+/* ── HEADING ── */
+.form-heading {
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--fg);
+  letter-spacing: -0.02em;
+  margin-bottom: 4px;
+}
+
+.form-sub {
+  font-size: 12px;
+  color: var(--fg-2);
+  margin-bottom: 22px;
+}
+
+/* ── FIELDS ── */
+.field {
+  margin-bottom: 14px;
+}
+
+.field label {
+  display: block;
+  font-size: 11.5px;
+  font-weight: 500;
+  color: var(--fg-2);
+  margin-bottom: 5px;
+  letter-spacing: 0.01em;
+}
+
+.field input {
+  width: 100%;
+  height: 36px;
+  background: var(--bg);
+  border: 1px solid var(--border-mid);
+  border-radius: var(--r);
+  color: var(--fg);
+  font-size: 13px;
+  font-family: var(--font);
+  padding: 0 11px;
+  outline: none;
+  transition: border-color 120ms, box-shadow 120ms;
+}
+
+.field input::placeholder {
+  color: var(--muted);
+}
+
+.field input:hover {
+  border-color: var(--muted);
+}
+
+.field input:focus {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px rgba(59,130,246,.15);
+}
+
+.field input.error {
+  border-color: var(--danger);
+  box-shadow: 0 0 0 3px var(--danger-subtle);
+}
+
+.field-error {
+  font-size: 11px;
+  color: var(--danger);
+  margin-top: 4px;
+  display: none;
+}
+
+.field-error.visible {
+  display: block;
+}
+
+/* Password row */
+.field-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 5px;
+}
+
+.field-row label {
+  margin-bottom: 0;
+  font-size: 11.5px;
+  font-weight: 500;
+  color: var(--fg-2);
+}
+
+.forgot {
+  font-size: 11px;
+  color: var(--accent);
+  text-decoration: none;
+  transition: color 100ms;
+}
+
+.forgot:hover {
+  color: var(--accent-hover);
+}
+
+/* Password input wrapper */
+.pw-wrap {
+  position: relative;
+}
+
+.pw-wrap input {
+  padding-right: 38px;
+}
+
+.pw-toggle {
+  position: absolute;
+  right: 0;
+  top: 0;
+  bottom: 0;
+  width: 38px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--muted);
+  cursor: pointer;
+  background: transparent;
+  border: none;
+  transition: color 100ms;
+}
+
+.pw-toggle:hover {
+  color: var(--fg-2);
+}
+
+/* ── REMEMBER ── */
+.remember {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  margin-bottom: 20px;
+  margin-top: 2px;
+  cursor: pointer;
+  user-select: none;
+}
+
+.remember input[type="checkbox"] {
+  width: 14px;
+  height: 14px;
+  accent-color: var(--accent);
+  cursor: pointer;
+  flex-shrink: 0;
+}
+
+.remember span {
+  font-size: 12px;
+  color: var(--fg-2);
+}
+
+/* ── SUBMIT ── */
+.btn-submit {
+  width: 100%;
+  height: 36px;
+  background: var(--accent);
+  border: none;
+  border-radius: var(--r);
+  color: var(--accent-on);
+  font-size: 13px;
+  font-weight: 600;
+  font-family: var(--font);
+  cursor: pointer;
+  letter-spacing: -0.01em;
+  transition: background 100ms, opacity 100ms;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+}
+
+.btn-submit:hover {
+  background: var(--accent-hover);
+}
+
+.btn-submit:active {
+  opacity: .85;
+}
+
+.btn-submit:disabled {
+  opacity: .45;
+  cursor: not-allowed;
+}
+
+/* Loading spinner */
+.spinner {
+  width: 14px;
+  height: 14px;
+  border: 2px solid rgba(255,255,255,.3);
+  border-top-color: #fff;
+  border-radius: 50%;
+  animation: spin .65s linear infinite;
+  display: none;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+.btn-submit.loading .btn-label { display: none; }
+.btn-submit.loading .spinner   { display: block; }
+
+/* ── DIVIDER ── */
+.divider {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 20px 0 16px;
+}
+
+.divider::before,
+.divider::after {
+  content: '';
+  flex: 1;
+  height: 1px;
+  background: var(--border);
+}
+
+.divider span {
+  font-size: 11px;
+  color: var(--muted);
+  font-family: var(--mono);
+  white-space: nowrap;
+}
+
+/* ── SSO ── */
+.btn-sso {
+  width: 100%;
+  height: 34px;
+  background: transparent;
+  border: 1px solid var(--border-mid);
+  border-radius: var(--r);
+  color: var(--fg-2);
+  font-size: 12px;
+  font-weight: 500;
+  font-family: var(--font);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  transition: background 100ms, color 100ms, border-color 100ms;
+}
+
+.btn-sso:hover {
+  background: var(--surface-2);
+  color: var(--fg);
+  border-color: var(--muted);
+}
+
+/* ── FOOTER ── */
+.card-footer {
+  margin-top: 22px;
+  padding-top: 18px;
+  border-top: 1px solid var(--border);
+  text-align: center;
+  font-size: 11px;
+  color: var(--muted);
+}
+
+.card-footer a {
+  color: var(--accent);
+  text-decoration: none;
+  transition: color 100ms;
+}
+
+.card-footer a:hover {
+  color: var(--accent-hover);
+}
+
+/* ── PAGE FOOTER ── */
+.page-footer {
+  margin-top: 20px;
+  font-size: 11px;
+  color: var(--muted);
+  font-family: var(--mono);
+  text-align: center;
+  position: relative;
+  z-index: 1;
+}
+
+.page-footer span {
+  color: var(--border-mid);
+  margin: 0 6px;
+}
+</style>
+</head>
+<body>
+
+<div class="page">
+  <div class="card">
+
+    <!-- Wordmark -->
+    <div class="wordmark">
+      <div class="wm-icon">
+        <!-- U lettermark -->
+        <svg width="18" height="18" viewBox="0 0 18 18" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <path d="M4 3v7.5C4 13.1 6.24 15 9 15s5-1.9 5-4.5V3" stroke="#fff" stroke-width="2" stroke-linecap="round"/>
+        </svg>
+      </div>
+      <div class="wm-text">
+        <span class="wm-name">Union Media</span>
+        <span class="wm-sub">Editorial Operations</span>
+      </div>
+    </div>
+
+    <!-- Heading -->
+    <p class="form-heading">Sign in to your account</p>
+    <p class="form-sub">Internal staff access only.</p>
+
+    <!-- Form -->
+    <form id="login-form" novalidate>
+
+      <div class="field" id="field-email">
+        <label for="email">Work email</label>
+        <input
+          type="email"
+          id="email"
+          name="email"
+          placeholder="you@unionmedia.com"
+          autocomplete="email"
+          required
+        >
+        <div class="field-error" id="email-error">Enter a valid work email address.</div>
+      </div>
+
+      <div class="field" id="field-password">
+        <div class="field-row">
+          <label for="password">Password</label>
+          <a href="#" class="forgot" tabindex="-1">Forgot password?</a>
+        </div>
+        <div class="pw-wrap">
+          <input
+            type="password"
+            id="password"
+            name="password"
+            placeholder="••••••••"
+            autocomplete="current-password"
+            required
+          >
+          <button type="button" class="pw-toggle" id="pw-toggle" aria-label="Show password">
+            <!-- Eye icon -->
+            <svg id="eye-icon" width="15" height="15" viewBox="0 0 15 15" fill="none">
+              <path d="M1 7.5C2.5 4.5 4.8 3 7.5 3s5 1.5 6.5 4.5C12.5 10.5 10.2 12 7.5 12S2.5 10.5 1 7.5Z" stroke="currentColor" stroke-width="1.2"/>
+              <circle cx="7.5" cy="7.5" r="2" stroke="currentColor" stroke-width="1.2"/>
+            </svg>
+            <!-- Eye-off icon (hidden by default) -->
+            <svg id="eye-off-icon" width="15" height="15" viewBox="0 0 15 15" fill="none" style="display:none">
+              <path d="M1 1l13 13M6.2 3.2A5.6 5.6 0 017.5 3c2.7 0 5 1.5 6.5 4.5a11.4 11.4 0 01-2.3 3M5 11.7C3.1 10.9 1.9 9.4 1 7.5 2.5 4.5 4.8 3 7.5 3" stroke="currentColor" stroke-width="1.2" stroke-linecap="round"/>
+              <path d="M5.5 5.6a2 2 0 002.9 2.9" stroke="currentColor" stroke-width="1.2" stroke-linecap="round"/>
+            </svg>
+          </button>
+        </div>
+        <div class="field-error" id="password-error">Enter your password.</div>
+      </div>
+
+      <label class="remember">
+        <input type="checkbox" id="remember" checked>
+        <span>Keep me signed in for 8 hours</span>
+      </label>
+
+      <button type="submit" class="btn-submit" id="submit-btn">
+        <span class="btn-label">Sign in</span>
+        <div class="spinner"></div>
+      </button>
+
+    </form>
+
+    <div class="divider"><span>or</span></div>
+
+    <button type="button" class="btn-sso" onclick="handleSSO()">
+      <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
+        <rect x="1" y="1" width="5.5" height="5.5" rx="1" fill="var(--accent)"/>
+        <rect x="7.5" y="1" width="5.5" height="5.5" rx="1" fill="var(--fg-2)"/>
+        <rect x="1" y="7.5" width="5.5" height="5.5" rx="1" fill="var(--fg-2)"/>
+        <rect x="7.5" y="7.5" width="5.5" height="5.5" rx="1" fill="var(--muted)"/>
+      </svg>
+      Continue with SSO
+    </button>
+
+    <div class="card-footer">
+      Having trouble? <a href="#">Contact IT support</a>
+    </div>
+
+  </div>
+
+  <p class="page-footer">
+    Union Media Group<span>·</span>Internal systems<span>·</span>v2.4.1
+  </p>
+</div>
+
+<script>
+  const form     = document.getElementById('login-form');
+  const emailEl  = document.getElementById('email');
+  const passEl   = document.getElementById('password');
+  const submitEl = document.getElementById('submit-btn');
+  const emailErr = document.getElementById('email-error');
+  const passErr  = document.getElementById('password-error');
+
+  /* Password visibility toggle */
+  document.getElementById('pw-toggle').addEventListener('click', () => {
+    const isText = passEl.type === 'text';
+    passEl.type = isText ? 'password' : 'text';
+    document.getElementById('eye-icon').style.display     = isText ? '' : 'none';
+    document.getElementById('eye-off-icon').style.display = isText ? 'none' : '';
+  });
+
+  /* Clear error on edit */
+  emailEl.addEventListener('input', () => setError('email', false));
+  passEl.addEventListener('input',  () => setError('password', false));
+
+  function setError(field, state) {
+    const input = document.getElementById(field);
+    const err   = document.getElementById(field + '-error');
+    input.classList.toggle('error', state);
+    err.classList.toggle('visible', state);
+  }
+
+  /* Submit */
+  form.addEventListener('submit', (e) => {
+    e.preventDefault();
+
+    let valid = true;
+
+    const email = emailEl.value.trim();
+    const pass  = passEl.value;
+
+    if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+      setError('email', true);
+      valid = false;
+    }
+
+    if (!pass) {
+      setError('password', true);
+      valid = false;
+    }
+
+    if (!valid) return;
+
+    /* Loading state */
+    submitEl.classList.add('loading');
+    submitEl.disabled = true;
+
+    /* Simulate auth round-trip then navigate */
+    setTimeout(() => {
+      window.location.href = 'dashboard.html';
+    }, 900);
+  });
+
+  function handleSSO() {
+    submitEl.classList.add('loading');
+    submitEl.disabled = true;
+    setTimeout(() => {
+      window.location.href = 'dashboard.html';
+    }, 700);
+  }
+</script>
+</body>
+</html>

@@ -1,0 +1,808 @@
+
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Approvals — Union Media</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg:             #0b0d12;
+  --surface:        #10131c;
+  --surface-2:      #161d2e;
+  --fg:             #dde4f0;
+  --fg-2:           #7e8ea8;
+  --muted:          #4b5672;
+  --border:         #1c2438;
+  --border-mid:     #273047;
+  --accent:         #3b82f6;
+  --accent-on:      #fff;
+  --accent-hover:   #2563eb;
+  --accent-subtle:  rgba(59,130,246,.10);
+  --success:        #22c55e;
+  --success-subtle: rgba(34,197,94,.08);
+  --warn:           #f59e0b;
+  --warn-subtle:    rgba(245,158,11,.08);
+  --danger:         #ef4444;
+  --danger-subtle:  rgba(239,68,68,.08);
+  --font: Inter, "Helvetica Neue", system-ui, sans-serif;
+  --mono: "SF Mono", "Cascadia Code", ui-monospace, Menlo, monospace;
+  --sidebar-w: 216px;
+  --topbar-h:  48px;
+  --queue-w:   360px;
+  --r:         6px;
+}
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+html, body {
+  height: 100%; background: var(--bg); color: var(--fg);
+  font-family: var(--font); font-size: 13px; line-height: 1.45;
+  -webkit-font-smoothing: antialiased;
+}
+.shell {
+  display: grid;
+  grid-template-columns: var(--sidebar-w) 1fr;
+  grid-template-rows: var(--topbar-h) 1fr;
+  height: 100vh; overflow: hidden;
+}
+.sidebar {
+  grid-row: 1 / 3; background: var(--surface);
+  border-right: 1px solid var(--border);
+  display: flex; flex-direction: column; overflow-y: auto;
+}
+.sidebar-pub { padding: 14px 16px 12px; border-bottom: 1px solid var(--border); }
+.pub-name { font-size: 13px; font-weight: 600; color: var(--fg); letter-spacing: -0.015em; display: block; }
+.pub-meta { font-size: 11px; color: var(--muted); margin-top: 2px; font-family: var(--mono); font-variant-numeric: tabular-nums; }
+.sidebar-nav { padding: 8px 0; flex: 1; }
+.nav-section { padding: 14px 16px 4px; font-size: 10px; font-weight: 600; letter-spacing: 0.07em; text-transform: uppercase; color: var(--muted); }
+.nav-item {
+  display: flex; align-items: center; gap: 9px;
+  padding: 7px 16px; font-size: 13px; color: var(--fg-2);
+  cursor: pointer; text-decoration: none; position: relative;
+  transition: background 100ms, color 100ms;
+}
+.nav-item:hover { background: var(--surface-2); color: var(--fg); }
+.nav-item.active { color: var(--fg); background: var(--accent-subtle); }
+.nav-item.active::before {
+  content: ''; position: absolute; left: 0; top: 4px; bottom: 4px;
+  width: 2px; background: var(--accent); border-radius: 0 2px 2px 0;
+}
+.nav-icon { width: 15px; height: 15px; flex-shrink: 0; opacity: .65; }
+.nav-item.active .nav-icon, .nav-item:hover .nav-icon { opacity: 1; }
+.nav-badge {
+  margin-left: auto; font-size: 10px; font-family: var(--mono);
+  font-variant-numeric: tabular-nums; color: var(--muted);
+  background: var(--bg); border: 1px solid var(--border);
+  padding: 1px 6px; border-radius: 9999px; line-height: 1.6;
+}
+.nav-badge.urgent { color: var(--warn); border-color: rgba(245,158,11,.4); background: var(--warn-subtle); }
+.sidebar-user {
+  padding: 12px 16px; border-top: 1px solid var(--border);
+  display: flex; align-items: center; gap: 9px;
+}
+.avatar-sm {
+  width: 26px; height: 26px; border-radius: 50%;
+  background: var(--accent-subtle); border: 1px solid var(--border-mid);
+  display: flex; align-items: center; justify-content: center;
+  font-size: 10px; font-weight: 700; color: var(--accent);
+  flex-shrink: 0; font-family: var(--mono);
+}
+.user-name { font-size: 12px; font-weight: 500; color: var(--fg); display: block; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.user-role { font-size: 11px; color: var(--muted); display: block; }
+.topbar {
+  background: var(--surface); border-bottom: 1px solid var(--border);
+  display: flex; align-items: center; padding: 0 18px; gap: 10px;
+}
+.topbar-title { font-size: 13px; font-weight: 600; color: var(--fg); flex: 1; letter-spacing: -0.01em; }
+.topbar-sub { color: var(--muted); font-weight: 400; font-size: 12px; margin-left: 7px; }
+.icon-btn {
+  width: 28px; height: 28px; display: flex; align-items: center; justify-content: center;
+  border: 1px solid var(--border); background: transparent; border-radius: var(--r);
+  color: var(--fg-2); cursor: pointer; transition: background 100ms, color 100ms;
+}
+.icon-btn:hover { background: var(--surface-2); color: var(--fg); }
+.topbar-avatar {
+  width: 28px; height: 28px; border-radius: 50%;
+  background: var(--accent-subtle); border: 1px solid var(--border-mid);
+  display: flex; align-items: center; justify-content: center;
+  font-size: 10px; font-weight: 700; color: var(--accent);
+  cursor: pointer; font-family: var(--mono);
+}
+.main { display: flex; overflow: hidden; background: var(--bg); }
+.queue-panel {
+  width: var(--queue-w); flex-shrink: 0;
+  background: var(--surface); border-right: 1px solid var(--border);
+  display: flex; flex-direction: column; overflow: hidden;
+}
+.q-tabs {
+  display: flex; border-bottom: 1px solid var(--border);
+  background: var(--surface); flex-shrink: 0; overflow-x: auto;
+  scrollbar-width: none;
+}
+.q-tabs::-webkit-scrollbar { display: none; }
+.q-tab {
+  padding: 9px 10px 8px; font-size: 11.5px; font-weight: 500;
+  color: var(--fg-2); cursor: pointer; white-space: nowrap;
+  border-bottom: 2px solid transparent; margin-bottom: -1px;
+  transition: color 100ms, border-color 100ms; user-select: none;
+  display: flex; align-items: center; gap: 4px;
+}
+.q-tab:hover { color: var(--fg); }
+.q-tab.active { color: var(--fg); border-bottom-color: var(--accent); }
+.q-tab-count {
+  font-size: 10px; font-family: var(--mono); font-variant-numeric: tabular-nums;
+  color: var(--muted); background: var(--bg); border: 1px solid var(--border);
+  padding: 0 5px; border-radius: 9999px; line-height: 1.7;
+}
+.q-tab.active .q-tab-count { background: var(--accent-subtle); border-color: rgba(59,130,246,.35); color: var(--accent); }
+.q-tab-count.urgent { color: var(--warn); border-color: rgba(245,158,11,.4); background: var(--warn-subtle); }
+.q-filter {
+  display: flex; align-items: center; gap: 6px; padding: 7px 10px;
+  border-bottom: 1px solid var(--border); flex-shrink: 0;
+}
+.q-search {
+  flex: 1; display: flex; align-items: center; gap: 5px;
+  background: var(--bg); border: 1px solid var(--border);
+  border-radius: var(--r); padding: 0 8px; height: 26px;
+  transition: border-color 120ms;
+}
+.q-search:focus-within { border-color: var(--accent); }
+.q-search input {
+  border: none; background: transparent; color: var(--fg);
+  font-size: 11.5px; font-family: var(--font); outline: none; width: 100%;
+}
+.q-search input::placeholder { color: var(--muted); }
+.q-sort {
+  height: 26px; padding: 0 22px 0 8px; background: var(--bg);
+  border: 1px solid var(--border); border-radius: var(--r);
+  color: var(--fg-2); font-size: 11px; font-family: var(--font);
+  cursor: pointer; appearance: none; flex-shrink: 0;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6'%3E%3Cpath d='M1 1l4 4 4-4' stroke='%234b5672' stroke-width='1.5' fill='none' stroke-linecap='round'/%3E%3C/svg%3E");
+  background-repeat: no-repeat; background-position: right 6px center;
+}
+.q-body { flex: 1; overflow-y: auto; scrollbar-width: thin; scrollbar-color: var(--border-mid) transparent; }
+.q-item {
+  padding: 10px 12px; border-bottom: 1px solid var(--border);
+  cursor: pointer; transition: background 70ms; position: relative;
+}
+.q-item:hover { background: rgba(255,255,255,.025); }
+.q-item.selected { background: rgba(59,130,246,.06); }
+.q-item.selected::before {
+  content: ''; position: absolute; left: 0; top: 0; bottom: 0;
+  width: 2px; background: var(--accent);
+}
+.qi-header { display: flex; align-items: center; gap: 5px; margin-bottom: 4px; }
+.qi-id { font-family: var(--mono); font-size: 10px; font-weight: 600; color: var(--muted); letter-spacing: 0.06em; text-transform: uppercase; flex-shrink: 0; }
+.risk { display: inline-flex; align-items: center; padding: 1px 5px; border-radius: 3px; font-size: 10px; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; font-family: var(--mono); flex-shrink: 0; }
+.risk-high { background: var(--danger-subtle); border: 1px solid rgba(239,68,68,.3); color: var(--danger); }
+.risk-med  { background: var(--warn-subtle);   border: 1px solid rgba(245,158,11,.3); color: var(--warn); }
+.risk-low  { background: var(--success-subtle);border: 1px solid rgba(34,197,94,.3);  color: var(--success); }
+.type-badge { display: inline-flex; align-items: center; gap: 3px; padding: 1px 6px; border-radius: 9999px; font-size: 10.5px; font-weight: 500; white-space: nowrap; }
+.tb-prepub   { background: rgba(168,85,247,.10); border: 1px solid rgba(168,85,247,.35); color: #c084fc; }
+.tb-escl     { background: var(--danger-subtle); border: 1px solid rgba(239,68,68,.35); color: #fca5a5; }
+.tb-reject   { background: var(--warn-subtle);   border: 1px solid rgba(245,158,11,.35); color: var(--warn); }
+.tb-override { background: rgba(14,165,233,.10); border: 1px solid rgba(14,165,233,.35); color: #7dd3fc; }
+.qi-hl {
+  font-size: 12.5px; font-weight: 500; color: var(--fg);
+  line-height: 1.3; margin-bottom: 6px; letter-spacing: -0.01em;
+  display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;
+}
+.qi-footer { display: flex; align-items: center; gap: 7px; }
+.qi-req { display: flex; align-items: center; gap: 5px; font-size: 11px; color: var(--fg-2); flex: 1; min-width: 0; }
+.av-xs { width: 18px; height: 18px; border-radius: 50%; flex-shrink: 0; display: flex; align-items: center; justify-content: center; font-size: 8px; font-weight: 700; font-family: var(--mono); border: 1px solid var(--border-mid); }
+.qi-req-name { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.qi-age { font-size: 11px; font-family: var(--mono); font-variant-numeric: tabular-nums; color: var(--fg-2); white-space: nowrap; flex-shrink: 0; }
+.qi-sla { font-size: 11px; font-family: var(--mono); font-variant-numeric: tabular-nums; white-space: nowrap; flex-shrink: 0; }
+.sla-ok   { color: var(--fg-2); }
+.sla-warn { color: var(--warn); }
+.sla-over { color: var(--danger); font-weight: 600; }
+.decision-panel { flex: 1; display: flex; flex-direction: column; overflow: hidden; }
+.dp-header { background: var(--surface); border-bottom: 1px solid var(--border); padding: 13px 20px 0; flex-shrink: 0; }
+.dp-header-top { display: flex; align-items: flex-start; gap: 10px; margin-bottom: 9px; }
+.dp-id-block { display: flex; flex-direction: column; gap: 3px; flex-shrink: 0; padding-top: 2px; }
+.dp-id { font-family: var(--mono); font-size: 11px; font-weight: 600; color: var(--muted); letter-spacing: 0.06em; text-transform: uppercase; white-space: nowrap; }
+.dp-section-tag { font-family: var(--mono); font-size: 10px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.05em; }
+.dp-title-block { flex: 1; min-width: 0; }
+.dp-hl { font-size: 15px; font-weight: 600; color: var(--fg); letter-spacing: -0.02em; line-height: 1.3; display: block; margin-bottom: 3px; }
+.dp-deck { font-size: 11.5px; color: var(--fg-2); line-height: 1.45; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+.dp-badges { display: flex; align-items: center; gap: 5px; flex-shrink: 0; flex-wrap: wrap; }
+.dp-meta-row { display: flex; align-items: center; flex-wrap: wrap; border-top: 1px solid var(--border); padding: 8px 0 0; }
+.dm { display: flex; align-items: center; gap: 4px; padding-right: 13px; margin-right: 13px; border-right: 1px solid var(--border); font-size: 11.5px; padding-bottom: 8px; }
+.dm:last-child { border-right: none; padding-right: 0; margin-right: 0; }
+.dm-lbl { color: var(--muted); }
+.dm-val { color: var(--fg-2); font-weight: 500; }
+.sla-banner {
+  border-top: 1px solid var(--border); padding: 8px 20px;
+  display: flex; align-items: center; gap: 8px; font-size: 12px;
+  background: var(--surface); flex-shrink: 0;
+}
+.sla-banner-warn { color: var(--warn); }
+.sla-banner-ok   { color: var(--fg-2); }
+.sla-countdown { font-family: var(--mono); font-weight: 600; font-variant-numeric: tabular-nums; font-size: 13px; flex-shrink: 0; }
+.sla-desc { color: var(--fg-2); }
+.sla-since { font-family: var(--mono); font-size: 11px; color: var(--muted); flex-shrink: 0; margin-left: auto; }
+.dp-body { flex: 1; overflow-y: auto; padding: 0; scrollbar-width: thin; scrollbar-color: var(--border-mid) transparent; }
+.dp-section-head { padding: 12px 20px 8px; font-size: 10px; font-weight: 600; letter-spacing: 0.07em; text-transform: uppercase; color: var(--muted); border-bottom: 1px solid var(--border); }
+.artifacts-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; padding: 12px 20px 14px; border-bottom: 1px solid var(--border); }
+.artifact-card {
+  background: var(--surface); border: 1px solid var(--border);
+  border-radius: var(--r); padding: 10px 11px;
+  cursor: pointer; transition: border-color 100ms, background 100ms;
+  display: flex; flex-direction: column; gap: 6px;
+}
+.artifact-card:hover { border-color: var(--border-mid); background: var(--surface-2); }
+.art-card-top { display: flex; align-items: center; justify-content: space-between; }
+.art-icon { width: 26px; height: 26px; border-radius: 5px; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+.art-icon-pdf  { background: rgba(239,68,68,.10); border: 1px solid rgba(239,68,68,.3); }
+.art-icon-doc  { background: var(--accent-subtle); border: 1px solid rgba(59,130,246,.3); }
+.art-icon-note { background: var(--success-subtle); border: 1px solid rgba(34,197,94,.3); }
+.art-ver { font-size: 10px; font-family: var(--mono); color: var(--muted); }
+.art-name { font-size: 12px; font-weight: 500; color: var(--fg); line-height: 1.3; }
+.art-meta-sm { font-size: 11px; color: var(--muted); font-family: var(--mono); }
+.criteria-table { width: 100%; border-collapse: collapse; }
+.criteria-table td { padding: 8px 12px; border-bottom: 1px solid var(--border); vertical-align: middle; }
+.criteria-table tr:last-child td { border-bottom: none; }
+.crit-label { font-size: 12.5px; color: var(--fg); font-weight: 500; padding-left: 20px !important; }
+.crit-note  { font-size: 11.5px; color: var(--fg-2); }
+.crit-status { text-align: right; width: 90px; }
+.cs-pass { display: inline-flex; align-items: center; gap: 4px; font-size: 11px; font-weight: 600; color: var(--success); font-family: var(--mono); text-transform: uppercase; letter-spacing: 0.05em; }
+.cs-fail { display: inline-flex; align-items: center; gap: 4px; font-size: 11px; font-weight: 600; color: var(--danger); font-family: var(--mono); text-transform: uppercase; letter-spacing: 0.05em; }
+.cs-pend { display: inline-flex; align-items: center; gap: 4px; font-size: 11px; font-weight: 600; color: var(--warn); font-family: var(--mono); text-transform: uppercase; letter-spacing: 0.05em; }
+.cs-dot { width: 6px; height: 6px; border-radius: 50%; flex-shrink: 0; }
+.cs-pass .cs-dot { background: var(--success); }
+.cs-fail .cs-dot { background: var(--danger); }
+.cs-pend .cs-dot { background: var(--warn); }
+.decision-log { padding: 0; }
+.log-item { display: flex; gap: 10px; padding: 10px 20px; border-bottom: 1px solid var(--border); }
+.log-item:last-child { border-bottom: none; }
+.log-avatar { width: 22px; height: 22px; border-radius: 50%; flex-shrink: 0; display: flex; align-items: center; justify-content: center; font-size: 9px; font-weight: 700; font-family: var(--mono); border: 1px solid var(--border-mid); margin-top: 1px; }
+.log-body { flex: 1; min-width: 0; }
+.log-header { display: flex; align-items: baseline; gap: 7px; margin-bottom: 3px; flex-wrap: wrap; }
+.log-author { font-size: 12px; font-weight: 600; color: var(--fg); }
+.log-action { font-size: 11.5px; color: var(--fg-2); }
+.log-time { font-size: 10.5px; font-family: var(--mono); color: var(--muted); margin-left: auto; white-space: nowrap; flex-shrink: 0; }
+.log-text { font-size: 12px; color: var(--fg-2); line-height: 1.5; }
+.log-badge { display: inline-flex; align-items: center; padding: 1px 6px; border-radius: 3px; font-size: 10px; font-weight: 700; letter-spacing: 0.05em; text-transform: uppercase; font-family: var(--mono); }
+.lb-approved  { background: var(--success-subtle); border: 1px solid rgba(34,197,94,.3); color: var(--success); }
+.lb-modified  { background: var(--warn-subtle);    border: 1px solid rgba(245,158,11,.3); color: var(--warn); }
+.lb-rejected  { background: var(--danger-subtle);  border: 1px solid rgba(239,68,68,.3);  color: var(--danger); }
+.lb-submitted { background: var(--accent-subtle);  border: 1px solid rgba(59,130,246,.3); color: var(--accent); }
+.lb-escalated { background: var(--danger-subtle);  border: 1px solid rgba(239,68,68,.3);  color: #fca5a5; }
+.dp-footer { background: var(--surface); border-top: 1px solid var(--border); padding: 12px 20px; flex-shrink: 0; }
+.dp-footer-label { font-size: 10.5px; font-weight: 600; letter-spacing: 0.07em; text-transform: uppercase; color: var(--muted); margin-bottom: 6px; }
+.rationale-area {
+  width: 100%; background: var(--bg); border: 1px solid var(--border-mid);
+  border-radius: var(--r); color: var(--fg); font-family: var(--font);
+  font-size: 12.5px; line-height: 1.55; padding: 8px 10px; resize: none;
+  transition: border-color 120ms; display: block; min-height: 50px;
+}
+.rationale-area::placeholder { color: var(--muted); }
+.rationale-area:focus { outline: none; border-color: var(--accent); }
+.action-row { display: flex; gap: 7px; margin-top: 9px; align-items: center; }
+.spacer { flex: 1; }
+.btn {
+  height: 30px; padding: 0 13px; border-radius: var(--r);
+  font-size: 12.5px; font-weight: 500; font-family: var(--font); cursor: pointer;
+  transition: background 100ms, color 100ms, border-color 100ms;
+  display: flex; align-items: center; gap: 6px; white-space: nowrap;
+  border: 1px solid transparent;
+}
+.btn-ghost   { background: transparent; border-color: var(--border-mid); color: var(--fg-2); }
+.btn-ghost:hover { background: var(--surface-2); color: var(--fg); }
+.btn-approve { background: var(--accent); border-color: var(--accent); color: var(--accent-on); }
+.btn-approve:hover { background: var(--accent-hover); border-color: var(--accent-hover); }
+.btn-modify  { background: transparent; border-color: var(--warn); color: var(--warn); }
+.btn-modify:hover  { background: var(--warn-subtle); }
+.btn-reject  { background: transparent; border-color: rgba(239,68,68,.5); color: var(--danger); }
+.btn-reject:hover  { background: var(--danger-subtle); }
+.modal-overlay {
+  position: fixed; inset: 0; background: rgba(0,0,0,.55);
+  display: flex; align-items: center; justify-content: center;
+  z-index: 200; opacity: 0; pointer-events: none; transition: opacity 150ms;
+}
+.modal-overlay.visible { opacity: 1; pointer-events: all; }
+.modal { background: var(--surface); border: 1px solid var(--border-mid); border-radius: 10px; width: 400px; max-width: 90vw; box-shadow: 0 20px 60px rgba(0,0,0,.5); overflow: hidden; }
+.modal-head { padding: 16px 18px 14px; border-bottom: 1px solid var(--border); display: flex; align-items: flex-start; justify-content: space-between; gap: 8px; }
+.modal-title { font-size: 14px; font-weight: 600; color: var(--fg); letter-spacing: -0.015em; }
+.modal-sub { font-size: 12px; color: var(--fg-2); margin-top: 2px; }
+.modal-close { color: var(--muted); cursor: pointer; background: none; border: none; padding: 2px; transition: color 100ms; }
+.modal-close:hover { color: var(--fg); }
+.modal-body { padding: 16px 18px; }
+.modal-label { font-size: 11px; font-weight: 600; letter-spacing: 0.05em; text-transform: uppercase; color: var(--muted); margin-bottom: 5px; display: block; }
+.modal-textarea { width: 100%; background: var(--bg); border: 1px solid var(--border-mid); border-radius: var(--r); color: var(--fg); font-family: var(--font); font-size: 12.5px; line-height: 1.5; padding: 8px 10px; resize: none; min-height: 72px; transition: border-color 120ms; }
+.modal-textarea:focus { outline: none; border-color: var(--accent); }
+.modal-actions { display: flex; gap: 7px; justify-content: flex-end; margin-top: 12px; }
+.empty-panel { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 8px; color: var(--muted); user-select: none; }
+.empty-label { font-size: 13px; font-weight: 500; color: var(--fg-2); }
+.empty-sub { font-size: 12px; color: var(--muted); }
+</style>
+</head>
+<body>
+<div class="shell">
+
+  <aside class="sidebar">
+    <div class="sidebar-pub">
+      <span class="pub-name">Union Media</span>
+      <span class="pub-meta">Editorial Ops · 28 May 2026</span>
+    </div>
+          <nav class="sidebar-nav">
+    <div class="nav-section">Overview</div>
+    <a href="dashboard.html" class="nav-item">
+      <svg class="nav-icon" viewBox="0 0 15 15" fill="none"><rect x="1.5" y="1.5" width="5" height="5" rx="1" fill="currentColor"/><rect x="8.5" y="1.5" width="5" height="5" rx="1" fill="currentColor"/><rect x="1.5" y="8.5" width="5" height="5" rx="1" fill="currentColor"/><rect x="8.5" y="8.5" width="5" height="5" rx="1" fill="currentColor"/></svg>
+      Dashboard
+    </a>
+    <div class="nav-section">Editorial</div>
+    <a href="pipeline-dashboard.html" class="nav-item">
+      <svg class="nav-icon" viewBox="0 0 15 15" fill="none"><rect x="1.5" y="2.5" width="12" height="1.5" rx=".5" fill="currentColor"/><rect x="1.5" y="6.5" width="12" height="1.5" rx=".5" fill="currentColor"/><rect x="1.5" y="10.5" width="12" height="1.5" rx=".5" fill="currentColor"/></svg>
+      Pipeline
+    </a>
+    <a href="pipeline-board.html" class="nav-item">
+      <svg class="nav-icon" viewBox="0 0 15 15" fill="none"><rect x="1" y="1.5" width="4" height="12" rx="1" fill="currentColor"/><rect x="6" y="1.5" width="4" height="8.5" rx="1" fill="currentColor"/><rect x="11" y="1.5" width="3" height="5.5" rx="1" fill="currentColor"/></svg>
+      Board
+    </a>
+    <a href="#" class="nav-item">
+      <svg class="nav-icon" viewBox="0 0 15 15" fill="none"><rect x="1.5" y="2.5" width="12" height="11" rx="1.5" stroke="currentColor" stroke-width="1.3"/><path d="M1.5 6h12" stroke="currentColor" stroke-width="1.3"/><path d="M5 1.5V4M10 1.5V4" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/></svg>
+      Calendar
+      <span class="nav-badge">18</span>
+    </a>
+    <a href="article-dossier.html" class="nav-item">
+      <svg class="nav-icon" viewBox="0 0 15 15" fill="none"><path d="M3.5 1.5h5.5l3 3v9h-8.5v-12z" stroke="currentColor" stroke-width="1.3" stroke-linejoin="round"/><path d="M9 1.5v3.5h3" stroke="currentColor" stroke-width="1.3"/><path d="M5 7.5h5M5 9.5h3" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/></svg>
+      Article Dossier
+    </a>
+    <div class="nav-section">Management</div>
+    <a href="approvals.html" class="nav-item active">
+      <svg class="nav-icon" viewBox="0 0 15 15" fill="none"><path d="M2 7.5L6 11.5L13 3.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      Approvals
+      <span class="nav-badge urgent">4</span>
+    </a>
+    <a href="#" class="nav-item">
+      <svg class="nav-icon" viewBox="0 0 15 15" fill="none"><circle cx="5" cy="5.5" r="2" stroke="currentColor" stroke-width="1.3"/><circle cx="10.5" cy="5.5" r="2" stroke="currentColor" stroke-width="1.3"/><path d="M1 13c0-2 1.79-3.5 4-3.5h5c2.21 0 4 1.5 4 3.5" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/></svg>
+      Team
+    </a>
+    <div class="nav-section">Discovery</div>
+    <a href="discovery.html" class="nav-item">
+      <svg class="nav-icon" viewBox="0 0 15 15" fill="none"><circle cx="6.5" cy="6.5" r="4" stroke="currentColor" stroke-width="1.3"/><path d="M11 11l2.5 2.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
+      Discovery Overview
+      <span class="nav-badge urgent">3</span>
+    </a>
+    <a href="candidate-inbox.html" class="nav-item">
+      <svg class="nav-icon" viewBox="0 0 15 15" fill="none"><path d="M1.5 4.5h12v8.5h-12z" stroke="currentColor" stroke-width="1.3" stroke-linejoin="round"/><path d="M1.5 4.5l6 4 6-4" stroke="currentColor" stroke-width="1.3" stroke-linejoin="round"/></svg>
+      Candidate Inbox
+      <span class="nav-badge">89</span>
+    </a>
+    <a href="ops-rr-queue.html" class="nav-item">
+      <svg class="nav-icon" viewBox="0 0 15 15" fill="none"><path d="M7.5 1.5v5M7.5 9.5v.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/><circle cx="7.5" cy="7.5" r="6" stroke="currentColor" stroke-width="1.3"/></svg>
+      OPS-RR Queue
+      <span class="nav-badge urgent">7</span>
+    </a>
+    <a href="sweep-run-detail.html" class="nav-item">
+      <svg class="nav-icon" viewBox="0 0 15 15" fill="none"><circle cx="7.5" cy="7.5" r="6" stroke="currentColor" stroke-width="1.3"/><path d="M7.5 4.5v3l2 2" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/></svg>
+      Sweep Run Detail
+    </a>
+    <div class="nav-section">System</div>
+    <a href="discovery-config.html" class="nav-item">
+      <svg class="nav-icon" viewBox="0 0 15 15" fill="none"><circle cx="7.5" cy="7.5" r="3" stroke="currentColor" stroke-width="1.3"/><path d="M7.5 1v1.5M7.5 12.5V14M1 7.5h1.5M12.5 7.5H14M2.9 2.9l1.1 1.1M11 11l1.1 1.1M11 2.9L9.9 4M4 11l-1.1 1.1" stroke="currentColor" stroke-width="1.2" stroke-linecap="round"/></svg>
+      Discovery Config
+    </a>
+    <a href="source-monitor.html" class="nav-item">
+      <svg class="nav-icon" viewBox="0 0 15 15" fill="none"><path d="M1.5 10.5l4-4 3 3 5-6" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"/><circle cx="13" cy="4.5" r="1" fill="currentColor"/></svg>
+      Source Health Monitor
+    </a>
+    <a href="discovery-2.html" class="nav-item">
+      <svg class="nav-icon" viewBox="0 0 15 15" fill="none"><path d="M2.5 5.5h10M2.5 8.5h8M2.5 11.5h5" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/><rect x="1.5" y="1.5" width="12" height="12" rx="1.5" stroke="currentColor" stroke-width="1.3"/></svg>
+      Discovery Audit Log
+    </a>
+    <a href="design-system.html" class="nav-item">
+      <svg class="nav-icon" viewBox="0 0 15 15" fill="none"><circle cx="4" cy="4" r="1.5" fill="currentColor"/><circle cx="11" cy="4" r="1.5" fill="currentColor"/><circle cx="4" cy="11" r="1.5" fill="currentColor"/><circle cx="11" cy="11" r="1.5" fill="currentColor"/><circle cx="7.5" cy="7.5" r="1.5" fill="currentColor"/></svg>
+      Design System
+    </a>
+    <a href="#" class="nav-item">
+      <svg class="nav-icon" viewBox="0 0 15 15" fill="none"><circle cx="7.5" cy="7.5" r="5.5" stroke="currentColor" stroke-width="1.3"/><circle cx="7.5" cy="7.5" r="2" stroke="currentColor" stroke-width="1.3"/></svg>
+      Settings
+    </a>
+  </nav>
+    <div class="sidebar-user">
+      <div class="avatar-sm">EW</div>
+      <div style="min-width:0">
+        <span class="user-name">Eleanor Whitfield</span>
+        <span class="user-role">Deputy Editor</span>
+      </div>
+    </div>
+  </aside>
+
+  <header class="topbar">
+    <span class="topbar-title">Approvals <span class="topbar-sub">5 pending decision</span></span>
+    <button class="icon-btn" title="Notifications">
+      <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4"><path d="M8 1.5a4.5 4.5 0 0 1 4.5 4.5v2.5l1 2H2.5l1-2V6A4.5 4.5 0 0 1 8 1.5z"/><path d="M6.5 13.5a1.5 1.5 0 0 0 3 0"/></svg>
+    </button>
+    <div class="topbar-avatar">EW</div>
+  </header>
+
+  <div class="main">
+    <div class="queue-panel">
+      <div class="q-tabs">
+        <div class="q-tab active" onclick="switchTab('pending',this)">Pending <span class="q-tab-count" id="cnt-pending">3</span></div>
+        <div class="q-tab" onclick="switchTab('escalated',this)">Escalated <span class="q-tab-count urgent" id="cnt-escalated">1</span></div>
+        <div class="q-tab" onclick="switchTab('reject',this)">Rejected <span class="q-tab-count" id="cnt-reject">1</span></div>
+        <div class="q-tab" onclick="switchTab('override',this)">Overrides <span class="q-tab-count" id="cnt-override">0</span></div>
+      </div>
+      <div class="q-filter">
+        <div class="q-search">
+          <svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" style="flex-shrink:0;color:var(--muted)"><circle cx="7" cy="7" r="4.5"/><path d="M10.5 10.5L14 14"/></svg>
+          <input type="text" placeholder="Search story or ID…" id="q-search-input" oninput="renderQueue()">
+        </div>
+        <select class="q-sort">
+          <option>SLA ↑</option>
+          <option>Risk ↓</option>
+          <option>Age ↓</option>
+        </select>
+      </div>
+      <div class="q-body" id="q-body"></div>
+    </div>
+    <div class="decision-panel" id="decision-panel"></div>
+  </div>
+</div>
+
+<div class="modal-overlay" id="modal-overlay" onclick="closeModal(event)">
+  <div class="modal">
+    <div class="modal-head">
+      <div>
+        <div class="modal-title" id="modal-title">Confirm Decision</div>
+        <div class="modal-sub" id="modal-sub"></div>
+      </div>
+      <button class="modal-close" onclick="closeModal()">
+        <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M3 3l10 10M13 3L3 13"/></svg>
+      </button>
+    </div>
+    <div class="modal-body">
+      <label class="modal-label" for="modal-rationale">Decision rationale <span style="color:var(--danger)">*</span></label>
+      <textarea class="modal-textarea" id="modal-rationale" rows="3" placeholder="State the basis for this decision — this is recorded in the audit log…"></textarea>
+      <div class="modal-actions">
+        <button class="btn btn-ghost" onclick="closeModal()">Cancel</button>
+        <button class="btn" id="modal-confirm-btn" onclick="confirmDecision()">Confirm</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+const queue = [
+  { id:"CHR-2851", tab:"pending", risk:"high", section:"News", desk:"Investigations",
+    type:"Pre-publish Pack",
+    hl:"Aberdeen City Council Housing Allocation Data Leaked Ahead of MOLA Exemption Challenge",
+    deck:"Exclusive: council data shared with developer lobby group twelve days before housing committee vote. Two FOIA refusals challenged.",
+    requester:{initials:"SM",name:"Sarah Mackay",role:"News Editor",color:"#3b82f6"},
+    submittedAgo:7380, slaRemaining:9480, stage:"Pre-publish Pack",
+    criteria:[
+      {label:"Source verification complete", status:"pass", note:"3 primary sources, 2 on-record. Confirmed."},
+      {label:"Legal clearance", status:"pend", note:"Awaiting Cartwright & Bell sign-off — 2h outstanding."},
+      {label:"Factual accuracy review", status:"pass", note:"Sub-editor second pass complete. No corrections raised."},
+      {label:"Editorial standards audit", status:"pass", note:"Aligns with house style. Source protection plan lodged."},
+      {label:"Right-of-reply issued", status:"pass", note:"Aberdeen City Council declined comment 09:14 today."},
+    ],
+    artifacts:[
+      {icon:"pdf",label:"Story Pack v3",meta:"Updated 08:42 · 1.4 MB",ver:"v3"},
+      {icon:"doc",label:"Legal Review Note",meta:"Cartwright & Bell · 0.3 MB",ver:"draft"},
+      {icon:"note",label:"Source Verification",meta:"Whitfield · 0.1 MB",ver:"v1"},
+    ],
+    log:[
+      {initials:"SM",name:"Sarah Mackay",color:"#3b82f6",action:"submitted for review",badge:"lb-submitted",time:"08:32",text:"Pack includes all primary sources and the FOIA refusal correspondence. Legal review in progress."},
+      {initials:"EW",name:"Eleanor Whitfield",color:"#a78bfa",action:"requested modifications",badge:"lb-modified",time:"08:51",text:"Source pack needs the 14 March email thread appended. Legal clearance must be received before Approve."},
+      {initials:"SM",name:"Sarah Mackay",color:"#3b82f6",action:"resubmitted v3",badge:"lb-submitted",time:"09:04",text:"Email thread appended. Cartwright & Bell verbally confirmed clearance; written note expected by 11:00."},
+    ]},
+  { id:"CHR-2847", tab:"pending", risk:"med", section:"Business", desk:"Energy",
+    type:"Pre-publish Pack",
+    hl:"North Sea Decommissioning Levy Impact on Aberdeen SME Supply Chain — Q2 Findings",
+    deck:"Analysis of 47 firms shows 34% planning headcount reductions by Q3. OPITO statement included.",
+    requester:{initials:"DT",name:"David Tait",role:"Business Correspondent",color:"#22c55e"},
+    submittedAgo:18200, slaRemaining:21400, stage:"Awaiting Decision",
+    criteria:[
+      {label:"Source verification complete", status:"pass", note:"KPMG Aberdeen Office survey data. Verified."},
+      {label:"Legal clearance", status:"pass", note:"No legal flags. Standard commercial reporting."},
+      {label:"Factual accuracy review", status:"pass", note:"ONS and Scottish Enterprise data cross-checked."},
+      {label:"Editorial standards audit", status:"pass", note:"Compliant. No anonymised source concerns."},
+      {label:"Right-of-reply issued", status:"pass", note:"OPITO responded. Statement included in pack."},
+    ],
+    artifacts:[
+      {icon:"doc",label:"Story Pack v2",meta:"Updated 06:15 · 0.9 MB",ver:"v2"},
+      {icon:"note",label:"KPMG Survey Data",meta:"Attached · 2.1 MB",ver:"v1"},
+      {icon:"note",label:"Source Matrix",meta:"Tait · 0.2 MB",ver:"v1"},
+    ],
+    log:[
+      {initials:"DT",name:"David Tait",color:"#22c55e",action:"submitted for review",badge:"lb-submitted",time:"06:15",text:"All sources confirmed. OPITO statement received this morning."},
+      {initials:"LB",name:"Lorna Bain",color:"#f59e0b",action:"approved sub-edit pass",badge:"lb-approved",time:"07:48",text:"Clean. Passed to approvals queue."},
+    ]},
+  { id:"CHR-2839", tab:"pending", risk:"low", section:"Culture", desk:"Arts",
+    type:"Pre-publish Pack",
+    hl:"His Majesty's Theatre Centenary — Interview with Artistic Director Fiona Cairns",
+    deck:"Long read profiling Cairns's programming vision ahead of the 2026-27 season announcement.",
+    requester:{initials:"RH",name:"Rachel Holmes",role:"Arts & Culture Editor",color:"#14b8a6"},
+    submittedAgo:43200, slaRemaining:64800, stage:"Pre-publish Pack",
+    criteria:[
+      {label:"Source verification complete", status:"pass", note:"On-record interview. Cairns approved quotes."},
+      {label:"Legal clearance", status:"pass", note:"No legal review required for profile piece."},
+      {label:"Factual accuracy review", status:"pass", note:"Programme dates confirmed with theatre press office."},
+      {label:"Editorial standards audit", status:"pass", note:"Compliant. PR awareness declared but not directive."},
+      {label:"Right-of-reply issued", status:"pass", note:"N/A — subject is the primary source."},
+    ],
+    artifacts:[
+      {icon:"doc",label:"Story Pack v1",meta:"Holmes · 0.7 MB",ver:"v1"},
+      {icon:"note",label:"Quote Approval",meta:"Cairns 22 May · 0.1 MB",ver:"v1"},
+    ],
+    log:[
+      {initials:"RH",name:"Rachel Holmes",color:"#14b8a6",action:"submitted for review",badge:"lb-submitted",time:"Yesterday 14:30",text:"Profile ready. Cairns approved all direct quotes. Illustrations TBC for layout."},
+    ]},
+  { id:"CHR-2844", tab:"escalated", risk:"high", section:"News", desk:"Courts",
+    type:"Escalation",
+    hl:"Sheriff Court Reporting Restriction — Crown Application on Identification of Named Accused",
+    deck:"Crown Office applied for a section 11 order 48 minutes before publication. Legal counsel engaged. Deputy editor decision required.",
+    requester:{initials:"PW",name:"Peter Weston",role:"Courts Correspondent",color:"#ef4444"},
+    submittedAgo:3120, slaRemaining:1740, stage:"Awaiting Decision",
+    criteria:[
+      {label:"Reporting restriction reviewed", status:"fail", note:"Section 11 order application received 10:42. Binding until ruled."},
+      {label:"Legal counsel engaged", status:"pend", note:"Cartwright & Bell contacted 10:44. Awaiting guidance."},
+      {label:"Editorial standards audit", status:"pend", note:"Pending legal guidance. Do not publish until cleared."},
+      {label:"Right-of-reply issued", status:"pass", note:"Crown Office statement received. On file."},
+    ],
+    artifacts:[
+      {icon:"pdf",label:"Section 11 Application",meta:"Crown Office · 0.4 MB",ver:"rec"},
+      {icon:"doc",label:"Original Story Pack",meta:"Weston · 0.8 MB",ver:"v2"},
+    ],
+    log:[
+      {initials:"PW",name:"Peter Weston",color:"#ef4444",action:"escalated to deputy editor",badge:"lb-escalated",time:"10:44",text:"Crown Office s11 application received minutes before our 11:00 publish window. Held pending legal advice."},
+    ]},
+  { id:"CHR-2836", tab:"reject", risk:"high", section:"Politics", desk:"Investigations",
+    type:"Rejected — Pending Revision",
+    hl:"Scottish Government Procurement Contract Award to Minister's Former Employer",
+    deck:"Single anonymised source insufficient. Second independent source required before resubmission.",
+    requester:{initials:"AT",name:"Alistair Thomson",role:"Political Editor",color:"#a78bfa"},
+    submittedAgo:86400, slaRemaining:null, stage:"Rejected",
+    criteria:[
+      {label:"Source verification complete", status:"fail", note:"Single anonymised source. Second independent source required at HIGH risk."},
+      {label:"Legal clearance", status:"fail", note:"Legal flagged defamation risk without corroboration."},
+      {label:"Factual accuracy review", status:"pend", note:"Cannot complete until source requirement met."},
+      {label:"Editorial standards audit", status:"fail", note:"Does not meet minimum source threshold for HIGH-risk political allegations."},
+      {label:"Right-of-reply issued", status:"pass", note:"Scottish Government declined comment."},
+    ],
+    artifacts:[
+      {icon:"doc",label:"Story Pack v1",meta:"Thomson · 0.6 MB",ver:"v1"},
+      {icon:"pdf",label:"Legal Risk Note",meta:"Cartwright & Bell · 0.2 MB",ver:"v1"},
+    ],
+    log:[
+      {initials:"AT",name:"Alistair Thomson",color:"#a78bfa",action:"submitted for review",badge:"lb-submitted",time:"Yesterday 09:15",text:"Single source but highly credible. Procurement documents corroborate the timeline."},
+      {initials:"EW",name:"Eleanor Whitfield",color:"#3b82f6",action:"rejected submission",badge:"lb-rejected",time:"Yesterday 11:30",text:"Cannot publish on a single anonymised source for an allegation of this gravity. Requires a second independent corroborating source before resubmission. Legal concurs. Documents alone do not meet the threshold."},
+    ]},
+];
+
+let activeTab = "pending";
+let activeId  = "CHR-2851";
+let pendingAction = null;
+
+document.addEventListener("DOMContentLoaded", () => {
+  renderQueue();
+  renderDecision("CHR-2851");
+  setInterval(tick, 1000);
+});
+
+function switchTab(tab, el) {
+  activeTab = tab;
+  document.querySelectorAll(".q-tab").forEach(t => t.classList.remove("active"));
+  el.classList.add("active");
+  const first = queue.find(q => q.tab === tab);
+  if (first) { activeId = first.id; renderQueue(); renderDecision(first.id); }
+  else { activeId = null; renderQueue(); renderEmptyDecision(); }
+}
+
+function renderQueue() {
+  const body = document.getElementById("q-body");
+  const search = (document.getElementById("q-search-input")?.value || "").toLowerCase();
+  const items = queue.filter(q => {
+    if (q.tab !== activeTab) return false;
+    if (search && !q.hl.toLowerCase().includes(search) && !q.id.toLowerCase().includes(search)) return false;
+    return true;
+  });
+  if (!items.length) {
+    body.innerHTML = `<div style="padding:32px 16px;text-align:center;color:var(--muted);font-size:12px">No items in this queue</div>`;
+    return;
+  }
+  body.innerHTML = items.map(it => {
+    const slaHtml = it.slaRemaining === null
+      ? `<span class="qi-sla sla-ok">Closed</span>`
+      : `<span class="qi-sla ${cls(it.slaRemaining)}" id="qs-${it.id}">${fmt(it.slaRemaining)}</span>`;
+    return `<div class="q-item${it.id===activeId?' selected':''}" onclick="selectItem('${it.id}')">
+  <div class="qi-header">
+    <span class="qi-id">${it.id}</span>
+    <span class="risk risk-${it.risk}">${it.risk.toUpperCase()}</span>
+    <span class="type-badge tb-${tbcls(it.type)}">${it.type}</span>
+  </div>
+  <div class="qi-hl">${it.hl}</div>
+  <div class="qi-footer">
+    <div class="qi-req">
+      <div class="av-xs" style="background:${it.requester.color}20;border-color:${it.requester.color}55;color:${it.requester.color}">${it.requester.initials}</div>
+      <span class="qi-req-name">${it.requester.name}</span>
+    </div>
+    <span class="qi-age">${ago(it.submittedAgo)}</span>
+    ${slaHtml}
+  </div>
+</div>`;
+  }).join("");
+}
+
+function selectItem(id) { activeId = id; renderQueue(); renderDecision(id); }
+
+function renderDecision(id) {
+  const it = queue.find(q => q.id === id);
+  if (!it) { renderEmptyDecision(); return; }
+  const panel = document.getElementById("decision-panel");
+
+  const slaBanner = it.slaRemaining !== null
+    ? `<div class="sla-banner ${it.slaRemaining < 3600 ? 'sla-banner-warn':'sla-banner-ok'}">
+        <svg width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4" style="flex-shrink:0"><circle cx="8" cy="8" r="6.5"/><path d="M8 4.5V8l2.5 1.5"/></svg>
+        <span class="sla-desc">SLA deadline in</span>
+        <span class="sla-countdown ${cls(it.slaRemaining)}" id="dp-sla-${it.id}">${fmt(it.slaRemaining)}</span>
+        <span class="sla-since">Submitted ${ago(it.submittedAgo)} ago</span>
+       </div>`
+    : `<div class="sla-banner sla-banner-ok"><svg width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4" style="flex-shrink:0"><circle cx="8" cy="8" r="6.5"/><path d="M5 8l2 2 4-4"/></svg><span style="margin-left:5px;color:var(--fg-2)">Closed · Submitted ${ago(it.submittedAgo)} ago</span></div>`;
+
+  const critRows = it.criteria.map(c => `<tr>
+    <td class="crit-label">${c.label}</td>
+    <td class="crit-note">${c.note}</td>
+    <td class="crit-status"><span class="cs-${c.status}"><span class="cs-dot"></span>${c.status==="pass"?"Pass":c.status==="fail"?"Fail":"Pending"}</span></td>
+  </tr>`).join("");
+
+  const artCards = it.artifacts.map(a => `<div class="artifact-card">
+    <div class="art-card-top">
+      <div class="art-icon art-icon-${a.icon}">
+        ${a.icon==="pdf"?`<svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="#ef4444" stroke-width="1.5"><rect x="2.5" y="1" width="11" height="14" rx="1.5"/><path d="M5 5.5h6M5 8.5h6M5 11.5h4"/></svg>`:
+          a.icon==="doc"?`<svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="#3b82f6" stroke-width="1.5"><rect x="2.5" y="1" width="11" height="14" rx="1.5"/><path d="M5 5.5h6M5 8.5h6M5 11.5h4"/></svg>`:
+          `<svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="#22c55e" stroke-width="1.5"><rect x="2.5" y="1" width="11" height="14" rx="1.5"/><path d="M5 5.5h6M5 8.5h4"/></svg>`}
+      </div>
+      <span class="art-ver">${a.ver}</span>
+    </div>
+    <div class="art-name">${a.label}</div>
+    <div class="art-meta-sm">${a.meta}</div>
+  </div>`).join("");
+
+  const logItems = it.log.map(l => `<div class="log-item">
+    <div class="log-avatar" style="background:${l.color}20;border-color:${l.color}55;color:${l.color}">${l.initials}</div>
+    <div class="log-body">
+      <div class="log-header">
+        <span class="log-author">${l.name}</span>
+        <span class="log-action">${l.action}</span>
+        <span class="log-badge ${l.badge}">${badgeText(l.badge)}</span>
+        <span class="log-time">${l.time}</span>
+      </div>
+      <div class="log-text">${l.text}</div>
+    </div>
+  </div>`).join("");
+
+  const isRejected = it.tab === "reject";
+  const actions = isRejected
+    ? `<button class="btn btn-ghost">Return for Revision</button><div class="spacer"></div><span style="font-size:11px;color:var(--muted);font-family:var(--mono)">Closed queue</span>`
+    : `<button class="btn btn-reject" onclick="openModal('reject','${it.id}')">Reject</button>
+       <button class="btn btn-modify" onclick="openModal('modify','${it.id}')">Request Modifications</button>
+       <div class="spacer"></div>
+       <button class="btn btn-approve" onclick="openModal('approve','${it.id}')">Approve</button>`;
+
+  panel.innerHTML = `
+    <div class="dp-header">
+      <div class="dp-header-top">
+        <div class="dp-id-block">
+          <span class="dp-id">${it.id}</span>
+          <span class="dp-section-tag">${it.section}</span>
+        </div>
+        <div class="dp-title-block">
+          <span class="dp-hl">${it.hl}</span>
+          <span class="dp-deck">${it.deck}</span>
+        </div>
+        <div class="dp-badges">
+          <span class="risk risk-${it.risk}">${it.risk.toUpperCase()} RISK</span>
+          <span class="type-badge tb-${tbcls(it.type)}">${it.type}</span>
+        </div>
+      </div>
+      <div class="dp-meta-row">
+        <div class="dm"><span class="dm-lbl">Desk</span><span class="dm-val">${it.desk}</span></div>
+        <div class="dm"><span class="dm-lbl">Requester</span><span class="dm-val">${it.requester.name} · ${it.requester.role}</span></div>
+        <div class="dm"><span class="dm-lbl">Stage</span><span class="dm-val">${it.stage}</span></div>
+        <div class="dm"><span class="dm-lbl">In queue</span><span class="dm-val">${ago(it.submittedAgo)}</span></div>
+      </div>
+    </div>
+    ${slaBanner}
+    <div class="dp-body">
+      <div class="dp-section-head">Review Pack Artifacts</div>
+      <div class="artifacts-grid">${artCards}</div>
+      <div class="dp-section-head">Publication Criteria</div>
+      <table class="criteria-table">${critRows}</table>
+      <div class="dp-section-head">Decision History</div>
+      <div class="decision-log">${logItems}</div>
+    </div>
+    <div class="dp-footer">
+      <div class="dp-footer-label">Decision rationale</div>
+      <textarea class="rationale-area" id="dp-rationale" placeholder="Enter a rationale before confirming any decision — recorded in the audit log…" rows="2"></textarea>
+      <div class="action-row">${actions}</div>
+    </div>`;
+}
+
+function renderEmptyDecision() {
+  document.getElementById("decision-panel").innerHTML = `
+    <div class="empty-panel">
+      <svg width="36" height="36" viewBox="0 0 40 40" fill="none" stroke="currentColor" stroke-width="1.2" style="opacity:.2"><rect x="6" y="5" width="28" height="30" rx="3"/><path d="M12 14h16M12 20h16M12 26h10"/></svg>
+      <span class="empty-label">Select an item</span>
+      <span class="empty-sub">Choose a submission from the queue to begin review.</span>
+    </div>`;
+}
+
+function openModal(action, itemId) {
+  pendingAction = {action, itemId};
+  const rationale = document.getElementById("dp-rationale")?.value.trim() || "";
+  const titles = {approve:"Confirm Approval",modify:"Request Modifications",reject:"Reject Submission"};
+  const subs   = {approve:"Story will move to the publishing queue.",modify:"Pack returned to requester for revision.",reject:"Submission closed and returned to reporter."};
+  document.getElementById("modal-title").textContent = titles[action];
+  document.getElementById("modal-sub").textContent   = subs[action];
+  document.getElementById("modal-rationale").value   = rationale;
+  const btn = document.getElementById("modal-confirm-btn");
+  btn.textContent = titles[action];
+  btn.className = `btn btn-${action}`;
+  document.getElementById("modal-overlay").classList.add("visible");
+  setTimeout(() => document.getElementById("modal-rationale").focus(), 50);
+}
+
+function closeModal(e) {
+  if (e && e.target !== document.getElementById("modal-overlay")) return;
+  document.getElementById("modal-overlay").classList.remove("visible");
+  pendingAction = null;
+}
+
+function confirmDecision() {
+  const rationale = document.getElementById("modal-rationale").value.trim();
+  if (!rationale) {
+    const ta = document.getElementById("modal-rationale");
+    ta.focus(); ta.style.borderColor = "var(--danger)";
+    setTimeout(() => ta.style.borderColor = "", 2000);
+    return;
+  }
+  if (!pendingAction) return;
+  const {action, itemId} = pendingAction;
+  const it = queue.find(q => q.id === itemId);
+  if (!it) return;
+  const now = new Date();
+  const t = now.getHours() + ":" + String(now.getMinutes()).padStart(2,"0");
+  const aLabels = {approve:"approved for publication",modify:"requested modifications",reject:"rejected submission"};
+  const aBadges = {approve:"lb-approved",modify:"lb-modified",reject:"lb-rejected"};
+  it.log.push({initials:"EW",name:"Eleanor Whitfield",color:"#a78bfa",action:aLabels[action],badge:aBadges[action],time:t,text:rationale});
+  if (action === "reject") it.tab = "reject";
+  if (action === "approve") queue.splice(queue.indexOf(it),1);
+  closeModal();
+  renderQueue();
+  if (activeId && queue.find(q => q.id === activeId)) renderDecision(activeId);
+  else { activeId = null; renderEmptyDecision(); }
+}
+
+function tick() {
+  queue.forEach(it => { if (it.slaRemaining !== null && it.slaRemaining > 0) it.slaRemaining--; });
+  queue.forEach(it => {
+    const el1 = document.getElementById(`qs-${it.id}`);
+    if (el1) { el1.textContent = fmt(it.slaRemaining); el1.className = `qi-sla ${cls(it.slaRemaining)}`; }
+    const el2 = document.getElementById(`dp-sla-${it.id}`);
+    if (el2) { el2.textContent = fmt(it.slaRemaining); el2.className = `sla-countdown ${cls(it.slaRemaining)}`; }
+  });
+}
+
+function fmt(s) {
+  if (s===null||s<0) return "Overdue";
+  if (s<60) return s+"s";
+  if (s<3600) return Math.floor(s/60)+"m "+String(s%60).padStart(2,"0")+"s";
+  return Math.floor(s/3600)+"h "+String(Math.floor((s%3600)/60)).padStart(2,"0")+"m";
+}
+function ago(s) {
+  if (s<3600) return Math.floor(s/60)+"m";
+  if (s<86400) return Math.floor(s/3600)+"h "+Math.floor((s%3600)/60)+"m";
+  return Math.floor(s/86400)+"d "+Math.floor((s%86400)/3600)+"h";
+}
+function cls(s) { if (s===null||s<0) return "sla-over"; if (s<3600) return "sla-warn"; return "sla-ok"; }
+function tbcls(t) { if (t.includes("Escalat")) return "escl"; if (t.includes("Reject")) return "reject"; if (t.includes("Override")) return "override"; return "prepub"; }
+function badgeText(b) { return {lb-approved:"Approved","lb-modified":"Modified","lb-rejected":"Rejected","lb-submitted":"Submitted","lb-escalated":"Escalated"}[b]||"Action"; }
+</script>
+</body>
+</html>

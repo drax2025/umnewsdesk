@@ -1,0 +1,827 @@
+<!doctype html>
+<html lang="en" data-theme="dark">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Dashboard — Union Media</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg:             #0b0d12;
+  --surface:        #10131c;
+  --surface-2:      #161d2e;
+  --fg:             #dde4f0;
+  --fg-2:           #7e8ea8;
+  --muted:          #4b5672;
+  --border:         #1c2438;
+  --border-mid:     #273047;
+  --accent:         #3b82f6;
+  --accent-on:      #fff;
+  --accent-hover:   #2563eb;
+  --accent-subtle:  rgba(59,130,246,.10);
+  --success:        #22c55e;
+  --success-subtle: rgba(34,197,94,.08);
+  --warn:           #f59e0b;
+  --warn-subtle:    rgba(245,158,11,.08);
+  --danger:         #ef4444;
+  --danger-subtle:  rgba(239,68,68,.08);
+  --font: Inter, "Helvetica Neue", system-ui, sans-serif;
+  --mono: "SF Mono", "Cascadia Code", ui-monospace, Menlo, monospace;
+  --sidebar-w: 216px;
+  --topbar-h:  48px;
+  --r: 6px;
+}
+[data-theme="light"] {
+  --bg:             #f4f6f9;
+  --surface:        #ffffff;
+  --surface-2:      #eef1f6;
+  --fg:             #0d1117;
+  --fg-2:           #4a5568;
+  --muted:          #8b95a8;
+  --border:         #dde3ed;
+  --border-mid:     #c7d0e0;
+  --accent:         #2563eb;
+  --accent-on:      #fff;
+  --accent-hover:   #1d4ed8;
+  --accent-subtle:  rgba(37,99,235,.09);
+  --success:        #16a34a;
+  --success-subtle: rgba(22,163,74,.08);
+  --warn:           #d97706;
+  --warn-subtle:    rgba(217,119,6,.08);
+  --danger:         #dc2626;
+  --danger-subtle:  rgba(220,38,38,.08);
+}
+
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+html, body {
+  height: 100%;
+  background: var(--bg);
+  color: var(--fg);
+  font-family: var(--font);
+  font-size: 13px;
+  line-height: 1.45;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* ── SHELL ── */
+.shell {
+  display: grid;
+  grid-template-columns: var(--sidebar-w) 1fr;
+  grid-template-rows: var(--topbar-h) 1fr;
+  height: 100vh;
+  overflow: hidden;
+}
+
+/* ── SIDEBAR ── */
+.sidebar {
+  grid-row: 1 / 3;
+  background: var(--surface);
+  border-right: 1px solid var(--border);
+  display: flex; flex-direction: column; overflow-y: auto;
+}
+.sidebar-pub { padding: 14px 16px 12px; border-bottom: 1px solid var(--border); }
+.pub-name { font-size: 13px; font-weight: 600; color: var(--fg); letter-spacing: -0.015em; display: block; }
+.pub-meta { font-size: 11px; color: var(--muted); margin-top: 2px; font-family: var(--mono); font-variant-numeric: tabular-nums; }
+.sidebar-nav { padding: 8px 0; flex: 1; }
+.nav-section { padding: 14px 16px 4px; font-size: 10px; font-weight: 600; letter-spacing: 0.07em; text-transform: uppercase; color: var(--muted); }
+.nav-item {
+  display: flex; align-items: center; gap: 9px;
+  padding: 7px 16px; font-size: 13px; color: var(--fg-2);
+  cursor: pointer; text-decoration: none; position: relative;
+  transition: background 100ms, color 100ms;
+}
+.nav-item:hover { background: var(--surface-2); color: var(--fg); }
+.nav-item.active { color: var(--fg); background: var(--accent-subtle); }
+.nav-item.active::before {
+  content: ''; position: absolute; left: 0; top: 4px; bottom: 4px;
+  width: 2px; background: var(--accent); border-radius: 0 2px 2px 0;
+}
+.nav-icon { width: 15px; height: 15px; flex-shrink: 0; opacity: .65; }
+.nav-item.active .nav-icon, .nav-item:hover .nav-icon { opacity: 1; }
+.nav-badge {
+  margin-left: auto; font-size: 10px; font-family: var(--mono);
+  font-variant-numeric: tabular-nums; color: var(--muted);
+  background: var(--bg); border: 1px solid var(--border);
+  padding: 1px 6px; border-radius: 9999px; line-height: 1.6;
+}
+.nav-badge.urgent { color: var(--warn); border-color: rgba(245,158,11,.4); background: var(--warn-subtle); }
+.sidebar-user {
+  padding: 12px 16px; border-top: 1px solid var(--border);
+  display: flex; align-items: center; gap: 9px;
+}
+.avatar-sm {
+  width: 26px; height: 26px; border-radius: 50%;
+  background: var(--accent-subtle); border: 1px solid var(--border-mid);
+  display: flex; align-items: center; justify-content: center;
+  font-size: 10px; font-weight: 700; color: var(--accent);
+  flex-shrink: 0; font-family: var(--mono);
+}
+.user-name { font-size: 12px; font-weight: 500; color: var(--fg); display: block; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.user-role { font-size: 11px; color: var(--muted); display: block; }
+
+/* ── TOPBAR ── */
+.topbar {
+  background: var(--surface); border-bottom: 1px solid var(--border);
+  display: flex; align-items: center; padding: 0 18px; gap: 10px;
+}
+.topbar-title { font-size: 13px; font-weight: 600; color: var(--fg); flex: 1; letter-spacing: -0.01em; }
+.topbar-date { font-size: 11.5px; color: var(--fg-2); }
+.topbar-clock { font-size: 11.5px; font-family: var(--mono); color: var(--fg-2); font-variant-numeric: tabular-nums; }
+.theme-toggle {
+  display: flex; align-items: center; gap: 5px;
+  height: 28px; padding: 0 10px;
+  border: 1px solid var(--border); border-radius: var(--r);
+  background: transparent; color: var(--fg-2); font-size: 11.5px; font-family: var(--font);
+  cursor: pointer; transition: background 100ms, color 100ms;
+}
+.theme-toggle:hover { background: var(--surface-2); color: var(--fg); }
+.icon-btn {
+  width: 28px; height: 28px; display: flex; align-items: center; justify-content: center;
+  border: 1px solid var(--border); background: transparent; border-radius: var(--r);
+  color: var(--fg-2); cursor: pointer; transition: background 100ms, color 100ms;
+}
+.icon-btn:hover { background: var(--surface-2); color: var(--fg); }
+.topbar-avatar {
+  width: 28px; height: 28px; border-radius: 50%;
+  background: var(--accent-subtle); border: 1px solid var(--border-mid);
+  display: flex; align-items: center; justify-content: center;
+  font-size: 10px; font-weight: 700; color: var(--accent);
+  cursor: pointer; font-family: var(--mono);
+}
+
+/* ── MAIN ── */
+.main {
+  overflow: hidden; background: var(--bg);
+  display: flex; flex-direction: column;
+}
+
+/* ── STATS STRIP ── */
+.stats-strip {
+  display: grid;
+  grid-template-columns: repeat(6, 1fr);
+  border-bottom: 1px solid var(--border);
+  flex-shrink: 0;
+}
+.stat-tile {
+  padding: 12px 16px;
+  border-right: 1px solid var(--border);
+  cursor: pointer;
+  transition: background 100ms;
+}
+.stat-tile:last-child { border-right: none; }
+.stat-tile:hover { background: var(--surface); }
+.stat-val {
+  font-size: 22px; font-weight: 600; font-family: var(--mono);
+  font-variant-numeric: tabular-nums; letter-spacing: -0.03em;
+  color: var(--fg); line-height: 1.1; margin-bottom: 3px;
+  display: flex; align-items: baseline; gap: 3px;
+}
+.stat-denom { font-size: 14px; font-weight: 400; color: var(--fg-2); }
+.stat-val.warn    { color: var(--warn); }
+.stat-val.danger  { color: var(--danger); }
+.stat-val.success { color: var(--success); }
+.stat-label { font-size: 11px; font-weight: 500; color: var(--fg-2); margin-bottom: 2px; }
+.stat-sub   { font-size: 10.5px; color: var(--muted); font-family: var(--mono); }
+
+/* ── BODY COLUMNS ── */
+.body-cols {
+  flex: 1;
+  display: grid;
+  grid-template-columns: 1fr 296px;
+  min-height: 0;
+  overflow: hidden;
+}
+
+/* ── ACTIVITY FEED ── */
+.feed-col {
+  overflow-y: auto;
+  border-right: 1px solid var(--border);
+  display: flex; flex-direction: column;
+  scrollbar-width: thin;
+  scrollbar-color: var(--border-mid) transparent;
+}
+.panel-header {
+  position: sticky; top: 0; z-index: 2;
+  background: var(--bg);
+  padding: 10px 16px 9px;
+  border-bottom: 1px solid var(--border);
+  display: flex; align-items: center; gap: 8px;
+  flex-shrink: 0;
+}
+.panel-title { font-size: 10.5px; font-weight: 600; letter-spacing: 0.07em; text-transform: uppercase; color: var(--muted); flex: 1; }
+.panel-meta  { font-size: 10.5px; font-family: var(--mono); color: var(--muted); }
+.panel-badge { font-family: var(--mono); font-size: 10px; font-variant-numeric: tabular-nums; color: var(--muted); background: var(--bg); border: 1px solid var(--border); padding: 0 5px; border-radius: 9999px; line-height: 1.7; margin-left: auto; }
+
+.feed-item {
+  display: flex; align-items: flex-start; gap: 9px;
+  padding: 9px 16px;
+  border-bottom: 1px solid var(--border);
+  transition: background 70ms;
+}
+.feed-item:hover { background: var(--surface); }
+.feed-time {
+  font-size: 10.5px; font-family: var(--mono); color: var(--muted);
+  font-variant-numeric: tabular-nums; white-space: nowrap;
+  padding-top: 1px; min-width: 38px; flex-shrink: 0;
+}
+.av-xs {
+  width: 20px; height: 20px; border-radius: 50%; flex-shrink: 0;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 8px; font-weight: 700; font-family: var(--mono);
+  border: 1px solid var(--border-mid);
+}
+.feed-body { flex: 1; min-width: 0; }
+.feed-row  { display: flex; align-items: center; gap: 5px; margin-bottom: 2px; flex-wrap: wrap; }
+.event-badge {
+  display: inline-flex; padding: 1px 5px; border-radius: 3px;
+  font-size: 9.5px; font-weight: 700; letter-spacing: 0.04em; text-transform: uppercase;
+  font-family: var(--mono); flex-shrink: 0; white-space: nowrap;
+}
+.eb-stage   { background: var(--accent-subtle); border: 1px solid rgba(59,130,246,.3); color: #93b4fd; }
+.eb-approve { background: var(--success-subtle); border: 1px solid rgba(34,197,94,.3); color: #86efac; }
+.eb-publish { background: var(--success-subtle); border: 1px solid rgba(34,197,94,.3); color: #86efac; }
+.eb-escalat { background: var(--danger-subtle); border: 1px solid rgba(239,68,68,.3); color: #fca5a5; }
+.eb-reject  { background: var(--danger-subtle); border: 1px solid rgba(239,68,68,.3); color: #fca5a5; }
+.eb-assign  { background: rgba(168,85,247,.10); border: 1px solid rgba(168,85,247,.35); color: #c084fc; }
+.eb-sweep   { background: rgba(14,165,233,.10); border: 1px solid rgba(14,165,233,.35); color: #7dd3fc; }
+.eb-correct { background: var(--warn-subtle); border: 1px solid rgba(245,158,11,.3); color: #fcd34d; }
+.eb-system  { background: rgba(75,86,114,.12); border: 1px solid var(--border-mid); color: var(--fg-2); }
+
+.feed-id    { font-family: var(--mono); font-size: 11px; color: var(--muted); white-space: nowrap; }
+.feed-text  { font-size: 12px; color: var(--fg); line-height: 1.4; }
+.feed-who   { color: var(--fg-2); }
+
+/* ── RIGHT COLUMN ── */
+.right-col {
+  overflow-y: auto; background: var(--surface);
+  display: flex; flex-direction: column;
+  scrollbar-width: thin;
+  scrollbar-color: var(--border-mid) transparent;
+}
+.panel { border-bottom: 1px solid var(--border); flex-shrink: 0; }
+.panel .panel-header { background: var(--surface); }
+
+/* Stage bars */
+.stage-rows { padding: 8px 14px 12px; }
+.stage-row  { display: flex; align-items: center; gap: 8px; padding: 3px 0; }
+.stage-row-label { font-size: 11px; color: var(--fg-2); width: 88px; flex-shrink: 0; }
+.stage-track { flex: 1; height: 6px; background: var(--border); border-radius: 3px; overflow: hidden; }
+.stage-fill  { height: 100%; border-radius: 3px; }
+.stage-count { font-size: 11px; font-family: var(--mono); color: var(--muted); font-variant-numeric: tabular-nums; width: 16px; text-align: right; flex-shrink: 0; }
+
+/* Sweeps */
+.sweep-rows { padding: 2px 0; }
+.sweep-row  {
+  display: flex; align-items: center; gap: 8px;
+  padding: 7px 14px; border-bottom: 1px solid var(--border);
+  font-size: 12px;
+}
+.sweep-row:last-child { border-bottom: none; }
+.sweep-dot  { width: 6px; height: 6px; border-radius: 50%; flex-shrink: 0; }
+.sweep-dot.ok   { background: var(--success); }
+.sweep-dot.warn { background: var(--warn); }
+.sweep-dot.fail { background: var(--danger); }
+.sweep-name  { color: var(--fg-2); flex: 1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.sweep-count { font-size: 11px; font-family: var(--mono); color: var(--fg-2); font-variant-numeric: tabular-nums; flex-shrink: 0; }
+.sweep-time  { font-size: 10.5px; font-family: var(--mono); color: var(--muted); font-variant-numeric: tabular-nums; white-space: nowrap; flex-shrink: 0; }
+
+/* Corrections */
+.correction-rows { padding: 2px 0; }
+.correction-row  {
+  padding: 8px 14px; border-bottom: 1px solid var(--border);
+  cursor: pointer; transition: background 70ms;
+}
+.correction-row:last-child { border-bottom: none; }
+.correction-row:hover { background: var(--surface-2); }
+.corr-top    { display: flex; align-items: center; gap: 6px; margin-bottom: 3px; }
+.corr-id     { font-family: var(--mono); font-size: 10px; color: var(--muted); letter-spacing: 0.05em; }
+.corr-open   { display: inline-flex; padding: 1px 5px; border-radius: 3px; font-size: 9.5px; font-weight: 700; letter-spacing: 0.04em; text-transform: uppercase; font-family: var(--mono); background: var(--warn-subtle); border: 1px solid rgba(245,158,11,.3); color: var(--warn); }
+.corr-closed { display: inline-flex; padding: 1px 5px; border-radius: 3px; font-size: 9.5px; font-weight: 700; letter-spacing: 0.04em; text-transform: uppercase; font-family: var(--mono); background: var(--success-subtle); border: 1px solid rgba(34,197,94,.3); color: var(--success); }
+.corr-desc   { font-size: 11.5px; color: var(--fg-2); line-height: 1.35; margin-bottom: 2px; }
+.corr-time   { font-size: 10.5px; font-family: var(--mono); color: var(--muted); }
+
+/* Failures */
+.failure-rows { padding: 2px 0; }
+.failure-row  {
+  display: flex; align-items: flex-start; gap: 8px;
+  padding: 8px 14px; border-bottom: 1px solid var(--border);
+}
+.failure-row:last-child { border-bottom: none; }
+.fail-dot  { width: 6px; height: 6px; border-radius: 50%; flex-shrink: 0; margin-top: 4px; }
+.fail-body { flex: 1; min-width: 0; }
+.fail-id   { font-family: var(--mono); font-size: 10px; color: var(--muted); margin-bottom: 2px; letter-spacing: 0.04em; }
+.fail-desc { font-size: 11.5px; color: var(--fg-2); }
+.fail-time { font-size: 10.5px; font-family: var(--mono); color: var(--muted); margin-top: 1px; }
+</style>
+</head>
+<body>
+<div class="shell">
+
+<!-- ── SIDEBAR ── -->
+<aside class="sidebar">
+  <div class="sidebar-pub">
+    <span class="pub-name">Union Media</span>
+    <span class="pub-meta">unionmedia.co.uk · Editorial Ops</span>
+  </div>
+        <nav class="sidebar-nav">
+    <div class="nav-section">Overview</div>
+    <a href="dashboard.html" class="nav-item active">
+      <svg class="nav-icon" viewBox="0 0 15 15" fill="none"><rect x="1.5" y="1.5" width="5" height="5" rx="1" fill="currentColor"/><rect x="8.5" y="1.5" width="5" height="5" rx="1" fill="currentColor"/><rect x="1.5" y="8.5" width="5" height="5" rx="1" fill="currentColor"/><rect x="8.5" y="8.5" width="5" height="5" rx="1" fill="currentColor"/></svg>
+      Dashboard
+    </a>
+    <div class="nav-section">Editorial</div>
+    <a href="pipeline-dashboard.html" class="nav-item">
+      <svg class="nav-icon" viewBox="0 0 15 15" fill="none"><rect x="1.5" y="2.5" width="12" height="1.5" rx=".5" fill="currentColor"/><rect x="1.5" y="6.5" width="12" height="1.5" rx=".5" fill="currentColor"/><rect x="1.5" y="10.5" width="12" height="1.5" rx=".5" fill="currentColor"/></svg>
+      Pipeline
+    </a>
+    <a href="pipeline-board.html" class="nav-item">
+      <svg class="nav-icon" viewBox="0 0 15 15" fill="none"><rect x="1" y="1.5" width="4" height="12" rx="1" fill="currentColor"/><rect x="6" y="1.5" width="4" height="8.5" rx="1" fill="currentColor"/><rect x="11" y="1.5" width="3" height="5.5" rx="1" fill="currentColor"/></svg>
+      Board
+    </a>
+    <a href="#" class="nav-item">
+      <svg class="nav-icon" viewBox="0 0 15 15" fill="none"><rect x="1.5" y="2.5" width="12" height="11" rx="1.5" stroke="currentColor" stroke-width="1.3"/><path d="M1.5 6h12" stroke="currentColor" stroke-width="1.3"/><path d="M5 1.5V4M10 1.5V4" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/></svg>
+      Calendar
+      <span class="nav-badge">18</span>
+    </a>
+    <a href="article-dossier.html" class="nav-item">
+      <svg class="nav-icon" viewBox="0 0 15 15" fill="none"><path d="M3.5 1.5h5.5l3 3v9h-8.5v-12z" stroke="currentColor" stroke-width="1.3" stroke-linejoin="round"/><path d="M9 1.5v3.5h3" stroke="currentColor" stroke-width="1.3"/><path d="M5 7.5h5M5 9.5h3" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/></svg>
+      Article Dossier
+    </a>
+    <div class="nav-section">Management</div>
+    <a href="approvals.html" class="nav-item">
+      <svg class="nav-icon" viewBox="0 0 15 15" fill="none"><path d="M2 7.5L6 11.5L13 3.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      Approvals
+      <span class="nav-badge urgent">4</span>
+    </a>
+    <a href="#" class="nav-item">
+      <svg class="nav-icon" viewBox="0 0 15 15" fill="none"><circle cx="5" cy="5.5" r="2" stroke="currentColor" stroke-width="1.3"/><circle cx="10.5" cy="5.5" r="2" stroke="currentColor" stroke-width="1.3"/><path d="M1 13c0-2 1.79-3.5 4-3.5h5c2.21 0 4 1.5 4 3.5" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/></svg>
+      Team
+    </a>
+    <div class="nav-section">Discovery</div>
+    <a href="discovery.html" class="nav-item">
+      <svg class="nav-icon" viewBox="0 0 15 15" fill="none"><circle cx="6.5" cy="6.5" r="4" stroke="currentColor" stroke-width="1.3"/><path d="M11 11l2.5 2.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
+      Discovery Overview
+      <span class="nav-badge urgent">3</span>
+    </a>
+    <a href="candidate-inbox.html" class="nav-item">
+      <svg class="nav-icon" viewBox="0 0 15 15" fill="none"><path d="M1.5 4.5h12v8.5h-12z" stroke="currentColor" stroke-width="1.3" stroke-linejoin="round"/><path d="M1.5 4.5l6 4 6-4" stroke="currentColor" stroke-width="1.3" stroke-linejoin="round"/></svg>
+      Candidate Inbox
+      <span class="nav-badge">89</span>
+    </a>
+    <a href="ops-rr-queue.html" class="nav-item">
+      <svg class="nav-icon" viewBox="0 0 15 15" fill="none"><path d="M7.5 1.5v5M7.5 9.5v.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/><circle cx="7.5" cy="7.5" r="6" stroke="currentColor" stroke-width="1.3"/></svg>
+      OPS-RR Queue
+      <span class="nav-badge urgent">7</span>
+    </a>
+    <a href="sweep-run-detail.html" class="nav-item">
+      <svg class="nav-icon" viewBox="0 0 15 15" fill="none"><circle cx="7.5" cy="7.5" r="6" stroke="currentColor" stroke-width="1.3"/><path d="M7.5 4.5v3l2 2" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/></svg>
+      Sweep Run Detail
+    </a>
+    <div class="nav-section">System</div>
+    <a href="discovery-config.html" class="nav-item">
+      <svg class="nav-icon" viewBox="0 0 15 15" fill="none"><circle cx="7.5" cy="7.5" r="3" stroke="currentColor" stroke-width="1.3"/><path d="M7.5 1v1.5M7.5 12.5V14M1 7.5h1.5M12.5 7.5H14M2.9 2.9l1.1 1.1M11 11l1.1 1.1M11 2.9L9.9 4M4 11l-1.1 1.1" stroke="currentColor" stroke-width="1.2" stroke-linecap="round"/></svg>
+      Discovery Config
+    </a>
+    <a href="source-monitor.html" class="nav-item">
+      <svg class="nav-icon" viewBox="0 0 15 15" fill="none"><path d="M1.5 10.5l4-4 3 3 5-6" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"/><circle cx="13" cy="4.5" r="1" fill="currentColor"/></svg>
+      Source Health Monitor
+    </a>
+    <a href="discovery-2.html" class="nav-item">
+      <svg class="nav-icon" viewBox="0 0 15 15" fill="none"><path d="M2.5 5.5h10M2.5 8.5h8M2.5 11.5h5" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/><rect x="1.5" y="1.5" width="12" height="12" rx="1.5" stroke="currentColor" stroke-width="1.3"/></svg>
+      Discovery Audit Log
+    </a>
+    <a href="design-system.html" class="nav-item">
+      <svg class="nav-icon" viewBox="0 0 15 15" fill="none"><circle cx="4" cy="4" r="1.5" fill="currentColor"/><circle cx="11" cy="4" r="1.5" fill="currentColor"/><circle cx="4" cy="11" r="1.5" fill="currentColor"/><circle cx="11" cy="11" r="1.5" fill="currentColor"/><circle cx="7.5" cy="7.5" r="1.5" fill="currentColor"/></svg>
+      Design System
+    </a>
+    <a href="#" class="nav-item">
+      <svg class="nav-icon" viewBox="0 0 15 15" fill="none"><circle cx="7.5" cy="7.5" r="5.5" stroke="currentColor" stroke-width="1.3"/><circle cx="7.5" cy="7.5" r="2" stroke="currentColor" stroke-width="1.3"/></svg>
+      Settings
+    </a>
+  </nav>
+  <div class="sidebar-user">
+    <div class="avatar-sm">DM</div>
+    <div style="min-width:0">
+      <span class="user-name">D. Mackenzie</span>
+      <span class="user-role">Senior Editor</span>
+    </div>
+  </div>
+</aside>
+
+<!-- ── TOPBAR ── -->
+<header class="topbar">
+  <span class="topbar-title">Dashboard</span>
+  <span class="topbar-date" id="date-display"></span>
+  <span class="topbar-clock" id="clock">--:--:--</span>
+  <button class="theme-toggle" onclick="toggleTheme()">
+    <svg width="12" height="12" viewBox="0 0 12 12" fill="none"><circle cx="6" cy="6" r="2.5" stroke="currentColor" stroke-width="1.2"/><path d="M6 1v1M6 10v1M1 6h1M10 6h1M2.64 2.64l.71.71M8.65 8.65l.71.71M2.64 9.36l.71-.71M8.65 3.35l.71-.71" stroke="currentColor" stroke-width="1.2" stroke-linecap="round"/></svg>
+    <span id="theme-label">Light mode</span>
+  </button>
+  <button class="icon-btn" title="Notifications">
+    <svg width="14" height="14" viewBox="0 0 14 14" fill="none"><path d="M7 1.5a4.5 4.5 0 00-4.5 4.5v2l-1 1.5h11L11.5 8V6A4.5 4.5 0 007 1.5z" stroke="currentColor" stroke-width="1.3"/><path d="M5.5 11.5a1.5 1.5 0 003 0" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/></svg>
+  </button>
+  <div class="topbar-avatar">DM</div>
+</header>
+
+<!-- ── MAIN ── -->
+<main class="main">
+
+  <!-- STATS STRIP -->
+  <div class="stats-strip">
+    <div class="stat-tile" onclick="location.href='pipeline.html'" title="View pipeline">
+      <div class="stat-val warn">9 <span class="stat-denom">/ 14</span></div>
+      <div class="stat-label">Published today</div>
+      <div class="stat-sub">5 behind target</div>
+    </div>
+    <div class="stat-tile" onclick="location.href='pipeline-board.html'" title="View board">
+      <div class="stat-val">34</div>
+      <div class="stat-label">In-flight</div>
+      <div class="stat-sub">Across 8 stages</div>
+    </div>
+    <div class="stat-tile" onclick="location.href='approvals-2.html'" title="View approvals">
+      <div class="stat-val warn">4</div>
+      <div class="stat-label">Awaiting approval</div>
+      <div class="stat-sub">1 SLA breach</div>
+    </div>
+    <div class="stat-tile" title="Ready to release">
+      <div class="stat-val success">3</div>
+      <div class="stat-label">Publish-ready</div>
+      <div class="stat-sub">Cleared for release</div>
+    </div>
+    <div class="stat-tile" onclick="location.href='approvals-2.html'" title="View escalations">
+      <div class="stat-val danger">1</div>
+      <div class="stat-label">Escalations</div>
+      <div class="stat-sub">CHR-2855 · Legal</div>
+    </div>
+    <div class="stat-tile" title="Reject queue">
+      <div class="stat-val">2</div>
+      <div class="stat-label">Reject queue</div>
+      <div class="stat-sub">Pending review</div>
+    </div>
+  </div>
+
+  <!-- BODY COLUMNS -->
+  <div class="body-cols">
+
+    <!-- ACTIVITY FEED -->
+    <div class="feed-col">
+      <div class="panel-header">
+        <span class="panel-title">Activity feed</span>
+        <span class="panel-meta">Today · 24 events</span>
+      </div>
+
+      <div class="feed-item">
+        <span class="feed-time">10:42</span>
+        <div class="av-xs" style="background:rgba(59,130,246,.15);color:#93b4fd;border-color:#1d3064">RO</div>
+        <div class="feed-body">
+          <div class="feed-row">
+            <span class="event-badge eb-stage">Stage move</span>
+            <span class="feed-id">CHR-2851</span>
+          </div>
+          <div class="feed-text">Moved to Awaiting Decision <span class="feed-who">by R. Osei</span></div>
+        </div>
+      </div>
+
+      <div class="feed-item">
+        <span class="feed-time">10:31</span>
+        <div class="av-xs" style="background:rgba(168,85,247,.12);color:#c084fc;border-color:#2d1f5e">MF</div>
+        <div class="feed-body">
+          <div class="feed-row">
+            <span class="event-badge eb-approve">Approved</span>
+            <span class="feed-id">CHR-2847</span>
+          </div>
+          <div class="feed-text">Legal sign-off confirmed <span class="feed-who">by M. Farquhar</span></div>
+        </div>
+      </div>
+
+      <div class="feed-item">
+        <span class="feed-time">10:14</span>
+        <div class="av-xs" style="background:rgba(34,197,94,.09);color:#86efac;border-color:#14532d">SY</div>
+        <div class="feed-body">
+          <div class="feed-row">
+            <span class="event-badge eb-publish">Published</span>
+            <span class="feed-id">CHR-2847</span>
+          </div>
+          <div class="feed-text">Live on Web + Apple News · 3 destinations</div>
+        </div>
+      </div>
+
+      <div class="feed-item">
+        <span class="feed-time">09:58</span>
+        <div class="av-xs" style="background:rgba(239,68,68,.10);color:#fca5a5;border-color:#450a0a">DM</div>
+        <div class="feed-body">
+          <div class="feed-row">
+            <span class="event-badge eb-escalat">Escalated</span>
+            <span class="feed-id">CHR-2855</span>
+          </div>
+          <div class="feed-text">Escalated to legal review <span class="feed-who">by D. Mackenzie</span></div>
+        </div>
+      </div>
+
+      <div class="feed-item">
+        <span class="feed-time">09:44</span>
+        <div class="av-xs" style="background:rgba(59,130,246,.15);color:#93b4fd;border-color:#1d3064">SL</div>
+        <div class="feed-body">
+          <div class="feed-row">
+            <span class="event-badge eb-stage">Stage move</span>
+            <span class="feed-id">CHR-2829</span>
+          </div>
+          <div class="feed-text">Moved to Edit <span class="feed-who">by S. Lindqvist</span></div>
+        </div>
+      </div>
+
+      <div class="feed-item">
+        <span class="feed-time">09:37</span>
+        <div class="av-xs" style="background:rgba(75,86,114,.15);color:#7e8ea8;border-color:#273047">SYS</div>
+        <div class="feed-body">
+          <div class="feed-row">
+            <span class="event-badge eb-sweep">Sweep</span>
+          </div>
+          <div class="feed-text">PA Wire sweep complete · 18 new items ingested</div>
+        </div>
+      </div>
+
+      <div class="feed-item">
+        <span class="feed-time">09:22</span>
+        <div class="av-xs" style="background:rgba(239,68,68,.10);color:#fca5a5;border-color:#450a0a">RQ</div>
+        <div class="feed-body">
+          <div class="feed-row">
+            <span class="event-badge eb-reject">Rejected</span>
+            <span class="feed-id">CHR-2844</span>
+          </div>
+          <div class="feed-text">Source verification failed — primary contact unresponsive</div>
+        </div>
+      </div>
+
+      <div class="feed-item">
+        <span class="feed-time">09:11</span>
+        <div class="av-xs" style="background:rgba(245,158,11,.10);color:#fcd34d;border-color:#451a03">TW</div>
+        <div class="feed-body">
+          <div class="feed-row">
+            <span class="event-badge eb-correct">Correction</span>
+            <span class="feed-id">CHR-2817</span>
+          </div>
+          <div class="feed-text">Figure error logged in paragraph 4 <span class="feed-who">by T. Wilson</span></div>
+        </div>
+      </div>
+
+      <div class="feed-item">
+        <span class="feed-time">08:55</span>
+        <div class="av-xs" style="background:rgba(59,130,246,.15);color:#93b4fd;border-color:#1d3064">AB</div>
+        <div class="feed-body">
+          <div class="feed-row">
+            <span class="event-badge eb-assign">Commissioned</span>
+            <span class="feed-id">CHR-2850</span>
+          </div>
+          <div class="feed-text">Aberdeen Western Peripheral Route night closures <span class="feed-who">by A. Beattie</span></div>
+        </div>
+      </div>
+
+      <div class="feed-item">
+        <span class="feed-time">08:43</span>
+        <div class="av-xs" style="background:rgba(75,86,114,.15);color:#7e8ea8;border-color:#273047">SYS</div>
+        <div class="feed-body">
+          <div class="feed-row">
+            <span class="event-badge eb-system">Scheduled</span>
+            <span class="feed-id">CHR-2836</span>
+          </div>
+          <div class="feed-text">North Sea decommissioning levy analysis — 09:00 tomorrow</div>
+        </div>
+      </div>
+
+      <div class="feed-item">
+        <span class="feed-time">08:31</span>
+        <div class="av-xs" style="background:rgba(59,130,246,.15);color:#93b4fd;border-color:#1d3064">TW</div>
+        <div class="feed-body">
+          <div class="feed-row">
+            <span class="event-badge eb-stage">Draft filed</span>
+            <span class="feed-id">CHR-2832</span>
+          </div>
+          <div class="feed-text">Aberdeen City Council housing allocation — 2,140 words <span class="feed-who">by T. Wilson</span></div>
+        </div>
+      </div>
+
+      <div class="feed-item">
+        <span class="feed-time">08:19</span>
+        <div class="av-xs" style="background:rgba(168,85,247,.12);color:#c084fc;border-color:#2d1f5e">DM</div>
+        <div class="feed-body">
+          <div class="feed-row">
+            <span class="event-badge eb-assign">Assigned</span>
+            <span class="feed-id">CHR-2845</span>
+          </div>
+          <div class="feed-text">Grampian health board restructure — S. Lindqvist</div>
+        </div>
+      </div>
+
+      <div class="feed-item">
+        <span class="feed-time">07:58</span>
+        <div class="av-xs" style="background:rgba(75,86,114,.15);color:#7e8ea8;border-color:#273047">SYS</div>
+        <div class="feed-body">
+          <div class="feed-row">
+            <span class="event-badge eb-sweep">Sweep</span>
+          </div>
+          <div class="feed-text">Companies House sweep complete · 3 new filings ingested</div>
+        </div>
+      </div>
+
+      <div class="feed-item">
+        <span class="feed-time">07:44</span>
+        <div class="av-xs" style="background:rgba(14,165,233,.10);color:#7dd3fc;border-color:#0c3254">KP</div>
+        <div class="feed-body">
+          <div class="feed-row">
+            <span class="event-badge eb-stage">Stage move</span>
+            <span class="feed-id">CHR-2841</span>
+          </div>
+          <div class="feed-text">Moved to Sub-editing <span class="feed-who">by K. Petersen</span></div>
+        </div>
+      </div>
+
+    </div><!-- /feed-col -->
+
+    <!-- RIGHT COLUMN -->
+    <div class="right-col">
+
+      <!-- Stage distribution -->
+      <div class="panel">
+        <div class="panel-header">
+          <span class="panel-title">Stage distribution</span>
+          <span class="panel-badge">34 in flight</span>
+        </div>
+        <div class="stage-rows">
+          <div class="stage-row">
+            <span class="stage-row-label">Discovery</span>
+            <div class="stage-track"><div class="stage-fill" style="width:37.5%;background:#4b5672"></div></div>
+            <span class="stage-count">3</span>
+          </div>
+          <div class="stage-row">
+            <span class="stage-row-label">Triage</span>
+            <div class="stage-track"><div class="stage-fill" style="width:62.5%;background:#3b82f6"></div></div>
+            <span class="stage-count">5</span>
+          </div>
+          <div class="stage-row">
+            <span class="stage-row-label">Research</span>
+            <div class="stage-track"><div class="stage-fill" style="width:75%;background:#0ea5e9"></div></div>
+            <span class="stage-count">6</span>
+          </div>
+          <div class="stage-row">
+            <span class="stage-row-label">Draft</span>
+            <div class="stage-track"><div class="stage-fill" style="width:100%;background:#a78bfa"></div></div>
+            <span class="stage-count">8</span>
+          </div>
+          <div class="stage-row">
+            <span class="stage-row-label">Interlink</span>
+            <div class="stage-bar"><div class="bar-fill" style="width:18%"></div></div>
+            <span class="stage-count">3</span>
+          </div>
+          <div class="stage-row">
+            <span class="stage-row-label">Edit</span>
+            <div class="stage-track"><div class="stage-fill" style="width:62.5%;background:#f59e0b"></div></div>
+            <span class="stage-count">5</span>
+          </div>
+          <div class="stage-row">
+            <span class="stage-row-label">Review</span>
+            <div class="stage-track"><div class="stage-fill" style="width:50%;background:#f59e0b"></div></div>
+            <span class="stage-count">4</span>
+          </div>
+          <div class="stage-row">
+            <span class="stage-row-label">Pre-pub Pack</span>
+            <div class="stage-track"><div class="stage-fill" style="width:25%;background:#14b8a6"></div></div>
+            <span class="stage-count">2</span>
+          </div>
+          <div class="stage-row">
+            <span class="stage-row-label">Awaiting Dec.</span>
+            <div class="stage-track"><div class="stage-fill" style="width:12.5%;background:#22c55e"></div></div>
+            <span class="stage-count">1</span>
+          </div>
+          <div class="stage-row">
+            <span class="stage-row-label">Publishing Prep</span>
+            <div class="stage-bar"><div class="bar-fill" style="width:14%"></div></div>
+            <span class="stage-count">2</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Source sweeps -->
+      <div class="panel">
+        <div class="panel-header">
+          <span class="panel-title">Source sweeps</span>
+          <span class="panel-badge">4 active</span>
+        </div>
+        <div class="sweep-rows">
+          <div class="sweep-row">
+            <span class="sweep-dot ok"></span>
+            <span class="sweep-name">PA Wire</span>
+            <span class="sweep-count">18</span>
+            <span class="sweep-time">4m ago</span>
+          </div>
+          <div class="sweep-row">
+            <span class="sweep-dot ok"></span>
+            <span class="sweep-name">Companies House</span>
+            <span class="sweep-count">3</span>
+            <span class="sweep-time">12m ago</span>
+          </div>
+          <div class="sweep-row">
+            <span class="sweep-dot ok"></span>
+            <span class="sweep-name">ONS Open Data</span>
+            <span class="sweep-count">0</span>
+            <span class="sweep-time">22m ago</span>
+          </div>
+          <div class="sweep-row">
+            <span class="sweep-dot warn"></span>
+            <span class="sweep-name">BBC Monitoring</span>
+            <span class="sweep-count">—</span>
+            <span class="sweep-time" style="color:var(--warn)">47m · stale</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Corrections / post-publish issues -->
+      <div class="panel">
+        <div class="panel-header">
+          <span class="panel-title">Corrections</span>
+          <span class="panel-badge">1 open</span>
+        </div>
+        <div class="correction-rows">
+          <div class="correction-row">
+            <div class="corr-top">
+              <span class="corr-id">CHR-2817</span>
+              <span class="corr-open">Open</span>
+            </div>
+            <div class="corr-desc">Figure error in ¶4 — council housing allocation percentage</div>
+            <div class="corr-time">Logged 09:11 · T. Wilson</div>
+          </div>
+          <div class="correction-row">
+            <div class="corr-top">
+              <span class="corr-id">CHR-2791</span>
+              <span class="corr-closed">Closed</span>
+            </div>
+            <div class="corr-desc">Wrong byline — corrected and re-syndicated</div>
+            <div class="corr-time">Closed 18:44 yesterday · M. Farquhar</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Recent failures -->
+      <div class="panel">
+        <div class="panel-header">
+          <span class="panel-title">Recent failures</span>
+          <span class="panel-badge">2</span>
+        </div>
+        <div class="failure-rows">
+          <div class="failure-row">
+            <span class="fail-dot" style="background:var(--danger)"></span>
+            <div class="fail-body">
+              <div class="fail-id">CHR-2844 · Publish</div>
+              <div class="fail-desc">Metadata validation — missing canonical slug</div>
+              <div class="fail-time">12m ago</div>
+            </div>
+          </div>
+          <div class="failure-row">
+            <span class="fail-dot" style="background:var(--warn)"></span>
+            <div class="fail-body">
+              <div class="fail-id">System · Source sweep</div>
+              <div class="fail-desc">Companies House sweep timeout — retry queued</div>
+              <div class="fail-time">1h 14m ago</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+    </div><!-- /right-col -->
+
+  </div><!-- /body-cols -->
+
+</main><!-- /main -->
+</div><!-- /shell -->
+
+<script>
+function toggleTheme() {
+  const html = document.documentElement;
+  const isDark = html.getAttribute('data-theme') === 'dark';
+  html.setAttribute('data-theme', isDark ? 'light' : 'dark');
+  document.getElementById('theme-label').textContent = isDark ? 'Dark mode' : 'Light mode';
+}
+
+function tick() {
+  const now = new Date();
+  const h = String(now.getHours()).padStart(2,'0');
+  const m = String(now.getMinutes()).padStart(2,'0');
+  const s = String(now.getSeconds()).padStart(2,'0');
+  document.getElementById('clock').textContent = h + ':' + m + ':' + s;
+}
+
+function setDate() {
+  const now = new Date();
+  const days = ['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
+  const months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+  document.getElementById('date-display').textContent =
+    days[now.getDay()] + ' ' + now.getDate() + ' ' + months[now.getMonth()] + ' ' + now.getFullYear();
+}
+
+tick();
+setDate();
+setInterval(tick, 1000);
+</script>
+</body>
+</html>

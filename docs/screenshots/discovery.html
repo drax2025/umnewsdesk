@@ -1,0 +1,959 @@
+<!doctype html>
+<html lang="en" data-theme="dark">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Discovery — Union Media</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg:             #0b0d12;
+  --surface:        #10131c;
+  --surface-2:      #161d2e;
+  --fg:             #dde4f0;
+  --fg-2:           #7e8ea8;
+  --muted:          #4b5672;
+  --border:         #1c2438;
+  --border-mid:     #273047;
+  --accent:         #3b82f6;
+  --accent-on:      #fff;
+  --accent-hover:   #2563eb;
+  --accent-subtle:  rgba(59,130,246,.10);
+  --success:        #22c55e;
+  --success-subtle: rgba(34,197,94,.08);
+  --warn:           #f59e0b;
+  --warn-subtle:    rgba(245,158,11,.08);
+  --danger:         #ef4444;
+  --danger-subtle:  rgba(239,68,68,.08);
+  --font: Inter, "Helvetica Neue", system-ui, sans-serif;
+  --mono: "SF Mono", "Cascadia Code", ui-monospace, Menlo, monospace;
+  --sidebar-w: 216px;
+  --topbar-h:  48px;
+  --r: 6px;
+}
+[data-theme="light"] {
+  --bg:             #f4f6f9;
+  --surface:        #ffffff;
+  --surface-2:      #eef1f6;
+  --fg:             #0d1117;
+  --fg-2:           #4a5568;
+  --muted:          #8b95a8;
+  --border:         #dde3ed;
+  --border-mid:     #c7d0e0;
+  --accent:         #2563eb;
+  --accent-on:      #fff;
+  --accent-hover:   #1d4ed8;
+  --accent-subtle:  rgba(37,99,235,.09);
+  --success:        #16a34a;
+  --success-subtle: rgba(22,163,74,.08);
+  --warn:           #d97706;
+  --warn-subtle:    rgba(217,119,6,.08);
+  --danger:         #dc2626;
+  --danger-subtle:  rgba(220,38,38,.08);
+}
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+html, body {
+  height: 100%; background: var(--bg); color: var(--fg);
+  font-family: var(--font); font-size: 13px; line-height: 1.45;
+  -webkit-font-smoothing: antialiased;
+}
+.shell {
+  display: grid;
+  grid-template-columns: var(--sidebar-w) 1fr;
+  grid-template-rows: var(--topbar-h) 1fr;
+  height: 100vh; overflow: hidden;
+}
+.sidebar {
+  grid-row: 1 / 3; background: var(--surface);
+  border-right: 1px solid var(--border);
+  display: flex; flex-direction: column; overflow-y: auto;
+}
+.sidebar-pub { padding: 14px 16px 12px; border-bottom: 1px solid var(--border); }
+.pub-name { font-size: 13px; font-weight: 600; color: var(--fg); letter-spacing: -0.015em; display: block; }
+.pub-meta { font-size: 11px; color: var(--muted); margin-top: 2px; font-family: var(--mono); font-variant-numeric: tabular-nums; }
+.sidebar-nav { padding: 8px 0; flex: 1; }
+.nav-section { padding: 14px 16px 4px; font-size: 10px; font-weight: 600; letter-spacing: 0.07em; text-transform: uppercase; color: var(--muted); }
+.nav-item {
+  display: flex; align-items: center; gap: 9px;
+  padding: 7px 16px; font-size: 13px; color: var(--fg-2);
+  cursor: pointer; text-decoration: none; position: relative;
+  transition: background 100ms, color 100ms;
+}
+.nav-item:hover { background: var(--surface-2); color: var(--fg); }
+.nav-item.active { color: var(--fg); background: var(--accent-subtle); }
+.nav-item.active::before {
+  content: ''; position: absolute; left: 0; top: 4px; bottom: 4px;
+  width: 2px; background: var(--accent); border-radius: 0 2px 2px 0;
+}
+.nav-icon { width: 15px; height: 15px; flex-shrink: 0; opacity: .65; }
+.nav-item.active .nav-icon, .nav-item:hover .nav-icon { opacity: 1; }
+.nav-badge {
+  margin-left: auto; font-size: 10px; font-family: var(--mono);
+  font-variant-numeric: tabular-nums; color: var(--muted);
+  background: var(--bg); border: 1px solid var(--border);
+  padding: 1px 6px; border-radius: 9999px; line-height: 1.6;
+}
+.nav-badge.urgent { color: var(--warn); border-color: rgba(245,158,11,.4); background: var(--warn-subtle); }
+.sidebar-user {
+  padding: 12px 16px; border-top: 1px solid var(--border);
+  display: flex; align-items: center; gap: 9px;
+}
+.avatar-sm {
+  width: 26px; height: 26px; border-radius: 50%;
+  background: var(--accent-subtle); border: 1px solid var(--border-mid);
+  display: flex; align-items: center; justify-content: center;
+  font-size: 10px; font-weight: 700; color: var(--accent);
+  flex-shrink: 0; font-family: var(--mono);
+}
+.user-name { font-size: 12px; font-weight: 500; color: var(--fg); display: block; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.user-role { font-size: 11px; color: var(--muted); display: block; }
+
+.topbar {
+  background: var(--surface); border-bottom: 1px solid var(--border);
+  display: flex; align-items: center; padding: 0 18px; gap: 10px;
+}
+.topbar-title { font-size: 13px; font-weight: 600; color: var(--fg); letter-spacing: -0.01em; }
+.topbar-sep { color: var(--border-mid); margin: 0 2px; }
+.topbar-sub { font-size: 12px; color: var(--muted); font-weight: 400; flex: 1; }
+.topbar-date  { font-size: 11.5px; color: var(--fg-2); }
+.topbar-clock { font-size: 11.5px; font-family: var(--mono); color: var(--fg-2); font-variant-numeric: tabular-nums; }
+.theme-toggle {
+  display: flex; align-items: center; gap: 5px; height: 28px; padding: 0 10px;
+  border: 1px solid var(--border); border-radius: var(--r);
+  background: transparent; color: var(--fg-2); font-size: 11.5px; font-family: var(--font);
+  cursor: pointer; transition: background 100ms, color 100ms;
+}
+.theme-toggle:hover { background: var(--surface-2); color: var(--fg); }
+.icon-btn {
+  width: 28px; height: 28px; display: flex; align-items: center; justify-content: center;
+  border: 1px solid var(--border); background: transparent; border-radius: var(--r);
+  color: var(--fg-2); cursor: pointer; transition: background 100ms, color 100ms;
+}
+.icon-btn:hover { background: var(--surface-2); color: var(--fg); }
+.topbar-avatar {
+  width: 28px; height: 28px; border-radius: 50%;
+  background: var(--accent-subtle); border: 1px solid var(--border-mid);
+  display: flex; align-items: center; justify-content: center;
+  font-size: 10px; font-weight: 700; color: var(--accent);
+  cursor: pointer; font-family: var(--mono);
+}
+
+/* ── MAIN ── */
+.main { overflow: hidden; background: var(--bg); display: flex; flex-direction: column; }
+
+/* KPI strip */
+.kpi-strip {
+  display: grid; grid-template-columns: repeat(6, 1fr);
+  border-bottom: 1px solid var(--border); flex-shrink: 0;
+}
+.kpi-tile {
+  padding: 11px 16px; border-right: 1px solid var(--border);
+  cursor: pointer; transition: background 100ms;
+}
+.kpi-tile:last-child { border-right: none; }
+.kpi-tile:hover { background: var(--surface); }
+.kpi-val {
+  font-size: 22px; font-weight: 600; font-family: var(--mono);
+  font-variant-numeric: tabular-nums; letter-spacing: -0.03em;
+  color: var(--fg); line-height: 1.1; margin-bottom: 2px;
+}
+.kpi-val.warn    { color: var(--warn); }
+.kpi-val.danger  { color: var(--danger); }
+.kpi-val.success { color: var(--success); }
+.kpi-label { font-size: 11px; font-weight: 500; color: var(--fg-2); margin-bottom: 1px; }
+.kpi-sub   { font-size: 10.5px; color: var(--muted); font-family: var(--mono); }
+
+/* Body */
+.body-cols {
+  flex: 1; display: grid;
+  grid-template-columns: 1fr 284px;
+  min-height: 0; overflow: hidden;
+}
+.scroll-col {
+  overflow-y: auto; padding: 16px;
+  scrollbar-width: thin; scrollbar-color: var(--border-mid) transparent;
+  display: flex; flex-direction: column; gap: 14px;
+}
+
+/* Section headers */
+.sec-head {
+  display: flex; align-items: center; gap: 8px; margin-bottom: 8px;
+}
+.sec-label {
+  font-size: 10px; font-weight: 700; letter-spacing: 0.09em;
+  text-transform: uppercase; color: var(--muted); font-family: var(--mono);
+  flex: 1;
+}
+.sec-link {
+  font-size: 11px; color: var(--accent); cursor: pointer;
+  text-decoration: none; transition: opacity 100ms;
+}
+.sec-link:hover { opacity: .75; }
+
+/* Sweep cards */
+.sweep-row { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.sweep-card {
+  background: var(--surface); border: 1px solid var(--border);
+  border-radius: var(--r); overflow: hidden;
+}
+.sweep-card-head {
+  padding: 9px 12px; border-bottom: 1px solid var(--border);
+  display: flex; align-items: center; gap: 7px;
+}
+.sweep-time-badge {
+  font-family: var(--mono); font-size: 12px; font-weight: 600;
+  color: var(--fg); font-variant-numeric: tabular-nums;
+}
+.sweep-type { font-size: 11px; color: var(--muted); }
+.sweep-status { margin-left: auto; }
+.status-badge {
+  display: inline-flex; align-items: center; gap: 3px;
+  padding: 2px 7px; border-radius: 9999px;
+  font-size: 10.5px; font-weight: 600; letter-spacing: 0.02em;
+  white-space: nowrap;
+}
+.sb-complete { background: var(--success-subtle); border: 1px solid rgba(34,197,94,.3); color: var(--success); }
+.sb-running  { background: var(--accent-subtle);  border: 1px solid rgba(59,130,246,.3); color: #93b4fd; }
+.sb-partial  { background: var(--warn-subtle);    border: 1px solid rgba(245,158,11,.3); color: var(--warn); }
+.sb-failed   { background: var(--danger-subtle);  border: 1px solid rgba(239,68,68,.3);  color: var(--danger); }
+.sb-running::before {
+  content: ''; width: 5px; height: 5px; border-radius: 50%;
+  background: var(--accent); animation: pulse 1.2s infinite;
+}
+@keyframes pulse { 0%,100%{opacity:1} 50%{opacity:.35} }
+
+.sweep-outcomes { padding: 8px 12px; display: flex; flex-direction: column; gap: 5px; }
+.outcome-row { display: flex; align-items: center; gap: 7px; }
+.out-dot { width: 6px; height: 6px; border-radius: 50%; flex-shrink: 0; }
+.out-dot.ok   { background: var(--success); }
+.out-dot.mute { background: var(--muted); }
+.out-dot.warn { background: var(--warn); }
+.out-dot.fail { background: var(--danger); }
+.out-label { font-size: 11.5px; color: var(--fg-2); flex: 1; }
+.out-count { font-size: 11.5px; font-family: var(--mono); font-variant-numeric: tabular-nums; color: var(--fg); font-weight: 500; }
+.out-pct   { font-size: 10.5px; font-family: var(--mono); color: var(--muted); width: 34px; text-align: right; }
+
+.sweep-footer {
+  padding: 7px 12px; border-top: 1px solid var(--border);
+  display: flex; align-items: center; gap: 8px;
+  background: rgba(255,255,255,.015);
+}
+.sweep-total { font-size: 12px; color: var(--fg-2); }
+.sweep-total strong { color: var(--fg); font-variant-numeric: tabular-nums; }
+.sweep-dur { font-size: 10.5px; font-family: var(--mono); color: var(--muted); margin-left: auto; }
+
+/* Candidate flow */
+.flow-card {
+  background: var(--surface); border: 1px solid var(--border);
+  border-radius: var(--r); padding: 12px;
+}
+.flow-track { display: flex; align-items: stretch; gap: 0; }
+.flow-step { flex: 1; display: flex; flex-direction: column; align-items: center; position: relative; }
+.flow-step + .flow-step::before {
+  content: ''; position: absolute; top: 14px; left: -50%; right: 50%; height: 1px;
+  background: var(--border-mid);
+}
+.flow-bubble {
+  width: 28px; height: 28px; border-radius: 50%;
+  background: var(--surface-2); border: 1px solid var(--border-mid);
+  display: flex; align-items: center; justify-content: center;
+  font-size: 9.5px; font-weight: 700; font-family: var(--mono);
+  font-variant-numeric: tabular-nums; color: var(--fg-2);
+  margin-bottom: 5px; position: relative; z-index: 1;
+  transition: border-color 100ms, color 100ms;
+}
+.flow-step.accent .flow-bubble { border-color: var(--accent); color: var(--accent); background: var(--accent-subtle); }
+.flow-step.success-s .flow-bubble { border-color: rgba(34,197,94,.5); color: var(--success); background: var(--success-subtle); }
+.flow-step.danger-s .flow-bubble { border-color: rgba(239,68,68,.4); color: var(--danger); background: var(--danger-subtle); }
+.flow-name { font-size: 10px; color: var(--muted); text-align: center; line-height: 1.25; white-space: nowrap; }
+.flow-drop {
+  display: flex; align-items: center; justify-content: center;
+  gap: 3px; margin-top: 3px;
+}
+.flow-drop-val { font-size: 10px; color: var(--muted); font-family: var(--mono); }
+.flow-drop-val.neg { color: var(--danger); }
+
+/* Issues table */
+.issues-card {
+  background: var(--surface); border: 1px solid var(--border);
+  border-radius: var(--r); overflow: hidden;
+}
+.issues-card table { width: 100%; border-collapse: collapse; }
+.issues-card thead th {
+  background: var(--surface); padding: 7px 12px;
+  font-size: 10px; font-weight: 600; letter-spacing: 0.05em; text-transform: uppercase;
+  color: var(--muted); text-align: left; white-space: nowrap;
+  border-bottom: 1px solid var(--border);
+}
+.issues-card tbody tr { border-bottom: 1px solid var(--border); transition: background 70ms; cursor: pointer; }
+.issues-card tbody tr:last-child { border-bottom: none; }
+.issues-card tbody tr:hover { background: var(--surface-2); }
+.issues-card td { padding: 8px 12px; vertical-align: middle; }
+td.mono { font-family: var(--mono); font-size: 11px; color: var(--muted); font-variant-numeric: tabular-nums; white-space: nowrap; }
+.type-chip {
+  display: inline-flex; padding: 1px 6px; border-radius: 3px;
+  font-size: 10.5px; font-weight: 600; white-space: nowrap;
+  font-family: var(--mono);
+}
+.tc-parse  { background: var(--warn-subtle); border: 1px solid rgba(245,158,11,.3); color: var(--warn); }
+.tc-rate   { background: var(--accent-subtle); border: 1px solid rgba(59,130,246,.3); color: #93b4fd; }
+.tc-unreach { background: var(--danger-subtle); border: 1px solid rgba(239,68,68,.3); color: var(--danger); }
+.tc-schema { background: rgba(168,85,247,.10); border: 1px solid rgba(168,85,247,.35); color: #c084fc; }
+.tc-timeout { background: rgba(75,86,114,.12); border: 1px solid var(--border-mid); color: var(--fg-2); }
+.issue-src  { font-size: 12px; color: var(--fg-2); }
+.issue-age  { font-size: 11px; font-family: var(--mono); color: var(--muted); white-space: nowrap; }
+.is-open   { display: inline-flex; padding: 1px 5px; border-radius: 3px; font-size: 10px; font-weight: 700; letter-spacing: 0.04em; text-transform: uppercase; font-family: var(--mono); background: var(--warn-subtle); border: 1px solid rgba(245,158,11,.3); color: var(--warn); }
+.is-invest { display: inline-flex; padding: 1px 5px; border-radius: 3px; font-size: 10px; font-weight: 700; letter-spacing: 0.04em; text-transform: uppercase; font-family: var(--mono); background: var(--accent-subtle); border: 1px solid rgba(59,130,246,.3); color: #93b4fd; }
+.is-resolved { display: inline-flex; padding: 1px 5px; border-radius: 3px; font-size: 10px; font-weight: 700; letter-spacing: 0.04em; text-transform: uppercase; font-family: var(--mono); background: var(--success-subtle); border: 1px solid rgba(34,197,94,.3); color: var(--success); }
+.issue-assignee { font-size: 11px; color: var(--fg-2); white-space: nowrap; }
+.unassigned { color: var(--muted); }
+
+/* Right column */
+.right-col {
+  overflow-y: auto; background: var(--surface);
+  border-left: 1px solid var(--border);
+  display: flex; flex-direction: column;
+  scrollbar-width: thin; scrollbar-color: var(--border-mid) transparent;
+}
+.rpanel { border-bottom: 1px solid var(--border); flex-shrink: 0; }
+.rpanel-head {
+  padding: 9px 14px 8px; border-bottom: 1px solid var(--border);
+  display: flex; align-items: center; gap: 7px;
+}
+.rpanel-title { font-size: 10px; font-weight: 700; letter-spacing: 0.09em; text-transform: uppercase; color: var(--muted); flex: 1; font-family: var(--mono); }
+.rpanel-link { font-size: 11px; color: var(--accent); cursor: pointer; text-decoration: none; }
+.rpanel-link:hover { opacity: .75; }
+
+/* Recent runs */
+.run-item {
+  display: flex; align-items: center; gap: 8px;
+  padding: 8px 14px; border-bottom: 1px solid var(--border);
+  cursor: pointer; transition: background 70ms;
+}
+.run-item:last-child { border-bottom: none; }
+.run-item:hover { background: var(--surface-2); }
+.run-id { font-family: var(--mono); font-size: 10.5px; color: var(--muted); letter-spacing: 0.04em; flex-shrink: 0; white-space: nowrap; }
+.run-type {
+  width: 26px; height: 16px; display: flex; align-items: center; justify-content: center;
+  border-radius: 3px; font-size: 9px; font-weight: 700; letter-spacing: 0.05em;
+  text-transform: uppercase; font-family: var(--mono); flex-shrink: 0;
+}
+.run-am { background: rgba(59,130,246,.12); border: 1px solid rgba(59,130,246,.3); color: #93b4fd; }
+.run-pm { background: rgba(168,85,247,.10); border: 1px solid rgba(168,85,247,.3); color: #c084fc; }
+.run-info { flex: 1; min-width: 0; }
+.run-time { font-size: 11px; font-family: var(--mono); color: var(--fg-2); font-variant-numeric: tabular-nums; display: block; }
+.run-date { font-size: 10.5px; color: var(--muted); }
+.run-stats { text-align: right; flex-shrink: 0; }
+.run-cands { font-size: 11px; font-family: var(--mono); font-variant-numeric: tabular-nums; color: var(--fg-2); display: block; white-space: nowrap; }
+.run-issues { font-size: 10.5px; font-family: var(--mono); color: var(--muted); }
+.run-issues.has-issues { color: var(--warn); }
+.run-issues.has-failures { color: var(--danger); }
+
+/* Source health */
+.src-item {
+  padding: 7px 14px; border-bottom: 1px solid var(--border);
+  display: grid; grid-template-columns: 8px 1fr auto;
+  gap: 7px; align-items: center; cursor: pointer;
+  transition: background 70ms;
+}
+.src-item:last-child { border-bottom: none; }
+.src-item:hover { background: var(--surface-2); }
+.src-dot { width: 6px; height: 6px; border-radius: 50%; flex-shrink: 0; }
+.src-dot.ok   { background: var(--success); }
+.src-dot.warn { background: var(--warn); }
+.src-dot.fail { background: var(--danger); }
+.src-name { font-size: 12px; color: var(--fg-2); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.src-rate { font-size: 11px; font-family: var(--mono); color: var(--fg-2); text-align: right; font-variant-numeric: tabular-nums; }
+.src-rate.warn { color: var(--warn); }
+.src-rate.fail { color: var(--danger); }
+.src-meta { grid-column: 2 / 4; display: flex; gap: 8px; font-size: 10.5px; font-family: var(--mono); color: var(--muted); margin-top: -3px; font-variant-numeric: tabular-nums; }
+</style>
+</head>
+<body>
+<div class="shell">
+
+<!-- ── SIDEBAR ── -->
+<aside class="sidebar">
+  <div class="sidebar-pub">
+    <span class="pub-name">Union Media</span>
+    <span class="pub-meta">unionmedia.co.uk · Editorial Ops</span>
+  </div>
+      <nav class="sidebar-nav">
+    <div class="nav-section">Overview</div>
+    <a href="dashboard.html" class="nav-item">
+      <svg class="nav-icon" viewBox="0 0 15 15" fill="none"><rect x="1.5" y="1.5" width="5" height="5" rx="1" fill="currentColor"/><rect x="8.5" y="1.5" width="5" height="5" rx="1" fill="currentColor"/><rect x="1.5" y="8.5" width="5" height="5" rx="1" fill="currentColor"/><rect x="8.5" y="8.5" width="5" height="5" rx="1" fill="currentColor"/></svg>
+      Dashboard
+    </a>
+    <div class="nav-section">Editorial</div>
+    <a href="pipeline-dashboard.html" class="nav-item">
+      <svg class="nav-icon" viewBox="0 0 15 15" fill="none"><rect x="1.5" y="2.5" width="12" height="1.5" rx=".5" fill="currentColor"/><rect x="1.5" y="6.5" width="12" height="1.5" rx=".5" fill="currentColor"/><rect x="1.5" y="10.5" width="12" height="1.5" rx=".5" fill="currentColor"/></svg>
+      Pipeline
+    </a>
+    <a href="pipeline-board.html" class="nav-item">
+      <svg class="nav-icon" viewBox="0 0 15 15" fill="none"><rect x="1" y="1.5" width="4" height="12" rx="1" fill="currentColor"/><rect x="6" y="1.5" width="4" height="8.5" rx="1" fill="currentColor"/><rect x="11" y="1.5" width="3" height="5.5" rx="1" fill="currentColor"/></svg>
+      Board
+    </a>
+    <a href="#" class="nav-item">
+      <svg class="nav-icon" viewBox="0 0 15 15" fill="none"><rect x="1.5" y="2.5" width="12" height="11" rx="1.5" stroke="currentColor" stroke-width="1.3"/><path d="M1.5 6h12" stroke="currentColor" stroke-width="1.3"/><path d="M5 1.5V4M10 1.5V4" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/></svg>
+      Calendar
+      <span class="nav-badge">18</span>
+    </a>
+    <a href="article-dossier.html" class="nav-item">
+      <svg class="nav-icon" viewBox="0 0 15 15" fill="none"><path d="M3.5 1.5h5.5l3 3v9h-8.5v-12z" stroke="currentColor" stroke-width="1.3" stroke-linejoin="round"/><path d="M9 1.5v3.5h3" stroke="currentColor" stroke-width="1.3"/><path d="M5 7.5h5M5 9.5h3" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/></svg>
+      Article Dossier
+    </a>
+    <div class="nav-section">Management</div>
+    <a href="approvals.html" class="nav-item">
+      <svg class="nav-icon" viewBox="0 0 15 15" fill="none"><path d="M2 7.5L6 11.5L13 3.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      Approvals
+      <span class="nav-badge urgent">4</span>
+    </a>
+    <a href="#" class="nav-item">
+      <svg class="nav-icon" viewBox="0 0 15 15" fill="none"><circle cx="5" cy="5.5" r="2" stroke="currentColor" stroke-width="1.3"/><circle cx="10.5" cy="5.5" r="2" stroke="currentColor" stroke-width="1.3"/><path d="M1 13c0-2 1.79-3.5 4-3.5h5c2.21 0 4 1.5 4 3.5" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/></svg>
+      Team
+    </a>
+    <div class="nav-section">Discovery</div>
+    <a href="discovery.html" class="nav-item active">
+      <svg class="nav-icon" viewBox="0 0 15 15" fill="none"><circle cx="6.5" cy="6.5" r="4" stroke="currentColor" stroke-width="1.3"/><path d="M11 11l2.5 2.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
+      Discovery Overview
+      <span class="nav-badge urgent">3</span>
+    </a>
+    <a href="candidate-inbox.html" class="nav-item">
+      <svg class="nav-icon" viewBox="0 0 15 15" fill="none"><path d="M1.5 4.5h12v8.5h-12z" stroke="currentColor" stroke-width="1.3" stroke-linejoin="round"/><path d="M1.5 4.5l6 4 6-4" stroke="currentColor" stroke-width="1.3" stroke-linejoin="round"/></svg>
+      Candidate Inbox
+      <span class="nav-badge">89</span>
+    </a>
+    <a href="ops-rr-queue.html" class="nav-item">
+      <svg class="nav-icon" viewBox="0 0 15 15" fill="none"><path d="M7.5 1.5v5M7.5 9.5v.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/><circle cx="7.5" cy="7.5" r="6" stroke="currentColor" stroke-width="1.3"/></svg>
+      OPS-RR Queue
+      <span class="nav-badge urgent">7</span>
+    </a>
+    <a href="sweep-run-detail.html" class="nav-item">
+      <svg class="nav-icon" viewBox="0 0 15 15" fill="none"><circle cx="7.5" cy="7.5" r="6" stroke="currentColor" stroke-width="1.3"/><path d="M7.5 4.5v3l2 2" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/></svg>
+      Sweep Run Detail
+    </a>
+    <div class="nav-section">System</div>
+    <a href="discovery-config.html" class="nav-item">
+      <svg class="nav-icon" viewBox="0 0 15 15" fill="none"><circle cx="7.5" cy="7.5" r="3" stroke="currentColor" stroke-width="1.3"/><path d="M7.5 1v1.5M7.5 12.5V14M1 7.5h1.5M12.5 7.5H14M2.9 2.9l1.1 1.1M11 11l1.1 1.1M11 2.9L9.9 4M4 11l-1.1 1.1" stroke="currentColor" stroke-width="1.2" stroke-linecap="round"/></svg>
+      Discovery Config
+    </a>
+    <a href="source-monitor.html" class="nav-item">
+      <svg class="nav-icon" viewBox="0 0 15 15" fill="none"><path d="M1.5 10.5l4-4 3 3 5-6" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"/><circle cx="13" cy="4.5" r="1" fill="currentColor"/></svg>
+      Source Health Monitor
+    </a>
+    <a href="discovery-2.html" class="nav-item">
+      <svg class="nav-icon" viewBox="0 0 15 15" fill="none"><path d="M2.5 5.5h10M2.5 8.5h8M2.5 11.5h5" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/><rect x="1.5" y="1.5" width="12" height="12" rx="1.5" stroke="currentColor" stroke-width="1.3"/></svg>
+      Discovery Audit Log
+    </a>
+    <a href="design-system.html" class="nav-item">
+      <svg class="nav-icon" viewBox="0 0 15 15" fill="none"><circle cx="4" cy="4" r="1.5" fill="currentColor"/><circle cx="11" cy="4" r="1.5" fill="currentColor"/><circle cx="4" cy="11" r="1.5" fill="currentColor"/><circle cx="11" cy="11" r="1.5" fill="currentColor"/><circle cx="7.5" cy="7.5" r="1.5" fill="currentColor"/></svg>
+      Design System
+    </a>
+    <a href="#" class="nav-item">
+      <svg class="nav-icon" viewBox="0 0 15 15" fill="none"><circle cx="7.5" cy="7.5" r="5.5" stroke="currentColor" stroke-width="1.3"/><circle cx="7.5" cy="7.5" r="2" stroke="currentColor" stroke-width="1.3"/></svg>
+      Settings
+    </a>
+  </nav>
+  <div class="sidebar-user">
+    <div class="avatar-sm">DM</div>
+    <div style="min-width:0">
+      <span class="user-name">D. Mackenzie</span>
+      <span class="user-role">Senior Editor</span>
+    </div>
+  </div>
+</aside>
+
+<!-- ── TOPBAR ── -->
+<header class="topbar">
+  <span class="topbar-title">Discovery</span>
+  <span class="topbar-sep">·</span>
+  <span class="topbar-sub">Ranger Recon</span>
+  <span class="topbar-date" id="date-display"></span>
+  <span class="topbar-clock" id="clock">--:--:--</span>
+  <button class="theme-toggle" onclick="toggleTheme()">
+    <svg width="12" height="12" viewBox="0 0 12 12" fill="none"><circle cx="6" cy="6" r="2.5" stroke="currentColor" stroke-width="1.2"/><path d="M6 1v1M6 10v1M1 6h1M10 6h1M2.64 2.64l.71.71M8.65 8.65l.71.71M2.64 9.36l.71-.71M8.65 3.35l.71-.71" stroke="currentColor" stroke-width="1.2" stroke-linecap="round"/></svg>
+    <span id="theme-label">Light mode</span>
+  </button>
+  <button class="icon-btn" title="Notifications">
+    <svg width="14" height="14" viewBox="0 0 14 14" fill="none"><path d="M7 1.5a4.5 4.5 0 00-4.5 4.5v2l-1 1.5h11L11.5 8V6A4.5 4.5 0 007 1.5z" stroke="currentColor" stroke-width="1.3"/><path d="M5.5 11.5a1.5 1.5 0 003 0" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/></svg>
+  </button>
+  <div class="topbar-avatar">DM</div>
+</header>
+
+<!-- ── MAIN ── -->
+<main class="main">
+
+  <!-- KPI STRIP -->
+  <div class="kpi-strip">
+    <div class="kpi-tile" title="View candidate inbox" onclick="location.href='candidate-inbox.html'" style="cursor:pointer">
+      <div class="kpi-val">247</div>
+      <div class="kpi-label">Candidates surfaced</div>
+      <div class="kpi-sub">AM sweep · today</div>
+    </div>
+    <div class="kpi-tile" title="View candidate inbox" onclick="location.href='candidate-inbox.html'" style="cursor:pointer">
+      <div class="kpi-val warn">89</div>
+      <div class="kpi-label">Awaiting triage</div>
+      <div class="kpi-sub">Oldest: 4h 12m</div>
+    </div>
+    <div class="kpi-tile" title="View OPS-RR queue" onclick="location.href='ops-rr-queue.html'">
+      <div class="kpi-val warn">14</div>
+      <div class="kpi-label">Parse failures</div>
+      <div class="kpi-sub">4 sources affected</div>
+    </div>
+    <div class="kpi-tile" title="View source health">
+      <div class="kpi-val warn">7</div>
+      <div class="kpi-label">Unreachable sites</div>
+      <div class="kpi-sub">Last seen &gt; 6h ago</div>
+    </div>
+    <div class="kpi-tile" title="View OPS-RR queue" onclick="location.href='ops-rr-queue.html'">
+      <div class="kpi-val warn">3</div>
+      <div class="kpi-label">Open OPS-RR alerts</div>
+      <div class="kpi-sub">1 unassigned</div>
+    </div>
+    <div class="kpi-tile" title="View escalations">
+      <div class="kpi-val danger">1</div>
+      <div class="kpi-label">REC-ESC escalations</div>
+      <div class="kpi-sub">REC-ESC-0019 · active</div>
+    </div>
+  </div>
+
+  <!-- BODY -->
+  <div class="body-cols">
+
+    <!-- LEFT: sweeps + flow + issues -->
+    <div class="scroll-col" style="border-right: 1px solid var(--border);">
+
+      <!-- Sweep cards -->
+      <div>
+        <div class="sec-head">
+          <span class="sec-label">Sweep Runs — Today</span>
+          <a class="sec-link" href="discovery-2.html">Audit Log →</a>
+        </div>
+        <div class="sweep-row">
+
+          <!-- AM sweep -->
+          <div class="sweep-card">
+            <div class="sweep-card-head">
+              <span class="sweep-time-badge">06:00</span>
+              <span class="sweep-type">AM sweep · 42 sources</span>
+              <div class="sweep-status"><span class="status-badge sb-complete">Complete</span></div>
+            </div>
+            <div class="sweep-outcomes">
+              <div class="outcome-row">
+                <div class="out-dot ok"></div>
+                <span class="out-label">Reached with items</span>
+                <span class="out-count">31</span>
+                <span class="out-pct">73.8%</span>
+              </div>
+              <div class="outcome-row">
+                <div class="out-dot mute"></div>
+                <span class="out-label">Reached, no items</span>
+                <span class="out-count">5</span>
+                <span class="out-pct">11.9%</span>
+              </div>
+              <div class="outcome-row">
+                <div class="out-dot warn"></div>
+                <span class="out-label">Parse failure</span>
+                <span class="out-count">4</span>
+                <span class="out-pct">9.5%</span>
+              </div>
+              <div class="outcome-row">
+                <div class="out-dot fail"></div>
+                <span class="out-label">Not reached</span>
+                <span class="out-count">2</span>
+                <span class="out-pct">4.8%</span>
+              </div>
+            </div>
+            <div class="sweep-footer">
+              <span class="sweep-total"><strong>247</strong> candidates surfaced</span>
+              <span class="sweep-dur">Duration: 4m 38s</span>
+            </div>
+          </div>
+
+          <!-- PM sweep (in progress) -->
+          <div class="sweep-card">
+            <div class="sweep-card-head">
+              <span class="sweep-time-badge">14:00</span>
+              <span class="sweep-type">PM sweep · 42 sources</span>
+              <div class="sweep-status"><span class="status-badge sb-running">Running</span></div>
+            </div>
+            <div class="sweep-outcomes">
+              <div class="outcome-row">
+                <div class="out-dot ok"></div>
+                <span class="out-label">Reached with items</span>
+                <span class="out-count">18</span>
+                <span class="out-pct">—</span>
+              </div>
+              <div class="outcome-row">
+                <div class="out-dot mute"></div>
+                <span class="out-label">Reached, no items</span>
+                <span class="out-count">3</span>
+                <span class="out-pct">—</span>
+              </div>
+              <div class="outcome-row">
+                <div class="out-dot warn"></div>
+                <span class="out-label">Parse failure</span>
+                <span class="out-count">2</span>
+                <span class="out-pct">—</span>
+              </div>
+              <div class="outcome-row">
+                <div class="out-dot fail"></div>
+                <span class="out-label">Not reached</span>
+                <span class="out-count">1</span>
+                <span class="out-pct">—</span>
+              </div>
+            </div>
+            <div class="sweep-footer">
+              <span class="sweep-total"><strong>89</strong> candidates so far · 18 pending</span>
+              <span class="sweep-dur">2m 11s elapsed</span>
+            </div>
+          </div>
+
+        </div>
+      </div>
+
+      <!-- Candidate flow -->
+      <div>
+        <div class="sec-head">
+          <span class="sec-label">Candidate Flow — Today</span>
+          <a class="sec-link" href="candidate-inbox.html">Open inbox →</a>
+        </div>
+        <div class="flow-card">
+          <div class="flow-track">
+            <div class="flow-step">
+              <div class="flow-bubble">336</div>
+              <div class="flow-name">Discovered</div>
+            </div>
+            <div class="flow-step">
+              <div class="flow-bubble">289</div>
+              <div class="flow-name">Deduplicated</div>
+              <div class="flow-drop"><span class="flow-drop-val neg">−47</span></div>
+            </div>
+            <div class="flow-step">
+              <div class="flow-bubble">289</div>
+              <div class="flow-name">Scored</div>
+            </div>
+            <div class="flow-step accent">
+              <div class="flow-bubble">247</div>
+              <div class="flow-name">Queued for<br>triage</div>
+              <div class="flow-drop"><span class="flow-drop-val neg">−42</span></div>
+            </div>
+            <div class="flow-step">
+              <div class="flow-bubble">158</div>
+              <div class="flow-name">Triaged</div>
+            </div>
+            <div class="flow-step success-s">
+              <div class="flow-bubble">89</div>
+              <div class="flow-name">Accepted</div>
+            </div>
+            <div class="flow-step danger-s">
+              <div class="flow-bubble">69</div>
+              <div class="flow-name">Rejected</div>
+            </div>
+          </div>
+          <div style="margin-top: 10px; padding-top: 9px; border-top: 1px solid var(--border); display: flex; gap: 16px;">
+            <span style="font-size: 11px; color: var(--muted);">Acceptance rate: <strong style="color: var(--fg-2); font-variant-numeric: tabular-nums;">56.3%</strong></span>
+            <span style="font-size: 11px; color: var(--muted);">Dedup rate: <strong style="color: var(--fg-2); font-variant-numeric: tabular-nums;">14.0%</strong></span>
+            <span style="font-size: 11px; color: var(--muted);">Untriaged: <strong style="color: var(--warn); font-variant-numeric: tabular-nums;">89</strong></span>
+            <span style="font-size: 11px; color: var(--muted);">Avg triage time: <strong style="color: var(--fg-2); font-family: var(--mono); font-variant-numeric: tabular-nums;">3m 24s</strong></span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Operational issues -->
+      <div>
+        <div class="sec-head">
+          <span class="sec-label">Operational Issues</span>
+          <a class="sec-link" href="ops-rr-queue.html">OPS-RR queue →</a>
+        </div>
+        <div class="issues-card">
+          <table>
+            <thead>
+              <tr>
+                <th>Issue ID</th>
+                <th>Type</th>
+                <th>Source</th>
+                <th>Raised</th>
+                <th>Status</th>
+                <th>Assignee</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td class="mono">OPS-RR-0041</td>
+                <td><span class="type-chip tc-parse">Parse</span></td>
+                <td class="issue-src">Scottish Legal News</td>
+                <td class="issue-age">2h ago</td>
+                <td><span class="is-open">Open</span></td>
+                <td class="issue-assignee unassigned">Unassigned</td>
+              </tr>
+              <tr>
+                <td class="mono">OPS-RR-0040</td>
+                <td><span class="type-chip tc-rate">Rate limit</span></td>
+                <td class="issue-src">Companies House API</td>
+                <td class="issue-age">3h ago</td>
+                <td><span class="is-invest">Investigating</span></td>
+                <td class="issue-assignee">A. Petrov</td>
+              </tr>
+              <tr>
+                <td class="mono">OPS-RR-0039</td>
+                <td><span class="type-chip tc-schema">Schema</span></td>
+                <td class="issue-src">Holyrood Magazine</td>
+                <td class="issue-age">5h ago</td>
+                <td><span class="is-open">Open</span></td>
+                <td class="issue-assignee unassigned">Unassigned</td>
+              </tr>
+              <tr>
+                <td class="mono">OPS-RR-0038</td>
+                <td><span class="type-chip tc-unreach">Unreachable</span></td>
+                <td class="issue-src">Aberdeen Evening Express RSS</td>
+                <td class="issue-age">6h ago</td>
+                <td><span class="is-invest">Investigating</span></td>
+                <td class="issue-assignee">S. Walsh</td>
+              </tr>
+              <tr>
+                <td class="mono">OPS-RR-0037</td>
+                <td><span class="type-chip tc-timeout">Timeout</span></td>
+                <td class="issue-src">ONS Scotland data feed</td>
+                <td class="issue-age">8h ago</td>
+                <td><span class="is-resolved">Resolved</span></td>
+                <td class="issue-assignee">A. Petrov</td>
+              </tr>
+              <tr>
+                <td class="mono">OPS-RR-0036</td>
+                <td><span class="type-chip tc-parse">Parse</span></td>
+                <td class="issue-src">Business Insider Scotland</td>
+                <td class="issue-age">1d ago</td>
+                <td><span class="is-resolved">Resolved</span></td>
+                <td class="issue-assignee">T. Williamson</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+    </div><!-- /left -->
+
+    <!-- RIGHT: recent runs + source health -->
+    <div class="right-col">
+
+      <!-- Recent runs -->
+      <div class="rpanel">
+        <div class="rpanel-head">
+          <span class="rpanel-title">Recent Runs</span>
+          <a class="rpanel-link" href="#">All runs →</a>
+        </div>
+        <div class="run-item">
+          <span class="run-id">RR-2847</span>
+          <span class="run-type run-am">AM</span>
+          <div class="run-info">
+            <span class="run-time">06:00:14</span>
+            <span class="run-date">Today</span>
+          </div>
+          <div class="run-stats">
+            <span class="run-cands">247 cands</span>
+            <span class="run-issues has-issues">6 issues</span>
+          </div>
+          <span class="status-badge sb-complete" style="font-size:10px; padding: 1px 5px;">✓</span>
+        </div>
+        <div class="run-item">
+          <span class="run-id">RR-2846</span>
+          <span class="run-type run-pm">PM</span>
+          <div class="run-info">
+            <span class="run-time">14:00:07</span>
+            <span class="run-date">Today</span>
+          </div>
+          <div class="run-stats">
+            <span class="run-cands">89 so far</span>
+            <span class="run-issues has-issues">2 issues</span>
+          </div>
+          <span class="status-badge sb-running" style="font-size:10px; padding: 1px 5px;">…</span>
+        </div>
+        <div class="run-item">
+          <span class="run-id">RR-2845</span>
+          <span class="run-type run-pm">PM</span>
+          <div class="run-info">
+            <span class="run-time">14:00:22</span>
+            <span class="run-date">Yesterday</span>
+          </div>
+          <div class="run-stats">
+            <span class="run-cands">218 cands</span>
+            <span class="run-issues has-issues">3 issues</span>
+          </div>
+          <span class="status-badge sb-complete" style="font-size:10px; padding: 1px 5px;">✓</span>
+        </div>
+        <div class="run-item">
+          <span class="run-id">RR-2844</span>
+          <span class="run-type run-am">AM</span>
+          <div class="run-info">
+            <span class="run-time">06:00:09</span>
+            <span class="run-date">Yesterday</span>
+          </div>
+          <div class="run-stats">
+            <span class="run-cands">261 cands</span>
+            <span class="run-issues">1 issue</span>
+          </div>
+          <span class="status-badge sb-complete" style="font-size:10px; padding: 1px 5px;">✓</span>
+        </div>
+        <div class="run-item">
+          <span class="run-id">RR-2843</span>
+          <span class="run-type run-pm">PM</span>
+          <div class="run-info">
+            <span class="run-time">14:01:03</span>
+            <span class="run-date">2 days ago</span>
+          </div>
+          <div class="run-stats">
+            <span class="run-cands">194 cands</span>
+            <span class="run-issues has-issues">8 issues</span>
+          </div>
+          <span class="status-badge sb-complete" style="font-size:10px; padding: 1px 5px;">✓</span>
+        </div>
+        <div class="run-item">
+          <span class="run-id">RR-2842</span>
+          <span class="run-type run-am">AM</span>
+          <div class="run-info">
+            <span class="run-time">06:00:51</span>
+            <span class="run-date">2 days ago</span>
+          </div>
+          <div class="run-stats">
+            <span class="run-cands">180 cands</span>
+            <span class="run-issues has-issues">12 issues</span>
+          </div>
+          <span class="status-badge sb-partial" style="font-size:10px; padding: 1px 5px;">~</span>
+        </div>
+        <div class="run-item">
+          <span class="run-id">RR-2841</span>
+          <span class="run-type run-pm">PM</span>
+          <div class="run-info">
+            <span class="run-time">13:59:47</span>
+            <span class="run-date">3 days ago</span>
+          </div>
+          <div class="run-stats">
+            <span class="run-cands">231 cands</span>
+            <span class="run-issues">2 issues</span>
+          </div>
+          <span class="status-badge sb-complete" style="font-size:10px; padding: 1px 5px;">✓</span>
+        </div>
+        <div class="run-item">
+          <span class="run-id">RR-2840</span>
+          <span class="run-type run-am">AM</span>
+          <div class="run-info">
+            <span class="run-time">06:01:18</span>
+            <span class="run-date">3 days ago</span>
+          </div>
+          <div class="run-stats">
+            <span class="run-cands">0 cands</span>
+            <span class="run-issues has-failures">15 issues</span>
+          </div>
+          <span class="status-badge sb-failed" style="font-size:10px; padding: 1px 5px;">✕</span>
+        </div>
+      </div>
+
+      <!-- Source health -->
+      <div class="rpanel">
+        <div class="rpanel-head">
+          <span class="rpanel-title">Source Health</span>
+          <a class="rpanel-link" href="#">Monitor →</a>
+        </div>
+        <div class="src-item">
+          <div class="src-dot ok"></div>
+          <span class="src-name">PA Wire Scotland</span>
+          <span class="src-rate">98%</span>
+          <div class="src-meta"><span>Last: 2h ago</span><span>avg 31/run</span></div>
+        </div>
+        <div class="src-item">
+          <div class="src-dot ok"></div>
+          <span class="src-name">BBC News Scotland</span>
+          <span class="src-rate">99%</span>
+          <div class="src-meta"><span>Last: 6h ago</span><span>avg 45/run</span></div>
+        </div>
+        <div class="src-item">
+          <div class="src-dot ok"></div>
+          <span class="src-name">STV News</span>
+          <span class="src-rate">97%</span>
+          <div class="src-meta"><span>Last: 6h ago</span><span>avg 22/run</span></div>
+        </div>
+        <div class="src-item">
+          <div class="src-dot ok"></div>
+          <span class="src-name">The Scotsman</span>
+          <span class="src-rate">95%</span>
+          <div class="src-meta"><span>Last: 6h ago</span><span>avg 18/run</span></div>
+        </div>
+        <div class="src-item">
+          <div class="src-dot warn"></div>
+          <span class="src-name">Aberdeen Evening Express</span>
+          <span class="src-rate warn">82%</span>
+          <div class="src-meta"><span>Last: 6h ago</span><span>avg 12/run</span></div>
+        </div>
+        <div class="src-item">
+          <div class="src-dot warn"></div>
+          <span class="src-name">Scottish Legal News</span>
+          <span class="src-rate warn">71%</span>
+          <div class="src-meta"><span>Last: 2h ago</span><span>avg 9/run</span></div>
+        </div>
+        <div class="src-item">
+          <div class="src-dot warn"></div>
+          <span class="src-name">Companies House API</span>
+          <span class="src-rate warn">88%</span>
+          <div class="src-meta"><span>Last: 2h ago</span><span>avg 6/run</span></div>
+        </div>
+        <div class="src-item">
+          <div class="src-dot ok"></div>
+          <span class="src-name">ONS Scotland feed</span>
+          <span class="src-rate">94%</span>
+          <div class="src-meta"><span>Last: 6h ago</span><span>avg 8/run</span></div>
+        </div>
+        <div class="src-item">
+          <div class="src-dot warn"></div>
+          <span class="src-name">Holyrood Magazine</span>
+          <span class="src-rate fail">67%</span>
+          <div class="src-meta"><span>Last: 6h ago</span><span>avg 5/run</span></div>
+        </div>
+        <div class="src-item">
+          <div class="src-dot ok"></div>
+          <span class="src-name">Business Insider Scotland</span>
+          <span class="src-rate">90%</span>
+          <div class="src-meta"><span>Last: 2h ago</span><span>avg 11/run</span></div>
+        </div>
+        <div class="src-item">
+          <div class="src-dot ok"></div>
+          <span class="src-name">Herald Scotland</span>
+          <span class="src-rate">93%</span>
+          <div class="src-meta"><span>Last: 6h ago</span><span>avg 14/run</span></div>
+        </div>
+        <div class="src-item">
+          <div class="src-dot ok"></div>
+          <span class="src-name">Scottish Government RSS</span>
+          <span class="src-rate">99%</span>
+          <div class="src-meta"><span>Last: 6h ago</span><span>avg 3/run</span></div>
+        </div>
+      </div>
+
+    </div><!-- /right -->
+
+  </div><!-- /body-cols -->
+</main>
+
+</div><!-- /shell -->
+
+<script>
+function toggleTheme() {
+  const html = document.documentElement;
+  const isDark = html.getAttribute('data-theme') === 'dark';
+  html.setAttribute('data-theme', isDark ? 'light' : 'dark');
+  document.getElementById('theme-label').textContent = isDark ? 'Dark mode' : 'Light mode';
+}
+
+function tick() {
+  const now = new Date();
+  document.getElementById('clock').textContent =
+    now.toLocaleTimeString('en-GB', { hour12: false });
+  document.getElementById('date-display').textContent =
+    now.toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short', year: 'numeric' });
+}
+tick();
+setInterval(tick, 1000);
+</script>
+</body>
+</html>

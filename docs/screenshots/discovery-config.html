@@ -1,0 +1,1189 @@
+<!doctype html>
+<html lang="en" data-theme="dark">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Discovery Config — Union Media</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg:             #0b0d12;
+  --surface:        #10131c;
+  --surface-2:      #161d2e;
+  --fg:             #dde4f0;
+  --fg-2:           #7e8ea8;
+  --muted:          #4b5672;
+  --border:         #1c2438;
+  --border-mid:     #273047;
+  --accent:         #3b82f6;
+  --accent-on:      #fff;
+  --accent-hover:   #2563eb;
+  --accent-subtle:  rgba(59,130,246,.10);
+  --success:        #22c55e;
+  --success-subtle: rgba(34,197,94,.08);
+  --warn:           #f59e0b;
+  --warn-subtle:    rgba(245,158,11,.08);
+  --danger:         #ef4444;
+  --danger-subtle:  rgba(239,68,68,.08);
+  --font: Inter, "Helvetica Neue", system-ui, sans-serif;
+  --mono: "SF Mono", "Cascadia Code", ui-monospace, Menlo, monospace;
+  --sidebar-w: 216px;
+  --topbar-h:  48px;
+  --r: 6px;
+}
+[data-theme="light"] {
+  --bg:             #f4f6f9;
+  --surface:        #ffffff;
+  --surface-2:      #eef1f6;
+  --fg:             #0d1117;
+  --fg-2:           #4a5568;
+  --muted:          #8b95a8;
+  --border:         #dde3ed;
+  --border-mid:     #c7d0e0;
+  --accent:         #2563eb;
+  --accent-on:      #fff;
+  --accent-hover:   #1d4ed8;
+  --accent-subtle:  rgba(37,99,235,.09);
+  --success:        #16a34a;
+  --success-subtle: rgba(22,163,74,.08);
+  --warn:           #d97706;
+  --warn-subtle:    rgba(217,119,6,.08);
+  --danger:         #dc2626;
+  --danger-subtle:  rgba(220,38,38,.08);
+}
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+html, body { height: 100%; background: var(--bg); color: var(--fg); font-family: var(--font); font-size: 13px; line-height: 1.45; -webkit-font-smoothing: antialiased; }
+
+.shell { display: grid; grid-template-columns: var(--sidebar-w) 1fr; grid-template-rows: var(--topbar-h) 1fr; height: 100vh; overflow: hidden; }
+
+/* ── SIDEBAR ── */
+.sidebar { grid-row: 1 / 3; background: var(--surface); border-right: 1px solid var(--border); display: flex; flex-direction: column; overflow-y: auto; }
+.sidebar-pub { padding: 14px 16px 12px; border-bottom: 1px solid var(--border); }
+.pub-name { font-size: 13px; font-weight: 600; color: var(--fg); letter-spacing: -0.015em; display: block; }
+.pub-meta { font-size: 11px; color: var(--muted); margin-top: 2px; font-family: var(--mono); font-variant-numeric: tabular-nums; }
+.sidebar-nav { padding: 8px 0; flex: 1; }
+.nav-section { padding: 14px 16px 4px; font-size: 10px; font-weight: 600; letter-spacing: 0.07em; text-transform: uppercase; color: var(--muted); }
+.nav-item { display: flex; align-items: center; gap: 9px; padding: 7px 16px; font-size: 13px; color: var(--fg-2); cursor: pointer; text-decoration: none; position: relative; transition: background 100ms, color 100ms; }
+.nav-item:hover { background: var(--surface-2); color: var(--fg); }
+.nav-item.active { color: var(--fg); background: var(--accent-subtle); }
+.nav-item.active::before { content: ''; position: absolute; left: 0; top: 4px; bottom: 4px; width: 2px; background: var(--accent); border-radius: 0 2px 2px 0; }
+.nav-icon { width: 15px; height: 15px; flex-shrink: 0; opacity: .65; }
+.nav-item.active .nav-icon, .nav-item:hover .nav-icon { opacity: 1; }
+.nav-badge { margin-left: auto; font-size: 10px; font-family: var(--mono); font-variant-numeric: tabular-nums; color: var(--muted); background: var(--bg); border: 1px solid var(--border); padding: 1px 6px; border-radius: 9999px; line-height: 1.6; }
+.nav-badge.urgent { color: var(--warn); border-color: rgba(245,158,11,.4); background: var(--warn-subtle); }
+.sidebar-user { padding: 12px 16px; border-top: 1px solid var(--border); display: flex; align-items: center; gap: 9px; }
+.avatar-sm { width: 26px; height: 26px; border-radius: 50%; background: var(--accent-subtle); border: 1px solid var(--border-mid); display: flex; align-items: center; justify-content: center; font-size: 10px; font-weight: 700; color: var(--accent); flex-shrink: 0; font-family: var(--mono); }
+.user-name { font-size: 12px; font-weight: 500; color: var(--fg); display: block; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.user-role { font-size: 11px; color: var(--muted); display: block; }
+
+/* ── TOPBAR ── */
+.topbar { background: var(--surface); border-bottom: 1px solid var(--border); display: flex; align-items: center; padding: 0 18px; gap: 10px; }
+.topbar-title { font-size: 13px; font-weight: 600; color: var(--fg); letter-spacing: -0.01em; }
+.topbar-sep { color: var(--border-mid); margin: 0 2px; }
+.topbar-sub { font-size: 12px; color: var(--muted); font-weight: 400; flex: 1; }
+.draft-badge { display: inline-flex; align-items: center; gap: 4px; padding: 2px 8px; border-radius: 9999px; font-size: 10.5px; font-weight: 600; letter-spacing: 0.03em; background: var(--warn-subtle); border: 1px solid rgba(245,158,11,.35); color: var(--warn); }
+.version-tag { font-size: 11px; font-family: var(--mono); color: var(--muted); }
+.theme-toggle { display: flex; align-items: center; gap: 5px; height: 28px; padding: 0 10px; border: 1px solid var(--border); border-radius: var(--r); background: transparent; color: var(--fg-2); font-size: 11.5px; font-family: var(--font); cursor: pointer; transition: background 100ms, color 100ms; }
+.theme-toggle:hover { background: var(--surface-2); color: var(--fg); }
+.icon-btn { width: 28px; height: 28px; display: flex; align-items: center; justify-content: center; border: 1px solid var(--border); background: transparent; border-radius: var(--r); color: var(--fg-2); cursor: pointer; transition: background 100ms, color 100ms; }
+.icon-btn:hover { background: var(--surface-2); color: var(--fg); }
+.topbar-avatar { width: 28px; height: 28px; border-radius: 50%; background: var(--accent-subtle); border: 1px solid var(--border-mid); display: flex; align-items: center; justify-content: center; font-size: 10px; font-weight: 700; color: var(--accent); cursor: pointer; font-family: var(--mono); }
+
+/* ── BUTTONS ── */
+.btn { height: 27px; padding: 0 11px; border-radius: var(--r); font-size: 12px; font-weight: 500; font-family: var(--font); cursor: pointer; transition: background 100ms, color 100ms, border-color 100ms; display: inline-flex; align-items: center; gap: 5px; white-space: nowrap; border: 1px solid transparent; }
+.btn-primary { background: var(--accent); border-color: var(--accent); color: var(--accent-on); }
+.btn-primary:hover { background: var(--accent-hover); border-color: var(--accent-hover); }
+.btn-ghost { background: transparent; border-color: var(--border-mid); color: var(--fg-2); }
+.btn-ghost:hover { background: var(--surface-2); color: var(--fg); }
+.btn-warn { background: transparent; border-color: rgba(245,158,11,.4); color: var(--warn); }
+.btn-warn:hover { background: var(--warn-subtle); }
+.btn-danger { background: transparent; border-color: rgba(239,68,68,.4); color: var(--danger); }
+.btn-danger:hover { background: var(--danger-subtle); }
+.btn-sm { height: 24px; padding: 0 8px; font-size: 11px; border-radius: 5px; }
+.btn-lg { height: 33px; padding: 0 14px; font-size: 13px; }
+
+/* ── MAIN ── */
+.main { overflow: hidden; background: var(--bg); display: flex; flex-direction: column; }
+
+/* Config summary bar */
+.config-bar { background: var(--surface); border-bottom: 1px solid var(--border); padding: 9px 18px; display: flex; align-items: center; gap: 20px; flex-shrink: 0; }
+.config-meta { display: flex; align-items: center; gap: 14px; flex: 1; }
+.cm-item { font-size: 11.5px; color: var(--fg-2); display: flex; align-items: center; gap: 5px; }
+.cm-label { color: var(--muted); }
+.cm-val { font-weight: 500; }
+.cm-val.ok   { color: var(--success); }
+.cm-val.warn { color: var(--warn); }
+.config-actions { display: flex; gap: 6px; align-items: center; }
+
+/* Tabs */
+.tab-bar { display: flex; background: var(--surface); border-bottom: 1px solid var(--border); padding: 0 18px; flex-shrink: 0; overflow-x: auto; scrollbar-width: none; }
+.tab-bar::-webkit-scrollbar { display: none; }
+.tab { padding: 10px 12px 9px; font-size: 12px; font-weight: 500; color: var(--fg-2); cursor: pointer; white-space: nowrap; border-bottom: 2px solid transparent; margin-bottom: -1px; transition: color 100ms, border-color 100ms; user-select: none; }
+.tab:hover { color: var(--fg); }
+.tab.active { color: var(--fg); border-bottom-color: var(--accent); }
+
+/* Tab content */
+.tab-content { flex: 1; overflow-y: auto; padding: 20px 18px 40px; scrollbar-width: thin; scrollbar-color: var(--border-mid) transparent; }
+.tab-panel { display: none; }
+.tab-panel.active { display: block; }
+
+/* Two-col layout */
+.two-col { display: grid; grid-template-columns: 1fr 280px; gap: 16px; }
+.three-col { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 12px; }
+.two-thirds { display: grid; grid-template-columns: 2fr 1fr; gap: 16px; }
+
+/* Cards */
+.card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--r); overflow: hidden; margin-bottom: 14px; }
+.card-head { padding: 10px 14px; border-bottom: 1px solid var(--border); display: flex; align-items: center; gap: 8px; }
+.card-title { font-size: 11px; font-weight: 700; letter-spacing: 0.07em; text-transform: uppercase; color: var(--muted); flex: 1; font-family: var(--mono); }
+.card-body { padding: 14px; }
+.card-body.pad-sm { padding: 10px 14px; }
+
+/* Form rows */
+.form-row { display: flex; align-items: flex-start; gap: 0; margin-bottom: 12px; }
+.form-row:last-child { margin-bottom: 0; }
+.form-label { width: 200px; flex-shrink: 0; font-size: 12px; font-weight: 500; color: var(--fg-2); padding-top: 5px; }
+.form-input { flex: 1; display: flex; flex-direction: column; gap: 4px; }
+.input { height: 28px; padding: 0 9px; background: var(--bg); border: 1px solid var(--border-mid); border-radius: var(--r); color: var(--fg); font-size: 12px; font-family: var(--font); outline: none; transition: border-color 120ms; width: 100%; }
+.input:focus { border-color: var(--accent); }
+.input-mono { font-family: var(--mono); }
+.input-sm { width: 120px; }
+.input-xs { width: 80px; }
+textarea.input { height: auto; padding: 7px 9px; resize: vertical; min-height: 64px; line-height: 1.5; }
+.select { height: 28px; padding: 0 28px 0 9px; background: var(--bg); border: 1px solid var(--border-mid); border-radius: var(--r); color: var(--fg); font-size: 12px; font-family: var(--font); outline: none; cursor: pointer; appearance: none; background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6'%3E%3Cpath d='M1 1l4 4 4-4' stroke='%234b5672' stroke-width='1.5' fill='none' stroke-linecap='round'/%3E%3C/svg%3E"); background-repeat: no-repeat; background-position: right 7px center; transition: border-color 120ms; }
+.select:focus { border-color: var(--accent); }
+.form-hint { font-size: 10.5px; color: var(--muted); line-height: 1.45; }
+.form-sep { border: none; border-top: 1px solid var(--border); margin: 16px 0; }
+.toggle-row { display: flex; align-items: center; gap: 10px; padding: 8px 0; border-bottom: 1px solid var(--border); }
+.toggle-row:last-child { border-bottom: none; }
+.toggle-label { flex: 1; font-size: 12px; font-weight: 500; color: var(--fg); }
+.toggle-desc { font-size: 11px; color: var(--muted); margin-top: 1px; display: block; }
+.toggle { position: relative; width: 32px; height: 18px; flex-shrink: 0; }
+.toggle input { opacity: 0; width: 0; height: 0; }
+.toggle-track { position: absolute; inset: 0; background: var(--border-mid); border-radius: 9999px; cursor: pointer; transition: background 150ms; }
+.toggle input:checked + .toggle-track { background: var(--accent); }
+.toggle-thumb { position: absolute; left: 2px; top: 2px; width: 14px; height: 14px; background: var(--fg); border-radius: 50%; transition: transform 150ms; }
+.toggle input:checked ~ .toggle-thumb { transform: translateX(14px); }
+
+/* Dense table */
+table { width: 100%; border-collapse: collapse; }
+thead th { position: sticky; top: 0; background: var(--surface); border-bottom: 1px solid var(--border); padding: 7px 10px; font-size: 10.5px; font-weight: 600; letter-spacing: 0.045em; text-transform: uppercase; color: var(--muted); text-align: left; white-space: nowrap; user-select: none; }
+tbody tr { border-bottom: 1px solid var(--border); transition: background 70ms; }
+tbody tr:hover { background: var(--surface-2); }
+td { padding: 8px 10px; vertical-align: middle; }
+
+/* Source table specifics */
+.src-name { font-size: 12.5px; font-weight: 500; color: var(--fg); }
+.src-url  { font-size: 10.5px; font-family: var(--mono); color: var(--muted); margin-top: 1px; }
+.layer-badge { display: inline-flex; padding: 1px 6px; border-radius: 3px; font-size: 10px; font-weight: 700; letter-spacing: 0.05em; text-transform: uppercase; font-family: var(--mono); white-space: nowrap; }
+.l1 { background: rgba(59,130,246,.12); border: 1px solid rgba(59,130,246,.3); color: #93b4fd; }
+.l2 { background: rgba(14,165,233,.10); border: 1px solid rgba(14,165,233,.3); color: #7dd3fc; }
+.l3 { background: rgba(167,139,250,.10); border: 1px solid rgba(167,139,250,.3); color: #c4b5fd; }
+.l4 { background: rgba(75,86,114,.15); border: 1px solid var(--border-mid); color: var(--fg-2); }
+.status-dot { display: inline-flex; align-items: center; gap: 5px; font-size: 12px; }
+.dot { width: 6px; height: 6px; border-radius: 50%; flex-shrink: 0; }
+.dot-ok   { background: var(--success); }
+.dot-warn { background: var(--warn); }
+.dot-err  { background: var(--danger); }
+.dot-off  { background: var(--muted); }
+
+/* Threshold cards */
+.thresh-card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--r); padding: 12px 14px; }
+.thresh-name { font-size: 11px; font-weight: 600; color: var(--fg); margin-bottom: 2px; }
+.thresh-desc { font-size: 11px; color: var(--muted); margin-bottom: 10px; line-height: 1.4; }
+.thresh-control { display: flex; align-items: center; gap: 8px; }
+.thresh-input { width: 72px; height: 28px; padding: 0 9px; background: var(--bg); border: 1px solid var(--border-mid); border-radius: var(--r); color: var(--fg); font-size: 13px; font-family: var(--mono); font-variant-numeric: tabular-nums; font-weight: 600; outline: none; transition: border-color 120ms; text-align: center; }
+.thresh-input:focus { border-color: var(--accent); }
+.thresh-unit { font-size: 11.5px; color: var(--muted); font-family: var(--mono); }
+.thresh-scale { flex: 1; height: 4px; background: var(--border-mid); border-radius: 2px; position: relative; overflow: visible; }
+.thresh-fill { height: 100%; border-radius: 2px; background: var(--accent); }
+.thresh-fill.warn { background: var(--warn); }
+.thresh-fill.danger { background: var(--danger); }
+.thresh-labels { display: flex; justify-content: space-between; margin-top: 4px; font-size: 9.5px; font-family: var(--mono); color: var(--muted); }
+
+/* Changes log */
+.change-item { display: flex; align-items: flex-start; gap: 9px; padding: 9px 0; border-bottom: 1px solid var(--border); }
+.change-item:last-child { border-bottom: none; }
+.change-time { font-size: 10.5px; font-family: var(--mono); color: var(--muted); font-variant-numeric: tabular-nums; white-space: nowrap; padding-top: 1px; min-width: 80px; flex-shrink: 0; }
+.av-xs { width: 20px; height: 20px; border-radius: 50%; flex-shrink: 0; display: flex; align-items: center; justify-content: center; font-size: 8px; font-weight: 700; font-family: var(--mono); border: 1px solid var(--border-mid); }
+.change-body { flex: 1; min-width: 0; }
+.change-action { font-size: 12px; color: var(--fg); line-height: 1.4; }
+.change-action strong { color: var(--fg); font-weight: 600; }
+.change-action .who { color: var(--fg-2); }
+.change-type { display: inline-flex; padding: 1px 5px; border-radius: 3px; font-size: 9.5px; font-weight: 700; letter-spacing: 0.04em; text-transform: uppercase; font-family: var(--mono); margin-right: 4px; }
+.ct-add    { background: var(--success-subtle); border: 1px solid rgba(34,197,94,.3); color: #86efac; }
+.ct-edit   { background: var(--accent-subtle); border: 1px solid rgba(59,130,246,.3); color: #93b4fd; }
+.ct-remove { background: var(--danger-subtle); border: 1px solid rgba(239,68,68,.3); color: #fca5a5; }
+.ct-pub    { background: rgba(168,85,247,.10); border: 1px solid rgba(168,85,247,.35); color: #c084fc; }
+.ct-thresh { background: var(--warn-subtle); border: 1px solid rgba(245,158,11,.3); color: #fcd34d; }
+.link-muted { font-size: 11px; color: var(--accent); cursor: pointer; text-decoration: none; }
+.link-muted:hover { opacity: .75; }
+
+/* Signal-only chips */
+.pattern-list { display: flex; flex-wrap: wrap; gap: 6px; }
+.pattern-chip { display: inline-flex; align-items: center; gap: 5px; padding: 3px 8px; background: var(--surface-2); border: 1px solid var(--border-mid); border-radius: 4px; font-size: 11.5px; font-family: var(--mono); color: var(--fg-2); }
+.chip-remove { cursor: pointer; color: var(--muted); font-size: 13px; line-height: 1; margin-left: 2px; transition: color 100ms; }
+.chip-remove:hover { color: var(--danger); }
+
+/* Inline action row on table rows */
+.row-actions { display: flex; gap: 5px; opacity: 0; transition: opacity 100ms; }
+tbody tr:hover .row-actions { opacity: 1; }
+
+/* Publish confirm panel */
+.publish-panel { background: var(--surface-2); border: 1px solid var(--border-mid); border-radius: var(--r); padding: 12px 14px; margin-top: 14px; display: flex; align-items: center; gap: 12px; }
+.pp-icon { width: 32px; height: 32px; border-radius: 50%; background: var(--accent-subtle); border: 1px solid rgba(59,130,246,.35); display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+.pp-text { flex: 1; }
+.pp-title { font-size: 12.5px; font-weight: 600; color: var(--fg); margin-bottom: 2px; }
+.pp-desc  { font-size: 11.5px; color: var(--fg-2); }
+
+/* Section gap */
+.gap { margin-bottom: 14px; }
+
+/* Toast */
+.toast { position: fixed; bottom: 20px; right: 20px; background: var(--surface); border: 1px solid var(--border-mid); border-radius: var(--r); padding: 10px 16px; font-size: 12.5px; color: var(--fg); display: flex; align-items: center; gap: 8px; box-shadow: 0 8px 24px rgba(0,0,0,.3); z-index: 999; opacity: 0; transform: translateY(6px); transition: opacity 200ms, transform 200ms; pointer-events: none; }
+.toast.show { opacity: 1; transform: translateY(0); pointer-events: auto; }
+.toast-dot { width: 7px; height: 7px; border-radius: 50%; flex-shrink: 0; }
+
+/* Modal */
+.modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,.65); z-index: 200; display: flex; align-items: center; justify-content: center; opacity: 0; pointer-events: none; transition: opacity 150ms; }
+.modal-overlay.open { opacity: 1; pointer-events: auto; }
+.modal { background: var(--surface); border: 1px solid var(--border-mid); border-radius: 8px; width: 480px; max-width: calc(100vw - 32px); overflow: hidden; transform: translateY(8px); transition: transform 150ms; }
+.modal-overlay.open .modal { transform: translateY(0); }
+.modal-head { padding: 14px 16px; border-bottom: 1px solid var(--border); display: flex; align-items: center; gap: 8px; }
+.modal-title { font-size: 13px; font-weight: 600; color: var(--fg); flex: 1; letter-spacing: -0.01em; }
+.modal-body { padding: 16px; }
+.modal-foot { padding: 12px 16px; border-top: 1px solid var(--border); display: flex; justify-content: flex-end; gap: 7px; }
+.modal-warn { background: var(--warn-subtle); border: 1px solid rgba(245,158,11,.3); border-radius: 5px; padding: 8px 10px; font-size: 11.5px; color: var(--warn); margin-bottom: 12px; }
+</style>
+</head>
+<body>
+<div class="shell">
+
+<!-- ── SIDEBAR ── -->
+<aside class="sidebar">
+  <div class="sidebar-pub">
+    <span class="pub-name">Union Media</span>
+    <span class="pub-meta">unionmedia.co.uk · Editorial Ops</span>
+  </div>
+      <nav class="sidebar-nav">
+    <div class="nav-section">Overview</div>
+    <a href="dashboard.html" class="nav-item">
+      <svg class="nav-icon" viewBox="0 0 15 15" fill="none"><rect x="1.5" y="1.5" width="5" height="5" rx="1" fill="currentColor"/><rect x="8.5" y="1.5" width="5" height="5" rx="1" fill="currentColor"/><rect x="1.5" y="8.5" width="5" height="5" rx="1" fill="currentColor"/><rect x="8.5" y="8.5" width="5" height="5" rx="1" fill="currentColor"/></svg>
+      Dashboard
+    </a>
+    <div class="nav-section">Editorial</div>
+    <a href="pipeline-dashboard.html" class="nav-item">
+      <svg class="nav-icon" viewBox="0 0 15 15" fill="none"><rect x="1.5" y="2.5" width="12" height="1.5" rx=".5" fill="currentColor"/><rect x="1.5" y="6.5" width="12" height="1.5" rx=".5" fill="currentColor"/><rect x="1.5" y="10.5" width="12" height="1.5" rx=".5" fill="currentColor"/></svg>
+      Pipeline
+    </a>
+    <a href="pipeline-board.html" class="nav-item">
+      <svg class="nav-icon" viewBox="0 0 15 15" fill="none"><rect x="1" y="1.5" width="4" height="12" rx="1" fill="currentColor"/><rect x="6" y="1.5" width="4" height="8.5" rx="1" fill="currentColor"/><rect x="11" y="1.5" width="3" height="5.5" rx="1" fill="currentColor"/></svg>
+      Board
+    </a>
+    <a href="#" class="nav-item">
+      <svg class="nav-icon" viewBox="0 0 15 15" fill="none"><rect x="1.5" y="2.5" width="12" height="11" rx="1.5" stroke="currentColor" stroke-width="1.3"/><path d="M1.5 6h12" stroke="currentColor" stroke-width="1.3"/><path d="M5 1.5V4M10 1.5V4" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/></svg>
+      Calendar
+      <span class="nav-badge">18</span>
+    </a>
+    <a href="article-dossier.html" class="nav-item">
+      <svg class="nav-icon" viewBox="0 0 15 15" fill="none"><path d="M3.5 1.5h5.5l3 3v9h-8.5v-12z" stroke="currentColor" stroke-width="1.3" stroke-linejoin="round"/><path d="M9 1.5v3.5h3" stroke="currentColor" stroke-width="1.3"/><path d="M5 7.5h5M5 9.5h3" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/></svg>
+      Article Dossier
+    </a>
+    <div class="nav-section">Management</div>
+    <a href="approvals.html" class="nav-item">
+      <svg class="nav-icon" viewBox="0 0 15 15" fill="none"><path d="M2 7.5L6 11.5L13 3.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      Approvals
+      <span class="nav-badge urgent">4</span>
+    </a>
+    <a href="#" class="nav-item">
+      <svg class="nav-icon" viewBox="0 0 15 15" fill="none"><circle cx="5" cy="5.5" r="2" stroke="currentColor" stroke-width="1.3"/><circle cx="10.5" cy="5.5" r="2" stroke="currentColor" stroke-width="1.3"/><path d="M1 13c0-2 1.79-3.5 4-3.5h5c2.21 0 4 1.5 4 3.5" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/></svg>
+      Team
+    </a>
+    <div class="nav-section">Discovery</div>
+    <a href="discovery.html" class="nav-item">
+      <svg class="nav-icon" viewBox="0 0 15 15" fill="none"><circle cx="6.5" cy="6.5" r="4" stroke="currentColor" stroke-width="1.3"/><path d="M11 11l2.5 2.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
+      Discovery Overview
+      <span class="nav-badge urgent">3</span>
+    </a>
+    <a href="candidate-inbox.html" class="nav-item">
+      <svg class="nav-icon" viewBox="0 0 15 15" fill="none"><path d="M1.5 4.5h12v8.5h-12z" stroke="currentColor" stroke-width="1.3" stroke-linejoin="round"/><path d="M1.5 4.5l6 4 6-4" stroke="currentColor" stroke-width="1.3" stroke-linejoin="round"/></svg>
+      Candidate Inbox
+      <span class="nav-badge">89</span>
+    </a>
+    <a href="ops-rr-queue.html" class="nav-item">
+      <svg class="nav-icon" viewBox="0 0 15 15" fill="none"><path d="M7.5 1.5v5M7.5 9.5v.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/><circle cx="7.5" cy="7.5" r="6" stroke="currentColor" stroke-width="1.3"/></svg>
+      OPS-RR Queue
+      <span class="nav-badge urgent">7</span>
+    </a>
+    <a href="sweep-run-detail.html" class="nav-item">
+      <svg class="nav-icon" viewBox="0 0 15 15" fill="none"><circle cx="7.5" cy="7.5" r="6" stroke="currentColor" stroke-width="1.3"/><path d="M7.5 4.5v3l2 2" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/></svg>
+      Sweep Run Detail
+    </a>
+    <div class="nav-section">System</div>
+    <a href="discovery-config.html" class="nav-item active">
+      <svg class="nav-icon" viewBox="0 0 15 15" fill="none"><circle cx="7.5" cy="7.5" r="3" stroke="currentColor" stroke-width="1.3"/><path d="M7.5 1v1.5M7.5 12.5V14M1 7.5h1.5M12.5 7.5H14M2.9 2.9l1.1 1.1M11 11l1.1 1.1M11 2.9L9.9 4M4 11l-1.1 1.1" stroke="currentColor" stroke-width="1.2" stroke-linecap="round"/></svg>
+      Discovery Config
+    </a>
+    <a href="source-monitor.html" class="nav-item">
+      <svg class="nav-icon" viewBox="0 0 15 15" fill="none"><path d="M1.5 10.5l4-4 3 3 5-6" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"/><circle cx="13" cy="4.5" r="1" fill="currentColor"/></svg>
+      Source Health Monitor
+    </a>
+    <a href="discovery-2.html" class="nav-item">
+      <svg class="nav-icon" viewBox="0 0 15 15" fill="none"><path d="M2.5 5.5h10M2.5 8.5h8M2.5 11.5h5" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/><rect x="1.5" y="1.5" width="12" height="12" rx="1.5" stroke="currentColor" stroke-width="1.3"/></svg>
+      Discovery Audit Log
+    </a>
+    <a href="design-system.html" class="nav-item">
+      <svg class="nav-icon" viewBox="0 0 15 15" fill="none"><circle cx="4" cy="4" r="1.5" fill="currentColor"/><circle cx="11" cy="4" r="1.5" fill="currentColor"/><circle cx="4" cy="11" r="1.5" fill="currentColor"/><circle cx="11" cy="11" r="1.5" fill="currentColor"/><circle cx="7.5" cy="7.5" r="1.5" fill="currentColor"/></svg>
+      Design System
+    </a>
+    <a href="#" class="nav-item">
+      <svg class="nav-icon" viewBox="0 0 15 15" fill="none"><circle cx="7.5" cy="7.5" r="5.5" stroke="currentColor" stroke-width="1.3"/><circle cx="7.5" cy="7.5" r="2" stroke="currentColor" stroke-width="1.3"/></svg>
+      Settings
+    </a>
+  </nav>
+  <div class="sidebar-user">
+    <div class="avatar-sm">DM</div>
+    <div style="min-width:0">
+      <span class="user-name">D. Mackenzie</span>
+      <span class="user-role">Senior Editor</span>
+    </div>
+  </div>
+</aside>
+
+<!-- ── TOPBAR ── -->
+<header class="topbar">
+  <span class="topbar-title">Discovery Config</span>
+  <span class="topbar-sep">/</span>
+  <span class="topbar-sub">Ranger Recon · Union Media Online</span>
+  <span class="draft-badge">Draft changes</span>
+  <span class="version-tag">v2.7.1</span>
+  <button class="theme-toggle" onclick="toggleTheme()">
+    <svg width="12" height="12" viewBox="0 0 12 12" fill="none"><circle cx="6" cy="6" r="3" stroke="currentColor" stroke-width="1.3"/><path d="M6 1V0M6 12v-1M1 6H0M12 6h-1M2.1 2.1l-.7-.7M10.6 10.6l-.7-.7M9.9 2.1l.7-.7M1.4 10.6l.7-.7" stroke="currentColor" stroke-width="1.2" stroke-linecap="round"/></svg>
+    Theme
+  </button>
+  <button class="btn btn-ghost btn-sm" onclick="showToast('Changes discarded','var(--muted)')">Discard</button>
+  <button class="btn btn-ghost btn-sm" onclick="showToast('Draft saved','var(--success)')">Save draft</button>
+  <button class="btn btn-primary btn-sm" onclick="openModal('publish-modal')">Publish config</button>
+  <button class="icon-btn" title="Notifications">
+    <svg width="14" height="14" viewBox="0 0 14 14" fill="none"><path d="M7 1.5a4.5 4.5 0 0 1 4.5 4.5v2.5l1 1.5H1.5L2.5 8.5V6A4.5 4.5 0 0 1 7 1.5z" stroke="currentColor" stroke-width="1.3"/><path d="M5.5 11.5a1.5 1.5 0 0 0 3 0" stroke="currentColor" stroke-width="1.3"/></svg>
+  </button>
+  <div class="topbar-avatar">DM</div>
+</header>
+
+<!-- ── MAIN ── -->
+<main class="main">
+
+  <!-- Config summary bar -->
+  <div class="config-bar">
+    <div class="config-meta">
+      <div class="cm-item"><span class="cm-label">Title</span><span class="cm-val">Union Media Online</span></div>
+      <div class="cm-item"><span class="cm-label">Sources</span><span class="cm-val">42</span></div>
+      <div class="cm-item"><span class="cm-label">Active</span><span class="cm-val ok">38</span></div>
+      <div class="cm-item"><span class="cm-label">Paused</span><span class="cm-val warn">4</span></div>
+      <div class="cm-item"><span class="cm-label">Sweeps / day</span><span class="cm-val">2 (AM 06:00 · PM 16:00)</span></div>
+      <div class="cm-item"><span class="cm-label">Live version</span><span class="cm-val" style="font-family:var(--mono)">v2.7.0 · published 2026-05-22</span></div>
+    </div>
+    <div style="display:flex;gap:6px">
+      <a href="source-monitor.html" class="btn btn-ghost btn-sm">Source health →</a>
+      <a href="#" class="btn btn-ghost btn-sm">Audit log →</a>
+    </div>
+  </div>
+
+  <!-- Tab bar -->
+  <div class="tab-bar">
+    <div class="tab active" data-tab="title">Title Settings</div>
+    <div class="tab" data-tab="cadence">Sweep Cadence</div>
+    <div class="tab" data-tab="layers">Source Layers</div>
+    <div class="tab" data-tab="signal">Signal-Only List</div>
+    <div class="tab" data-tab="dupes">Duplicate Rules</div>
+    <div class="tab" data-tab="thresh">Escalation Thresholds</div>
+  </div>
+
+  <!-- Tab content -->
+  <div class="tab-content" id="tab-content">
+
+    <!-- ── TAB: Title Settings ── -->
+    <div class="tab-panel active" id="tab-title">
+      <div class="two-col">
+        <div>
+          <div class="card">
+            <div class="card-head"><span class="card-title">Publication identity</span></div>
+            <div class="card-body">
+              <div class="form-row">
+                <div class="form-label">Publication name</div>
+                <div class="form-input"><input class="input" value="Union Media Online"></div>
+              </div>
+              <div class="form-row">
+                <div class="form-label">Slug / config key</div>
+                <div class="form-input"><input class="input input-mono" value="union-media-online"><div class="form-hint">Used by Ranger Recon to identify config file and candidate namespace.</div></div>
+              </div>
+              <div class="form-row">
+                <div class="form-label">Primary domain</div>
+                <div class="form-input"><input class="input input-mono" value="unionmedia.co.uk"></div>
+              </div>
+              <div class="form-row">
+                <div class="form-label">Editorial timezone</div>
+                <div class="form-input">
+                  <select class="select">
+                    <option selected>Europe/London (GMT+1)</option>
+                    <option>Europe/Dublin</option>
+                    <option>UTC</option>
+                  </select>
+                </div>
+              </div>
+              <div class="form-row">
+                <div class="form-label">Default section</div>
+                <div class="form-input">
+                  <select class="select">
+                    <option selected>Scotland</option>
+                    <option>Aberdeen & Grampian</option>
+                    <option>Business</option>
+                    <option>Politics</option>
+                    <option>Energy</option>
+                  </select>
+                  <div class="form-hint">Assigned to candidates when section inference fails.</div>
+                </div>
+              </div>
+            </div>
+          </div>
+          <div class="card">
+            <div class="card-head"><span class="card-title">Discovery window</span></div>
+            <div class="card-body">
+              <div class="form-row">
+                <div class="form-label">Lookback window</div>
+                <div class="form-input" style="flex-direction:row;align-items:center;gap:8px">
+                  <input class="input input-mono input-xs" value="48">
+                  <span style="font-size:12px;color:var(--muted)">hours</span>
+                  <div class="form-hint" style="margin-left:4px">Items older than this are excluded from dedup cross-checks.</div>
+                </div>
+              </div>
+              <div class="form-row">
+                <div class="form-label">Max age for exclusivity</div>
+                <div class="form-input" style="flex-direction:row;align-items:center;gap:8px">
+                  <input class="input input-mono input-xs" value="6">
+                  <span style="font-size:12px;color:var(--muted)">hours</span>
+                </div>
+              </div>
+              <div class="form-row">
+                <div class="form-label">Weekend blackout</div>
+                <div class="form-input">
+                  <label class="toggle">
+                    <input type="checkbox">
+                    <span class="toggle-track"></span>
+                    <span class="toggle-thumb"></span>
+                  </label>
+                  <div class="form-hint">Pause AM sweep on Saturdays and Sundays. PM sweep continues.</div>
+                </div>
+              </div>
+              <div class="form-row">
+                <div class="form-label">Bank holiday list</div>
+                <div class="form-input">
+                  <select class="select"><option selected>Scotland (GOVUK)</option><option>England & Wales</option><option>None</option></select>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div>
+          <div class="card">
+            <div class="card-head"><span class="card-title">Feature flags</span></div>
+            <div class="card-body pad-sm">
+              <div class="toggle-row">
+                <div><span class="toggle-label">Candidate scoring</span><span class="toggle-desc">Precompute relevance band before triage handoff</span></div>
+                <label class="toggle"><input type="checkbox" checked><span class="toggle-track"></span><span class="toggle-thumb"></span></label>
+              </div>
+              <div class="toggle-row">
+                <div><span class="toggle-label">WordPress dedup check</span><span class="toggle-desc">Cross-check against published posts before surfacing</span></div>
+                <label class="toggle"><input type="checkbox" checked><span class="toggle-track"></span><span class="toggle-thumb"></span></label>
+              </div>
+              <div class="toggle-row">
+                <div><span class="toggle-label">Layer 4 signal-only enforcement</span><span class="toggle-desc">Never route L4 candidates to F1 — pointer only</span></div>
+                <label class="toggle"><input type="checkbox" checked><span class="toggle-track"></span><span class="toggle-thumb"></span></label>
+              </div>
+              <div class="toggle-row">
+                <div><span class="toggle-label">REC-ESC auto-trigger</span><span class="toggle-desc">Auto-escalate when streak ≥ threshold across sweeps</span></div>
+                <label class="toggle"><input type="checkbox" checked><span class="toggle-track"></span><span class="toggle-thumb"></span></label>
+              </div>
+              <div class="toggle-row">
+                <div><span class="toggle-label">Heartbeat recording</span><span class="toggle-desc">Log every sweep start/end to audit trail</span></div>
+                <label class="toggle"><input type="checkbox" checked><span class="toggle-track"></span><span class="toggle-thumb"></span></label>
+              </div>
+              <div class="toggle-row" style="border:none">
+                <div><span class="toggle-label">Draft-mode sweeps</span><span class="toggle-desc">New sources added to staging — no triage handoff</span></div>
+                <label class="toggle"><input type="checkbox"><span class="toggle-track"></span><span class="toggle-thumb"></span></label>
+              </div>
+            </div>
+          </div>
+          <div class="card">
+            <div class="card-head"><span class="card-title">Operator notes</span></div>
+            <div class="card-body">
+              <textarea class="input" rows="4" style="width:100%;height:80px">Scottish local government sources: verify council identity before triage. Companies House API key rotates quarterly — coordinate with tech.</textarea>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ── TAB: Sweep Cadence ── -->
+    <div class="tab-panel" id="tab-cadence">
+      <div class="two-col">
+        <div>
+          <div class="card">
+            <div class="card-head"><span class="card-title">Scheduled runs</span></div>
+            <div class="card-body">
+              <div class="form-row">
+                <div class="form-label">AM sweep time</div>
+                <div class="form-input" style="flex-direction:row;align-items:center;gap:8px">
+                  <input class="input input-mono input-sm" value="06:00">
+                  <span style="font-size:12px;color:var(--muted)">local</span>
+                </div>
+              </div>
+              <div class="form-row">
+                <div class="form-label">PM sweep time</div>
+                <div class="form-input" style="flex-direction:row;align-items:center;gap:8px">
+                  <input class="input input-mono input-sm" value="16:00">
+                  <span style="font-size:12px;color:var(--muted)">local</span>
+                </div>
+              </div>
+              <div class="form-row">
+                <div class="form-label">Allow manual trigger</div>
+                <div class="form-input">
+                  <label class="toggle"><input type="checkbox" checked><span class="toggle-track"></span><span class="toggle-thumb"></span></label>
+                </div>
+              </div>
+              <hr class="form-sep">
+              <div class="form-row">
+                <div class="form-label">Per-source timeout</div>
+                <div class="form-input" style="flex-direction:row;align-items:center;gap:8px">
+                  <input class="input input-mono input-xs" value="12">
+                  <span style="font-size:12px;color:var(--muted)">seconds</span>
+                </div>
+              </div>
+              <div class="form-row">
+                <div class="form-label">Total sweep timeout</div>
+                <div class="form-input" style="flex-direction:row;align-items:center;gap:8px">
+                  <input class="input input-mono input-xs" value="600">
+                  <span style="font-size:12px;color:var(--muted)">seconds</span>
+                </div>
+              </div>
+              <div class="form-row">
+                <div class="form-label">Concurrency limit</div>
+                <div class="form-input" style="flex-direction:row;align-items:center;gap:8px">
+                  <input class="input input-mono input-xs" value="8">
+                  <span style="font-size:12px;color:var(--muted)">parallel fetches</span>
+                </div>
+              </div>
+            </div>
+          </div>
+          <div class="card">
+            <div class="card-head"><span class="card-title">Retry policy</span></div>
+            <div class="card-body">
+              <div class="form-row">
+                <div class="form-label">Max retries per source</div>
+                <div class="form-input" style="flex-direction:row;align-items:center;gap:8px">
+                  <input class="input input-mono input-xs" value="2">
+                </div>
+              </div>
+              <div class="form-row">
+                <div class="form-label">Retry backoff</div>
+                <div class="form-input" style="flex-direction:row;align-items:center;gap:8px">
+                  <input class="input input-mono input-xs" value="3">
+                  <span style="font-size:12px;color:var(--muted)">seconds</span>
+                </div>
+              </div>
+              <div class="form-row">
+                <div class="form-label">Retry on 429</div>
+                <div class="form-input">
+                  <label class="toggle"><input type="checkbox" checked><span class="toggle-track"></span><span class="toggle-thumb"></span></label>
+                  <div class="form-hint">Respect Retry-After header when rate-limited.</div>
+                </div>
+              </div>
+              <div class="form-row">
+                <div class="form-label">Hard-fail on 5xx streak</div>
+                <div class="form-input" style="flex-direction:row;align-items:center;gap:8px">
+                  <input class="input input-mono input-xs" value="3">
+                  <span style="font-size:12px;color:var(--muted)">consecutive</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div>
+          <div class="card">
+            <div class="card-head"><span class="card-title">Run schedule preview</span></div>
+            <div class="card-body pad-sm">
+              <div style="font-size:11px;color:var(--muted);margin-bottom:10px;font-family:var(--mono)">NEXT 5 RUNS</div>
+              <div style="display:flex;flex-direction:column;gap:5px">
+                <div style="display:flex;justify-content:space-between;font-size:12px;color:var(--fg)"><span style="font-family:var(--mono)">Thu 29 May · AM</span><span style="color:var(--muted)">06:00 BST</span></div>
+                <div style="display:flex;justify-content:space-between;font-size:12px;color:var(--fg)"><span style="font-family:var(--mono)">Thu 29 May · PM</span><span style="color:var(--muted)">16:00 BST</span></div>
+                <div style="display:flex;justify-content:space-between;font-size:12px;color:var(--fg)"><span style="font-family:var(--mono)">Fri 30 May · AM</span><span style="color:var(--muted)">06:00 BST</span></div>
+                <div style="display:flex;justify-content:space-between;font-size:12px;color:var(--fg)"><span style="font-family:var(--mono)">Fri 30 May · PM</span><span style="color:var(--muted)">16:00 BST</span></div>
+                <div style="display:flex;justify-content:space-between;font-size:12px;color:var(--fg-2)"><span style="font-family:var(--mono)">Sat 31 May · AM</span><span style="color:var(--muted)">skipped (weekend)</span></div>
+              </div>
+              <hr class="form-sep">
+              <div style="font-size:11px;color:var(--muted);margin-bottom:6px;font-family:var(--mono)">LAST RUN</div>
+              <div style="font-size:12px;color:var(--fg)">RR-2841 · Wed 28 May AM · 4m 34s · <span style="color:var(--success)">Complete</span></div>
+              <a href="sweep-run-detail.html" class="link-muted" style="font-size:11px;margin-top:4px;display:block">View sweep detail →</a>
+            </div>
+          </div>
+          <div class="card">
+            <div class="card-head"><span class="card-title">Performance notes</span></div>
+            <div class="card-body pad-sm" style="font-size:12px;color:var(--fg-2);line-height:1.6">
+              Average sweep duration: <strong style="color:var(--fg)">4m 38s</strong> (last 14 runs)<br>
+              Slowest source: <a href="source-health.html" class="link-muted">northsea.com</a> · avg 9.2s<br>
+              Sources at timeout risk: <span style="color:var(--warn)">2</span><br>
+              Recommended concurrency: <strong style="color:var(--fg)">8</strong> (current)
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ── TAB: Source Layers ── -->
+    <div class="tab-panel" id="tab-layers">
+      <div style="display:flex;align-items:center;gap:10px;margin-bottom:12px">
+        <div style="flex:1;font-size:12.5px;color:var(--fg-2)">42 sources across 4 layers · <span style="color:var(--warn)">4 paused</span> · <span style="color:var(--danger)">1 draft</span></div>
+        <input class="input" style="width:200px;height:28px" placeholder="Search sources…">
+        <select class="select"><option>All layers</option><option>L1 Corporate</option><option>L2 Institutional</option><option>L3 Cross-reference</option><option>L4 Signal-only</option></select>
+        <button class="btn btn-primary btn-sm" onclick="openModal('add-source-modal')">+ Add source</button>
+      </div>
+      <div class="card">
+        <table>
+          <thead><tr>
+            <th>Source</th>
+            <th>Layer</th>
+            <th>Stream</th>
+            <th>Status</th>
+            <th>Parse rate (7d)</th>
+            <th>Failure streak</th>
+            <th style="text-align:right">Actions</th>
+          </tr></thead>
+          <tbody id="source-table-body"></tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- ── TAB: Signal-Only List ── -->
+    <div class="tab-panel" id="tab-signal">
+      <div class="two-col">
+        <div>
+          <div class="card">
+            <div class="card-head"><span class="card-title">Signal-only URL patterns</span><button class="btn btn-ghost btn-sm" onclick="openModal('add-pattern-modal')">+ Add pattern</button></div>
+            <div class="card-body">
+              <div class="form-hint" style="margin-bottom:14px">Sources matching these patterns are treated as pointers only — candidates are never routed to F1 triage. Supports glob and prefix matching.</div>
+              <div class="pattern-list" id="pattern-list"></div>
+            </div>
+          </div>
+          <div class="card">
+            <div class="card-head"><span class="card-title">Domain-level overrides</span></div>
+            <div class="card-body">
+              <div class="form-hint" style="margin-bottom:12px">Force-signal entire domains without pattern matching. Takes precedence over layer assignment.</div>
+              <table>
+                <thead><tr><th>Domain</th><th>Reason</th><th>Added by</th><th>Date</th><th></th></tr></thead>
+                <tbody>
+                  <tr><td><span class="src-url">agencies.reuters.com</span></td><td style="font-size:11.5px;color:var(--fg-2)">Wire only — editorial policy</td><td style="font-size:11.5px;color:var(--muted)">RM</td><td style="font-family:var(--mono);font-size:11px;color:var(--muted)">2025-11-02</td><td><button class="btn btn-ghost btn-sm" style="opacity:0" class="row-remove" onclick="showToast('Override removed','var(--warn)')">Remove</button></td></tr>
+                  <tr><td><span class="src-url">blog.ons.gov.uk</span></td><td style="font-size:11.5px;color:var(--fg-2)">Commentary only — not reportable</td><td style="font-size:11.5px;color:var(--muted)">DM</td><td style="font-family:var(--mono);font-size:11px;color:var(--muted)">2026-01-14</td><td><button class="btn btn-ghost btn-sm" style="opacity:0" class="row-remove" onclick="showToast('Override removed','var(--warn)')">Remove</button></td></tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+        <div>
+          <div class="card">
+            <div class="card-head"><span class="card-title">Layer 4 sources</span></div>
+            <div class="card-body pad-sm">
+              <div class="form-hint" style="margin-bottom:10px">All L4 sources are pointer-only by definition, regardless of signal-only list patterns.</div>
+              <div style="display:flex;flex-direction:column;gap:4px">
+                <div style="padding:7px 0;border-bottom:1px solid var(--border);font-size:12px;color:var(--fg-2);display:flex;align-items:center;gap:8px"><span class="src-url" style="flex:1">feeds.skynews.co.uk</span><span class="layer-badge l4">L4</span></div>
+                <div style="padding:7px 0;border-bottom:1px solid var(--border);font-size:12px;color:var(--fg-2);display:flex;align-items:center;gap:8px"><span class="src-url" style="flex:1">alerts.heraldscotland.com</span><span class="layer-badge l4">L4</span></div>
+                <div style="padding:7px 0;border-bottom:1px solid var(--border);font-size:12px;color:var(--fg-2);display:flex;align-items:center;gap:8px"><span class="src-url" style="flex:1">wire.pa.co.uk/breaking</span><span class="layer-badge l4">L4</span></div>
+                <div style="padding:7px 0;font-size:12px;color:var(--fg-2);display:flex;align-items:center;gap:8px"><span class="src-url" style="flex:1">bbc.co.uk/news/scotland/alerts</span><span class="layer-badge l4">L4</span></div>
+              </div>
+              <a href="source-monitor.html" class="link-muted" style="font-size:11px;display:block;margin-top:10px">View all in Source Health →</a>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ── TAB: Duplicate Rules ── -->
+    <div class="tab-panel" id="tab-dupes">
+      <div class="two-col">
+        <div>
+          <div class="card">
+            <div class="card-head"><span class="card-title">Gather index check</span></div>
+            <div class="card-body">
+              <div class="toggle-row">
+                <div><span class="toggle-label">Enable gather-index dedup</span><span class="toggle-desc">Cross-check against previously seen candidates</span></div>
+                <label class="toggle"><input type="checkbox" checked><span class="toggle-track"></span><span class="toggle-thumb"></span></label>
+              </div>
+              <div class="toggle-row">
+                <div><span class="toggle-label">URL-normalised matching</span><span class="toggle-desc">Strip query params and fragments before comparison</span></div>
+                <label class="toggle"><input type="checkbox" checked><span class="toggle-track"></span><span class="toggle-thumb"></span></label>
+              </div>
+              <div class="toggle-row" style="border:none">
+                <div><span class="toggle-label">Fuzzy headline matching</span><span class="toggle-desc">Flag candidates with ≥ 85% headline similarity</span></div>
+                <label class="toggle"><input type="checkbox" checked><span class="toggle-track"></span><span class="toggle-thumb"></span></label>
+              </div>
+              <hr class="form-sep">
+              <div class="form-row">
+                <div class="form-label">Gather index lookback</div>
+                <div class="form-input" style="flex-direction:row;align-items:center;gap:8px">
+                  <input class="input input-mono input-xs" value="72">
+                  <span style="font-size:12px;color:var(--muted)">hours</span>
+                </div>
+              </div>
+              <div class="form-row">
+                <div class="form-label">Headline similarity threshold</div>
+                <div class="form-input" style="flex-direction:row;align-items:center;gap:8px">
+                  <input class="input input-mono input-xs" value="85">
+                  <span style="font-size:12px;color:var(--muted)">%</span>
+                </div>
+              </div>
+            </div>
+          </div>
+          <div class="card">
+            <div class="card-head"><span class="card-title">WordPress check</span></div>
+            <div class="card-body">
+              <div class="toggle-row">
+                <div><span class="toggle-label">Enable WordPress dedup</span><span class="toggle-desc">Query WP REST API for existing published posts</span></div>
+                <label class="toggle"><input type="checkbox" checked><span class="toggle-track"></span><span class="toggle-thumb"></span></label>
+              </div>
+              <div class="toggle-row" style="border:none">
+                <div><span class="toggle-label">Match on canonical URL</span><span class="toggle-desc">In addition to headline comparison</span></div>
+                <label class="toggle"><input type="checkbox" checked><span class="toggle-track"></span><span class="toggle-thumb"></span></label>
+              </div>
+              <hr class="form-sep">
+              <div class="form-row">
+                <div class="form-label">WP API endpoint</div>
+                <div class="form-input"><input class="input input-mono" value="https://unionmedia.co.uk/wp-json/wp/v2"></div>
+              </div>
+              <div class="form-row">
+                <div class="form-label">WP lookback window</div>
+                <div class="form-input" style="flex-direction:row;align-items:center;gap:8px">
+                  <input class="input input-mono input-xs" value="30">
+                  <span style="font-size:12px;color:var(--muted)">days</span>
+                </div>
+              </div>
+              <div class="form-row">
+                <div class="form-label">Request timeout</div>
+                <div class="form-input" style="flex-direction:row;align-items:center;gap:8px">
+                  <input class="input input-mono input-xs" value="8">
+                  <span style="font-size:12px;color:var(--muted)">seconds</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div>
+          <div class="card">
+            <div class="card-head"><span class="card-title">In-flight check</span></div>
+            <div class="card-body">
+              <div class="toggle-row">
+                <div><span class="toggle-label">Check in-flight articles</span><span class="toggle-desc">Suppress candidates for stories already in pipeline</span></div>
+                <label class="toggle"><input type="checkbox" checked><span class="toggle-track"></span><span class="toggle-thumb"></span></label>
+              </div>
+              <div class="toggle-row" style="border:none">
+                <div><span class="toggle-label">Match on primary URL only</span><span class="toggle-desc">Faster but may miss rewritten stories</span></div>
+                <label class="toggle"><input type="checkbox"><span class="toggle-track"></span><span class="toggle-thumb"></span></label>
+              </div>
+              <hr class="form-sep">
+              <div class="form-row">
+                <div class="form-label">Pipeline stages to check</div>
+                <div class="form-input">
+                  <select class="select"><option selected>All active stages</option><option>Research onwards</option><option>Draft onwards</option></select>
+                </div>
+              </div>
+            </div>
+          </div>
+          <div class="card">
+            <div class="card-head"><span class="card-title">Hold behaviour</span></div>
+            <div class="card-body">
+              <div class="form-row">
+                <div class="form-label">On dedup match</div>
+                <div class="form-input">
+                  <select class="select"><option selected>Hold candidate — flag for review</option><option>Discard silently</option><option>Always route to F1</option></select>
+                  <div class="form-hint">Held candidates appear in Candidate Inbox with Held-Duplicate status.</div>
+                </div>
+              </div>
+              <div class="form-row">
+                <div class="form-label">Auto-discard after</div>
+                <div class="form-input" style="flex-direction:row;align-items:center;gap:8px">
+                  <input class="input input-mono input-xs" value="48">
+                  <span style="font-size:12px;color:var(--muted)">hours</span>
+                  <div class="form-hint">0 = never auto-discard.</div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ── TAB: Escalation Thresholds ── -->
+    <div class="tab-panel" id="tab-thresh">
+      <div class="two-col">
+        <div>
+          <div style="margin-bottom:12px;font-size:12.5px;color:var(--fg-2)">These thresholds control when Ranger Recon automatically raises OPS-RR items or REC-ESC escalations. Changes take effect in the next sweep after config is published.</div>
+          <div class="three-col gap" id="thresh-cards"></div>
+          <div class="card">
+            <div class="card-head"><span class="card-title">REC-ESC trigger conditions</span></div>
+            <div class="card-body">
+              <div class="toggle-row">
+                <div><span class="toggle-label">Parse failure rate across network</span><span class="toggle-desc">Triggers when ≥ 30% of sources fail in a single sweep</span></div>
+                <label class="toggle"><input type="checkbox" checked><span class="toggle-track"></span><span class="toggle-thumb"></span></label>
+              </div>
+              <div class="toggle-row">
+                <div><span class="toggle-label">Sweep candidate volume drop</span><span class="toggle-desc">Triggers when candidates &lt; 40% of 14-day average</span></div>
+                <label class="toggle"><input type="checkbox" checked><span class="toggle-track"></span><span class="toggle-thumb"></span></label>
+              </div>
+              <div class="toggle-row">
+                <div><span class="toggle-label">Total sweep failure</span><span class="toggle-desc">Triggers when sweep produces 0 candidates</span></div>
+                <label class="toggle"><input type="checkbox" checked><span class="toggle-track"></span><span class="toggle-thumb"></span></label>
+              </div>
+              <div class="toggle-row" style="border:none">
+                <div><span class="toggle-label">Two consecutive sweep failures</span><span class="toggle-desc">Triggers after both AM and PM fail in same day</span></div>
+                <label class="toggle"><input type="checkbox" checked><span class="toggle-track"></span><span class="toggle-thumb"></span></label>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div>
+          <div class="card">
+            <div class="card-head"><span class="card-title">OPS-RR auto-creation rules</span></div>
+            <div class="card-body pad-sm">
+              <div class="toggle-row">
+                <div><span class="toggle-label">Failure streak threshold</span><span class="toggle-desc">Raise OPS-RR when source streak ≥ 3</span></div>
+                <label class="toggle"><input type="checkbox" checked><span class="toggle-track"></span><span class="toggle-thumb"></span></label>
+              </div>
+              <div class="toggle-row">
+                <div><span class="toggle-label">Parse rate drop per source</span><span class="toggle-desc">Raise OPS-RR when source parse rate drops &gt; 20pp</span></div>
+                <label class="toggle"><input type="checkbox" checked><span class="toggle-track"></span><span class="toggle-thumb"></span></label>
+              </div>
+              <div class="toggle-row">
+                <div><span class="toggle-label">HTTP 429 rate limit</span><span class="toggle-desc">Raise OPS-RR when rate-limited 3+ times in a run</span></div>
+                <label class="toggle"><input type="checkbox" checked><span class="toggle-track"></span><span class="toggle-thumb"></span></label>
+              </div>
+              <div class="toggle-row" style="border:none">
+                <div><span class="toggle-label">Schema change detected</span><span class="toggle-desc">Raise OPS-RR when XPath yields 0 items unexpectedly</span></div>
+                <label class="toggle"><input type="checkbox" checked><span class="toggle-track"></span><span class="toggle-thumb"></span></label>
+              </div>
+            </div>
+          </div>
+          <div class="card">
+            <div class="card-head"><span class="card-title">Alert routing</span></div>
+            <div class="card-body">
+              <div class="form-row">
+                <div class="form-label" style="width:140px">OPS-RR assignee</div>
+                <div class="form-input"><select class="select"><option selected>On-call operator</option><option>D. Mackenzie</option><option>R. Morrison</option></select></div>
+              </div>
+              <div class="form-row">
+                <div class="form-label" style="width:140px">REC-ESC assignee</div>
+                <div class="form-input"><select class="select"><option selected>Editorial Director</option><option>D. Mackenzie</option></select></div>
+              </div>
+              <div class="form-row">
+                <div class="form-label" style="width:140px">SLA — OPS-RR P1</div>
+                <div class="form-input" style="flex-direction:row;align-items:center;gap:8px">
+                  <input class="input input-mono input-xs" value="2">
+                  <span style="font-size:12px;color:var(--muted)">hours</span>
+                </div>
+              </div>
+              <div class="form-row">
+                <div class="form-label" style="width:140px">SLA — OPS-RR P2</div>
+                <div class="form-input" style="flex-direction:row;align-items:center;gap:8px">
+                  <input class="input input-mono input-xs" value="8">
+                  <span style="font-size:12px;color:var(--muted)">hours</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Recent config changes — only shown in Escalation tab for brevity; in a real app would live in a sidebar -->
+      <div class="card">
+        <div class="card-head">
+          <span class="card-title">Recent config changes</span>
+          <a href="#" class="link-muted" style="font-size:11px">View audit log →</a>
+        </div>
+        <div class="card-body pad-sm" id="changes-log"></div>
+      </div>
+    </div>
+
+  </div><!-- /tab-content -->
+
+</main><!-- /main -->
+</div><!-- /shell -->
+
+<!-- ── PUBLISH MODAL ── -->
+<div class="modal-overlay" id="publish-modal">
+  <div class="modal">
+    <div class="modal-head">
+      <span class="modal-title">Publish config update</span>
+      <button class="btn btn-ghost btn-sm" onclick="closeModal('publish-modal')">Cancel</button>
+    </div>
+    <div class="modal-body">
+      <div class="modal-warn">Publishing replaces the live config immediately. The next sweep will use the new settings. This action is logged to the audit trail.</div>
+      <div class="form-row" style="margin-bottom:10px">
+        <div class="form-label" style="width:140px">Version label</div>
+        <div class="form-input"><input class="input input-mono" value="v2.7.1"></div>
+      </div>
+      <div class="form-row" style="margin-bottom:10px">
+        <div class="form-label" style="width:140px">Change summary</div>
+        <div class="form-input"><textarea class="input" rows="3" style="width:100%">Added northsea.com to signal-only list. Increased OPS-RR streak threshold to 4. Corrected Companies House XPath selector.</textarea></div>
+      </div>
+      <div style="font-size:11.5px;color:var(--fg-2);margin-top:8px">Replacing <span style="font-family:var(--mono);color:var(--muted)">v2.7.0</span> published 2026-05-22 by R. Morrison</div>
+    </div>
+    <div class="modal-foot">
+      <button class="btn btn-ghost" onclick="closeModal('publish-modal')">Cancel</button>
+      <button class="btn btn-primary" onclick="handlePublish()">Publish v2.7.1</button>
+    </div>
+  </div>
+</div>
+
+<!-- ── ADD SOURCE MODAL ── -->
+<div class="modal-overlay" id="add-source-modal">
+  <div class="modal">
+    <div class="modal-head">
+      <span class="modal-title">Add discovery source</span>
+      <button class="btn btn-ghost btn-sm" onclick="closeModal('add-source-modal')">Cancel</button>
+    </div>
+    <div class="modal-body">
+      <div class="form-row"><div class="form-label" style="width:160px">Source name</div><div class="form-input"><input class="input" placeholder="Aberdeen Evening Express"></div></div>
+      <div class="form-row"><div class="form-label" style="width:160px">Feed URL</div><div class="form-input"><input class="input input-mono" placeholder="https://example.com/rss"></div></div>
+      <div class="form-row"><div class="form-label" style="width:160px">Layer</div><div class="form-input"><select class="select"><option>L1 — Corporate newsroom</option><option>L2 — Institutional press</option><option>L3 — Cross-reference</option><option>L4 — Signal only</option></select></div></div>
+      <div class="form-row"><div class="form-label" style="width:160px">Stream</div><div class="form-input"><select class="select"><option>Wire Services</option><option>Broadcast</option><option>Print</option><option>Energy &amp; Industry</option><option>Public Records</option><option>Government</option><option>Legal</option></select></div></div>
+      <div class="form-row"><div class="form-label" style="width:160px">Add to staging first</div><div class="form-input"><label class="toggle"><input type="checkbox" checked><span class="toggle-track"></span><span class="toggle-thumb"></span></label><div class="form-hint">Run for 2 sweeps before routing candidates to triage.</div></div></div>
+    </div>
+    <div class="modal-foot">
+      <button class="btn btn-ghost" onclick="closeModal('add-source-modal')">Cancel</button>
+      <button class="btn btn-primary" onclick="closeModal('add-source-modal');showToast('Source added to staging','var(--success)')">Add source</button>
+    </div>
+  </div>
+</div>
+
+<!-- ── ADD PATTERN MODAL ── -->
+<div class="modal-overlay" id="add-pattern-modal">
+  <div class="modal" style="width:420px">
+    <div class="modal-head">
+      <span class="modal-title">Add signal-only pattern</span>
+      <button class="btn btn-ghost btn-sm" onclick="closeModal('add-pattern-modal')">Cancel</button>
+    </div>
+    <div class="modal-body">
+      <div class="form-row"><div class="form-label" style="width:120px">URL pattern</div><div class="form-input"><input class="input input-mono" id="new-pattern-input" placeholder="e.g. */press-releases/*"><div class="form-hint">Supports glob * and ** matching. Prefix with domain for domain-specific rules.</div></div></div>
+      <div class="form-row"><div class="form-label" style="width:120px">Reason</div><div class="form-input"><input class="input" placeholder="Press releases — editorial policy"></div></div>
+    </div>
+    <div class="modal-foot">
+      <button class="btn btn-ghost" onclick="closeModal('add-pattern-modal')">Cancel</button>
+      <button class="btn btn-primary" onclick="addPattern()">Add pattern</button>
+    </div>
+  </div>
+</div>
+
+<!-- ── TOAST ── -->
+<div class="toast" id="toast">
+  <span class="toast-dot" id="toast-dot"></span>
+  <span id="toast-msg">Saved</span>
+</div>
+
+<script>
+// ── THEME ──
+function toggleTheme() {
+  const html = document.documentElement;
+  html.setAttribute('data-theme', html.getAttribute('data-theme') === 'dark' ? 'light' : 'dark');
+}
+
+// ── TABS ──
+document.querySelectorAll('.tab').forEach(tab => {
+  tab.addEventListener('click', () => {
+    document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+    document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
+    tab.classList.add('active');
+    const id = 'tab-' + tab.dataset.tab;
+    document.getElementById(id).classList.add('active');
+  });
+});
+
+// ── MODALS ──
+function openModal(id)  { document.getElementById(id).classList.add('open'); }
+function closeModal(id) { document.getElementById(id).classList.remove('open'); }
+document.querySelectorAll('.modal-overlay').forEach(m => {
+  m.addEventListener('click', e => { if (e.target === m) m.classList.remove('open'); });
+});
+
+// ── TOAST ──
+function showToast(msg, color) {
+  const t = document.getElementById('toast');
+  document.getElementById('toast-msg').textContent = msg;
+  document.getElementById('toast-dot').style.background = color;
+  t.classList.add('show');
+  setTimeout(() => t.classList.remove('show'), 2400);
+}
+
+// ── PUBLISH ──
+function handlePublish() {
+  closeModal('publish-modal');
+  showToast('Config v2.7.1 published', 'var(--success)');
+  document.querySelector('.draft-badge').style.display = 'none';
+  document.querySelector('.version-tag').textContent = 'v2.7.1 · live';
+}
+
+// ── SOURCES TABLE ──
+const SOURCES = [
+  { id:'SRC-0001', name:'PA Wire', url:'wire.pa.co.uk/feed/rss', layer:'L1', stream:'Wire Services',     status:'ok',  rate:98, streak:0 },
+  { id:'SRC-0003', name:'BBC Scotland News', url:'bbc.co.uk/news/scotland.rss', layer:'L1', stream:'Broadcast', status:'ok', rate:96, streak:0 },
+  { id:'SRC-0005', name:'The Scotsman', url:'scotsman.com/rss/news', layer:'L1', stream:'Print', status:'ok', rate:94, streak:0 },
+  { id:'SRC-0007', name:'STV News', url:'stv.tv/news/feed', layer:'L1', stream:'Broadcast', status:'ok', rate:97, streak:0 },
+  { id:'SRC-0009', name:'Aberdeen Evening Express', url:'aee.co.uk/news/feed', layer:'L1', stream:'Print', status:'warn', rate:82, streak:2 },
+  { id:'SRC-0011', name:'Holyrood Magazine', url:'holyrood.com/rss/news', layer:'L2', stream:'Government', status:'ok', rate:91, streak:0 },
+  { id:'SRC-0013', name:'Scottish Legal News', url:'scottishlegal.com/feed', layer:'L2', stream:'Legal', status:'warn', rate:71, streak:3 },
+  { id:'SRC-0015', name:'Companies House (API)', url:'api.companieshouse.gov.uk', layer:'L2', stream:'Public Records', status:'warn', rate:88, streak:1 },
+  { id:'SRC-0017', name:'ONS Scotland', url:'ons.gov.uk/region/scotland.rss', layer:'L2', stream:'Public Records', status:'ok', rate:99, streak:0 },
+  { id:'SRC-0019', name:'BBC Monitoring', url:'monitoring.bbc.co.uk/feed', layer:'L3', stream:'Broadcast', status:'warn', rate:67, streak:1 },
+  { id:'SRC-0021', name:'North Sea Transition Authority', url:'nstauthority.co.uk/rss', layer:'L2', stream:'Energy & Industry', status:'err', rate:41, streak:7 },
+  { id:'SRC-0023', name:'Glasgow City Council', url:'glasgow.gov.uk/news.rss', layer:'L2', stream:'Government', status:'ok', rate:89, streak:0 },
+  { id:'SRC-0025', name:'Scottish Parliament', url:'parliament.scot/news/rss', layer:'L2', stream:'Government', status:'ok', rate:95, streak:0 },
+  { id:'SRC-0027', name:'Court of Session (judicial.scot)', url:'judicial.scot/news/rss', layer:'L2', stream:'Legal', status:'ok', rate:93, streak:0 },
+  { id:'SRC-0029', name:'Aberdeen City Council', url:'aberdeencity.gov.uk/news.rss', layer:'L2', stream:'Government', status:'ok', rate:87, streak:0 },
+  { id:'SRC-0031', name:'Energy Voice', url:'energyvoice.com/rss/news', layer:'L3', stream:'Energy & Industry', status:'ok', rate:90, streak:0 },
+  { id:'SRC-0033', name:'Herald Scotland', url:'heraldscotland.com/news.rss', layer:'L3', stream:'Print', status:'ok', rate:88, streak:0 },
+  { id:'SRC-0035', name:'Press & Journal', url:'pressandjournal.co.uk/rss', layer:'L3', stream:'Print', status:'off', rate:0, streak:0 },
+  { id:'SRC-0037', name:'Sky News (Scotland alerts)', url:'feeds.skynews.co.uk/rss/scotland', layer:'L4', stream:'Broadcast', status:'ok', rate:94, streak:0 },
+  { id:'SRC-0039', name:'PA Breaking Wire', url:'wire.pa.co.uk/breaking/rss', layer:'L4', stream:'Wire Services', status:'ok', rate:99, streak:0 },
+];
+
+function rateColor(r) {
+  if (r >= 90) return 'var(--success)';
+  if (r >= 70) return 'var(--warn)';
+  return 'var(--danger)';
+}
+function streakColor(s) {
+  if (s === 0) return 'var(--muted)';
+  if (s <= 2)  return 'var(--warn)';
+  return 'var(--danger)';
+}
+
+const tbody = document.getElementById('source-table-body');
+SOURCES.forEach(s => {
+  const dotClass = {ok:'dot-ok',warn:'dot-warn',err:'dot-err',off:'dot-off'}[s.status];
+  const dotLabel = {ok:'Active',warn:'Warning',err:'Critical',off:'Paused'}[s.status];
+  const tr = document.createElement('tr');
+  tr.innerHTML = `
+    <td>
+      <div class="src-name">${s.name} <span style="font-family:var(--mono);font-size:10px;color:var(--muted)">${s.id}</span></div>
+      <div class="src-url">${s.url}</div>
+    </td>
+    <td><span class="layer-badge ${s.layer.toLowerCase()}">${s.layer}</span></td>
+    <td style="font-size:11.5px;color:var(--fg-2)">${s.stream}</td>
+    <td><span class="status-dot"><span class="dot ${dotClass}"></span>${dotLabel}</span></td>
+    <td style="font-family:var(--mono);font-variant-numeric:tabular-nums;color:${rateColor(s.rate)}">${s.status === 'off' ? '—' : s.rate + '%'}</td>
+    <td style="font-family:var(--mono);font-variant-numeric:tabular-nums;color:${streakColor(s.streak)}">${s.streak > 0 ? s.streak : '—'}</td>
+    <td style="text-align:right">
+      <div class="row-actions">
+        <a href="source-health.html" class="btn btn-ghost btn-sm">Health →</a>
+        <button class="btn btn-ghost btn-sm" onclick="showToast('Source paused','var(--warn)')">Pause</button>
+        <button class="btn btn-ghost btn-sm" onclick="showToast('Editing source','var(--accent)')">Edit</button>
+      </div>
+    </td>`;
+  tbody.appendChild(tr);
+  tr.addEventListener('mouseenter', () => tr.querySelector('.row-actions').style.opacity = '1');
+  tr.addEventListener('mouseleave', () => tr.querySelector('.row-actions').style.opacity = '0');
+});
+
+// ── THRESHOLD CARDS ──
+const THRESHOLDS = [
+  { name:'Parse failure rate (OPS-RR)', desc:'Raise OPS-RR when a source\'s parse success rate in a single sweep drops below this', val:60, unit:'%', max:100, color:'warn' },
+  { name:'Source failure streak', desc:'Raise OPS-RR when a source records this many consecutive failures', val:4, unit:'runs', max:10, color:'warn' },
+  { name:'Candidates volume floor', desc:'Flag sweep as anomalous when total candidates fall below this count', val:40, unit:'items', max:200, color:'warn' },
+  { name:'Network parse fail rate', desc:'Trigger REC-ESC when this % of all sources fail to parse in a single sweep', val:30, unit:'%', max:100, color:'danger' },
+  { name:'Daily candidate drop alert', desc:'Alert when today\'s total candidates fall below this % of 14-day average', val:40, unit:'%', max:100, color:'danger' },
+  { name:'Unreachable site count', desc:'Raise OPS-RR when this many distinct sites are unreachable in a single sweep', val:5, unit:'sites', max:42, color:'warn' },
+];
+
+const threshContainer = document.getElementById('thresh-cards');
+THRESHOLDS.forEach(t => {
+  const pct = Math.round((t.val / t.max) * 100);
+  const div = document.createElement('div');
+  div.className = 'thresh-card';
+  div.innerHTML = `
+    <div class="thresh-name">${t.name}</div>
+    <div class="thresh-desc">${t.desc}</div>
+    <div class="thresh-control">
+      <input class="thresh-input" type="number" value="${t.val}" min="1" max="${t.max}">
+      <span class="thresh-unit">${t.unit}</span>
+    </div>
+    <div class="thresh-scale" style="margin-top:10px">
+      <div class="thresh-fill ${t.color}" style="width:${pct}%"></div>
+    </div>
+    <div class="thresh-labels"><span>0</span><span>${t.max}</span></div>`;
+  threshContainer.appendChild(div);
+  const input = div.querySelector('.thresh-input');
+  const fill = div.querySelector('.thresh-fill');
+  input.addEventListener('input', () => {
+    const v = Math.min(Math.max(parseInt(input.value)||0, 0), t.max);
+    fill.style.width = Math.round((v / t.max) * 100) + '%';
+  });
+});
+
+// ── SIGNAL-ONLY PATTERNS ──
+const PATTERNS = [
+  '*/press-releases/*', '*/press_release/*', '*/media-centre/*',
+  '*/investor-relations/*', '*?type=pr', '*/advertorial/*',
+  '*/sponsored/*', '*/partners/*', '*/wire/full-text/*',
+  '*/agency-feed/*', '*/syndication/*', '*/briefs/*',
+];
+
+const patternList = document.getElementById('pattern-list');
+function renderPatterns() {
+  patternList.innerHTML = '';
+  PATTERNS.forEach((p, i) => {
+    const chip = document.createElement('span');
+    chip.className = 'pattern-chip';
+    chip.innerHTML = `${p}<span class="chip-remove" data-i="${i}" title="Remove">×</span>`;
+    patternList.appendChild(chip);
+  });
+}
+renderPatterns();
+patternList.addEventListener('click', e => {
+  if (e.target.classList.contains('chip-remove')) {
+    PATTERNS.splice(+e.target.dataset.i, 1);
+    renderPatterns();
+    showToast('Pattern removed', 'var(--warn)');
+  }
+});
+
+function addPattern() {
+  const val = document.getElementById('new-pattern-input').value.trim();
+  if (val) { PATTERNS.push(val); renderPatterns(); }
+  closeModal('add-pattern-modal');
+  document.getElementById('new-pattern-input').value = '';
+  showToast('Pattern added', 'var(--success)');
+}
+
+// ── CHANGES LOG ──
+const CHANGES = [
+  { time:'2026-05-28 · 09:14', initials:'DM', color:'#3b82f6', bg:'rgba(59,130,246,.15)', type:'edit', text:'Updated <strong>OPS-RR streak threshold</strong> from 3 to 4 runs' },
+  { time:'2026-05-28 · 09:11', initials:'DM', color:'#3b82f6', bg:'rgba(59,130,246,.15)', type:'add', text:'Added <strong>northsea.com/news</strong> to signal-only list' },
+  { time:'2026-05-27 · 16:42', initials:'DM', color:'#3b82f6', bg:'rgba(59,130,246,.15)', type:'edit', text:'Corrected <strong>Companies House XPath</strong> selector after schema change' },
+  { time:'2026-05-22 · 11:30', initials:'RM', color:'#a78bfa', bg:'rgba(167,139,250,.15)', type:'pub', text:'Published config <span style="font-family:var(--mono)">v2.7.0</span> — added ONS Scotland, updated SLA timers' },
+  { time:'2026-05-20 · 14:08', initials:'RM', color:'#a78bfa', bg:'rgba(167,139,250,.15)', type:'add', text:'Added source <strong>Scottish Legal News</strong> (SRC-0013) to L2 layer' },
+  { time:'2026-05-15 · 10:55', initials:'SS', color:'#22c55e', bg:'rgba(34,197,94,.15)', type:'remove', text:'Removed <strong>invernesscourier.co.uk</strong> from active sources — permanently paused' },
+  { time:'2026-05-12 · 09:30', initials:'RM', color:'#a78bfa', bg:'rgba(167,139,250,.15)', type:'thresh', text:'Changed <strong>network parse fail threshold</strong> from 35% to 30%' },
+];
+
+const log = document.getElementById('changes-log');
+CHANGES.forEach(c => {
+  const el = document.createElement('div');
+  el.className = 'change-item';
+  el.innerHTML = `
+    <div class="change-time">${c.time.split(' · ').join('\n')}</div>
+    <div class="av-xs" style="background:${c.bg};color:${c.color}">${c.initials}</div>
+    <div class="change-body">
+      <div class="change-action"><span class="change-type ct-${c.type}">${c.type.toUpperCase()}</span>${c.text}</div>
+    </div>`;
+  log.appendChild(el);
+});
+</script>
+</body>
+</html>

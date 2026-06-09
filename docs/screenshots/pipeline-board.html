@@ -1,0 +1,787 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Board — Union Media</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet">
+<style>
+/* ── TOKENS: dark-first editorial ops ── */
+:root {
+  --bg:            #0b0d12;
+  --surface:       #10131c;
+  --surface-2:     #161d2e;
+  --fg:            #dde4f0;
+  --fg-2:          #7e8ea8;
+  --muted:         #4b5672;
+  --border:        #1c2438;
+  --border-mid:    #273047;
+  --accent:        #3b82f6;
+  --accent-on:     #ffffff;
+  --accent-hover:  #2563eb;
+  --accent-subtle: rgba(59,130,246,.10);
+  --success:       #22c55e;
+  --warn:          #f59e0b;
+  --danger:        #ef4444;
+  --font: Inter, "Helvetica Neue", system-ui, sans-serif;
+  --mono: "SF Mono", "Cascadia Code", ui-monospace, Menlo, monospace;
+  --sidebar-w: 216px;
+  --topbar-h:  48px;
+  --r: 6px;
+}
+
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+html, body {
+  height: 100%;
+  background: var(--bg);
+  color: var(--fg);
+  font-family: var(--font);
+  font-size: 13px;
+  line-height: 1.45;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* ── SHELL ── */
+.shell {
+  display: grid;
+  grid-template-columns: var(--sidebar-w) 1fr;
+  grid-template-rows: var(--topbar-h) 1fr;
+  height: 100vh;
+  overflow: hidden;
+}
+
+/* ── SIDEBAR ── */
+.sidebar {
+  grid-row: 1 / 3;
+  background: var(--surface);
+  border-right: 1px solid var(--border);
+  display: flex;
+  flex-direction: column;
+  overflow-y: auto;
+}
+.sidebar-pub {
+  padding: 14px 16px 12px;
+  border-bottom: 1px solid var(--border);
+}
+.pub-name { font-size: 13px; font-weight: 600; color: var(--fg); letter-spacing: -0.015em; display: block; }
+.pub-meta { font-size: 11px; color: var(--muted); margin-top: 2px; font-family: var(--mono); font-variant-numeric: tabular-nums; }
+.sidebar-nav { padding: 8px 0; flex: 1; }
+.nav-section { padding: 14px 16px 4px; font-size: 10px; font-weight: 600; letter-spacing: 0.07em; text-transform: uppercase; color: var(--muted); }
+.nav-item {
+  display: flex; align-items: center; gap: 9px;
+  padding: 7px 16px;
+  font-size: 13px; color: var(--fg-2);
+  cursor: pointer; text-decoration: none;
+  position: relative;
+  transition: background 100ms, color 100ms;
+}
+.nav-item:hover { background: var(--surface-2); color: var(--fg); }
+.nav-item.active { color: var(--fg); background: var(--accent-subtle); }
+.nav-item.active::before {
+  content: ''; position: absolute; left: 0; top: 4px; bottom: 4px;
+  width: 2px; background: var(--accent); border-radius: 0 2px 2px 0;
+}
+.nav-icon { width: 15px; height: 15px; flex-shrink: 0; opacity: .65; }
+.nav-item.active .nav-icon, .nav-item:hover .nav-icon { opacity: 1; }
+.nav-badge {
+  margin-left: auto; font-size: 10px; font-family: var(--mono);
+  font-variant-numeric: tabular-nums; color: var(--muted);
+  background: var(--bg); border: 1px solid var(--border);
+  padding: 1px 6px; border-radius: 9999px; line-height: 1.6;
+}
+.sidebar-user {
+  padding: 12px 16px; border-top: 1px solid var(--border);
+  display: flex; align-items: center; gap: 9px;
+}
+.avatar-sm {
+  width: 26px; height: 26px; border-radius: 50%;
+  background: var(--accent-subtle); border: 1px solid var(--border-mid);
+  display: flex; align-items: center; justify-content: center;
+  font-size: 10px; font-weight: 700; color: var(--accent);
+  flex-shrink: 0; font-family: var(--mono);
+}
+.user-name { font-size: 12px; font-weight: 500; color: var(--fg); display: block; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.user-role  { font-size: 11px; color: var(--muted); display: block; }
+
+/* ── TOPBAR ── */
+.topbar {
+  background: var(--surface);
+  border-bottom: 1px solid var(--border);
+  display: flex; align-items: center;
+  padding: 0 16px; gap: 7px;
+}
+.topbar-breadcrumb { font-size: 13px; font-weight: 600; color: var(--fg); letter-spacing: -0.01em; white-space: nowrap; }
+.topbar-breadcrumb span { color: var(--muted); font-weight: 400; margin: 0 4px; }
+.topbar-sep { width: 1px; height: 18px; background: var(--border-mid); flex-shrink: 0; margin: 0 3px; }
+
+.filter-sel {
+  height: 28px; padding: 0 24px 0 8px;
+  background: var(--bg); border: 1px solid var(--border);
+  color: var(--fg-2); font-size: 12px; font-family: var(--font);
+  border-radius: var(--r); cursor: pointer;
+  appearance: none; -webkit-appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6'%3E%3Cpath d='M0 0l5 6 5-6z' fill='%234b5672'/%3E%3C/svg%3E");
+  background-repeat: no-repeat; background-position: right 8px center;
+  transition: border-color 120ms, color 120ms;
+}
+.filter-sel:hover { border-color: var(--border-mid); color: var(--fg); }
+.filter-sel:focus { outline: none; border-color: var(--accent); }
+.filter-sel option { background: var(--surface); }
+
+.btn-toggle {
+  height: 28px; padding: 0 10px;
+  background: transparent; border: 1px solid var(--border);
+  color: var(--fg-2); font-size: 12px; font-weight: 500;
+  font-family: var(--font); border-radius: var(--r); cursor: pointer;
+  display: flex; align-items: center; gap: 5px;
+  white-space: nowrap;
+  transition: background 100ms, color 100ms, border-color 100ms;
+}
+.btn-toggle:hover { background: var(--surface-2); color: var(--fg); }
+.btn-toggle.active { background: rgba(239,68,68,.10); border-color: rgba(239,68,68,.30); color: var(--danger); }
+
+.search-box {
+  display: flex; align-items: center;
+  background: var(--bg); border: 1px solid var(--border);
+  border-radius: var(--r); padding: 0 9px; gap: 6px;
+  height: 28px; width: 170px;
+  transition: border-color 120ms;
+}
+.search-box:focus-within { border-color: var(--accent); }
+.search-box input {
+  border: none; background: transparent; color: var(--fg);
+  font-size: 12px; font-family: var(--font); outline: none; width: 100%;
+}
+.search-box input::placeholder { color: var(--muted); }
+
+.spacer { flex: 1; }
+
+.btn-primary {
+  height: 28px; padding: 0 12px;
+  background: var(--accent); border: 1px solid var(--accent);
+  color: var(--accent-on); font-size: 12px; font-weight: 500;
+  font-family: var(--font); border-radius: var(--r); cursor: pointer;
+  white-space: nowrap;
+  transition: background 100ms, border-color 100ms;
+}
+.btn-primary:hover { background: var(--accent-hover); border-color: var(--accent-hover); }
+
+/* ── BOARD WRAP ── */
+.board-wrap {
+  display: flex; flex-direction: column;
+  overflow: hidden; min-height: 0;
+}
+
+/* ── STATS BAR ── */
+.stats-bar {
+  display: flex; align-items: center; gap: 20px;
+  padding: 0 16px; height: 38px;
+  background: var(--surface); border-bottom: 1px solid var(--border);
+  flex-shrink: 0;
+}
+.stat { display: flex; align-items: center; gap: 5px; font-size: 12px; color: var(--fg-2); }
+.stat-val { font-weight: 600; font-variant-numeric: tabular-nums; color: var(--fg); }
+.stat-dot { width: 6px; height: 6px; border-radius: 50%; flex-shrink: 0; }
+.stat-action {
+  margin-left: auto; font-size: 11px; color: var(--muted);
+  font-family: var(--mono);
+}
+
+/* ── BOARD SCROLL ── */
+.board-scroll {
+  flex: 1; min-height: 0;
+  overflow-x: auto; overflow-y: hidden;
+  padding: 12px 14px;
+}
+.board-scroll::-webkit-scrollbar { height: 6px; }
+.board-scroll::-webkit-scrollbar-track { background: transparent; }
+.board-scroll::-webkit-scrollbar-thumb { background: var(--border-mid); border-radius: 9999px; }
+
+.board { display: flex; gap: 9px; height: 100%; }
+
+/* ── COLUMN ── */
+.col {
+  width: 240px; flex-shrink: 0;
+  display: flex; flex-direction: column;
+  background: var(--surface); border: 1px solid var(--border);
+  border-top: 2px solid transparent; /* set by JS */
+  border-radius: 8px;
+  height: 100%; min-height: 0;
+  overflow: hidden;
+}
+.col-header {
+  display: flex; align-items: center; gap: 7px;
+  padding: 9px 11px 8px;
+  border-bottom: 1px solid var(--border);
+  flex-shrink: 0;
+}
+.col-dot { width: 7px; height: 7px; border-radius: 50%; flex-shrink: 0; }
+.col-label {
+  font-size: 10.5px; font-weight: 600;
+  letter-spacing: 0.045em; text-transform: uppercase; color: var(--fg-2);
+  flex: 1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.col-count {
+  font-size: 10px; font-family: var(--mono); font-variant-numeric: tabular-nums;
+  color: var(--muted); background: var(--bg); border: 1px solid var(--border);
+  padding: 0 5px; border-radius: 9999px; line-height: 1.7; flex-shrink: 0;
+}
+
+.col-body {
+  flex: 1; min-height: 0; overflow-y: auto;
+  padding: 7px 7px 4px; display: flex; flex-direction: column; gap: 5px;
+}
+.col-body::-webkit-scrollbar { width: 3px; }
+.col-body::-webkit-scrollbar-track { background: transparent; }
+.col-body::-webkit-scrollbar-thumb { background: var(--border-mid); border-radius: 9999px; }
+
+.col-add {
+  padding: 6px 11px; border-top: 1px solid var(--border);
+  font-size: 11px; color: var(--muted); cursor: pointer; flex-shrink: 0;
+  display: flex; align-items: center; gap: 4px;
+  transition: color 100ms, background 100ms;
+}
+.col-add:hover { color: var(--fg-2); background: var(--surface-2); }
+
+.col-empty {
+  padding: 16px 10px; text-align: center;
+  font-size: 11px; color: var(--muted); line-height: 1.5;
+}
+
+/* ── CARD ── */
+.card {
+  background: var(--bg); border: 1px solid var(--border);
+  border-radius: var(--r); padding: 8px 9px;
+  cursor: pointer; flex-shrink: 0;
+  transition: border-color 100ms, background 100ms;
+}
+.card:hover { border-color: var(--border-mid); background: #0d1019; }
+.card.selected { border-color: var(--accent); background: rgba(59,130,246,.04); }
+.card.hidden { display: none; }
+
+.card-top {
+  display: flex; align-items: flex-start; justify-content: space-between;
+  gap: 5px; margin-bottom: 4px;
+}
+.card-id {
+  font-size: 10px; font-family: var(--mono); color: var(--muted);
+  font-variant-numeric: tabular-nums; letter-spacing: 0.03em; flex-shrink: 0;
+}
+.card-badges { display: flex; align-items: center; gap: 4px; flex-shrink: 0; }
+
+.risk-badge {
+  font-size: 9px; font-weight: 700; letter-spacing: 0.07em; text-transform: uppercase;
+  font-family: var(--mono); padding: 1px 5px; border-radius: 3px;
+  border: 1px solid transparent; line-height: 1.7;
+}
+.risk-high { color: var(--danger); background: rgba(239,68,68,.08); border-color: rgba(239,68,68,.20); }
+.risk-med  { color: var(--warn);   background: rgba(245,158,11,.08); border-color: rgba(245,158,11,.20); }
+.risk-low  { color: var(--muted);  background: rgba(75,86,114,.12);  border-color: rgba(75,86,114,.22); }
+
+.card-age {
+  font-size: 10px; font-family: var(--mono); font-variant-numeric: tabular-nums;
+  color: var(--muted); white-space: nowrap;
+}
+.card-age.aging   { color: var(--warn); }
+.card-age.overdue { color: var(--danger); font-weight: 600; }
+.card-age.live    { color: var(--success); }
+
+.card-section {
+  font-size: 10px; font-weight: 600; letter-spacing: 0.055em;
+  text-transform: uppercase; color: var(--muted); margin-bottom: 3px;
+  font-family: var(--mono);
+}
+.card-hl {
+  font-size: 12px; font-weight: 500; color: var(--fg); line-height: 1.38;
+  margin-bottom: 7px;
+  display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden;
+}
+
+.card-foot {
+  display: flex; align-items: center; gap: 6px;
+}
+.card-assignee { display: flex; align-items: center; gap: 5px; flex: 1; min-width: 0; }
+.p-dot {
+  width: 19px; height: 19px; border-radius: 50%;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 8px; font-weight: 700; flex-shrink: 0; font-family: var(--mono);
+}
+.p-name { font-size: 11px; color: var(--fg-2); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+.move-btn {
+  height: 21px; padding: 0 7px;
+  background: transparent; border: 1px solid var(--border-mid);
+  color: var(--fg-2); font-size: 10px; font-family: var(--mono);
+  border-radius: 4px; cursor: pointer; white-space: nowrap; flex-shrink: 0;
+  opacity: 0; pointer-events: none;
+  transition: opacity 100ms, background 100ms, color 100ms;
+}
+.card:hover .move-btn { opacity: 1; pointer-events: auto; }
+.move-btn:hover { background: var(--surface-2); color: var(--fg); border-color: var(--accent); }
+
+/* ── BLOCK / HELD BANNER ── */
+.card-block {
+  display: flex; align-items: center; gap: 5px;
+  margin-top: 6px; padding-top: 6px;
+  border-top: 1px dashed rgba(239,68,68,.22);
+}
+.card-block.held-type { border-top-color: rgba(245,158,11,.22); }
+.block-lbl {
+  font-size: 9px; font-weight: 700; letter-spacing: 0.07em; text-transform: uppercase;
+  font-family: var(--mono); color: var(--danger); flex-shrink: 0;
+}
+.held-lbl {
+  font-size: 9px; font-weight: 700; letter-spacing: 0.07em; text-transform: uppercase;
+  font-family: var(--mono); color: var(--warn); flex-shrink: 0;
+}
+.block-reason {
+  font-size: 10px; color: var(--fg-2);
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+</style>
+</head>
+<body>
+<div class="shell">
+
+<!-- SIDEBAR -->
+<aside class="sidebar">
+  <div class="sidebar-pub">
+    <span class="pub-name">Union Media</span>
+    <span class="pub-meta">Production · Spring 2026</span>
+  </div>
+        <nav class="sidebar-nav">
+    <div class="nav-section">Overview</div>
+    <a href="dashboard.html" class="nav-item">
+      <svg class="nav-icon" viewBox="0 0 15 15" fill="none"><rect x="1.5" y="1.5" width="5" height="5" rx="1" fill="currentColor"/><rect x="8.5" y="1.5" width="5" height="5" rx="1" fill="currentColor"/><rect x="1.5" y="8.5" width="5" height="5" rx="1" fill="currentColor"/><rect x="8.5" y="8.5" width="5" height="5" rx="1" fill="currentColor"/></svg>
+      Dashboard
+    </a>
+    <div class="nav-section">Editorial</div>
+    <a href="pipeline-dashboard.html" class="nav-item">
+      <svg class="nav-icon" viewBox="0 0 15 15" fill="none"><rect x="1.5" y="2.5" width="12" height="1.5" rx=".5" fill="currentColor"/><rect x="1.5" y="6.5" width="12" height="1.5" rx=".5" fill="currentColor"/><rect x="1.5" y="10.5" width="12" height="1.5" rx=".5" fill="currentColor"/></svg>
+      Pipeline
+    </a>
+    <a href="pipeline-board.html" class="nav-item active">
+      <svg class="nav-icon" viewBox="0 0 15 15" fill="none"><rect x="1" y="1.5" width="4" height="12" rx="1" fill="currentColor"/><rect x="6" y="1.5" width="4" height="8.5" rx="1" fill="currentColor"/><rect x="11" y="1.5" width="3" height="5.5" rx="1" fill="currentColor"/></svg>
+      Board
+    </a>
+    <a href="#" class="nav-item">
+      <svg class="nav-icon" viewBox="0 0 15 15" fill="none"><rect x="1.5" y="2.5" width="12" height="11" rx="1.5" stroke="currentColor" stroke-width="1.3"/><path d="M1.5 6h12" stroke="currentColor" stroke-width="1.3"/><path d="M5 1.5V4M10 1.5V4" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/></svg>
+      Calendar
+      <span class="nav-badge">18</span>
+    </a>
+    <a href="article-dossier.html" class="nav-item">
+      <svg class="nav-icon" viewBox="0 0 15 15" fill="none"><path d="M3.5 1.5h5.5l3 3v9h-8.5v-12z" stroke="currentColor" stroke-width="1.3" stroke-linejoin="round"/><path d="M9 1.5v3.5h3" stroke="currentColor" stroke-width="1.3"/><path d="M5 7.5h5M5 9.5h3" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/></svg>
+      Article Dossier
+    </a>
+    <div class="nav-section">Management</div>
+    <a href="approvals.html" class="nav-item">
+      <svg class="nav-icon" viewBox="0 0 15 15" fill="none"><path d="M2 7.5L6 11.5L13 3.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      Approvals
+      <span class="nav-badge urgent">4</span>
+    </a>
+    <a href="#" class="nav-item">
+      <svg class="nav-icon" viewBox="0 0 15 15" fill="none"><circle cx="5" cy="5.5" r="2" stroke="currentColor" stroke-width="1.3"/><circle cx="10.5" cy="5.5" r="2" stroke="currentColor" stroke-width="1.3"/><path d="M1 13c0-2 1.79-3.5 4-3.5h5c2.21 0 4 1.5 4 3.5" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/></svg>
+      Team
+    </a>
+    <div class="nav-section">Discovery</div>
+    <a href="discovery.html" class="nav-item">
+      <svg class="nav-icon" viewBox="0 0 15 15" fill="none"><circle cx="6.5" cy="6.5" r="4" stroke="currentColor" stroke-width="1.3"/><path d="M11 11l2.5 2.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
+      Discovery Overview
+      <span class="nav-badge urgent">3</span>
+    </a>
+    <a href="candidate-inbox.html" class="nav-item">
+      <svg class="nav-icon" viewBox="0 0 15 15" fill="none"><path d="M1.5 4.5h12v8.5h-12z" stroke="currentColor" stroke-width="1.3" stroke-linejoin="round"/><path d="M1.5 4.5l6 4 6-4" stroke="currentColor" stroke-width="1.3" stroke-linejoin="round"/></svg>
+      Candidate Inbox
+      <span class="nav-badge">89</span>
+    </a>
+    <a href="ops-rr-queue.html" class="nav-item">
+      <svg class="nav-icon" viewBox="0 0 15 15" fill="none"><path d="M7.5 1.5v5M7.5 9.5v.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/><circle cx="7.5" cy="7.5" r="6" stroke="currentColor" stroke-width="1.3"/></svg>
+      OPS-RR Queue
+      <span class="nav-badge urgent">7</span>
+    </a>
+    <a href="sweep-run-detail.html" class="nav-item">
+      <svg class="nav-icon" viewBox="0 0 15 15" fill="none"><circle cx="7.5" cy="7.5" r="6" stroke="currentColor" stroke-width="1.3"/><path d="M7.5 4.5v3l2 2" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/></svg>
+      Sweep Run Detail
+    </a>
+    <div class="nav-section">System</div>
+    <a href="discovery-config.html" class="nav-item">
+      <svg class="nav-icon" viewBox="0 0 15 15" fill="none"><circle cx="7.5" cy="7.5" r="3" stroke="currentColor" stroke-width="1.3"/><path d="M7.5 1v1.5M7.5 12.5V14M1 7.5h1.5M12.5 7.5H14M2.9 2.9l1.1 1.1M11 11l1.1 1.1M11 2.9L9.9 4M4 11l-1.1 1.1" stroke="currentColor" stroke-width="1.2" stroke-linecap="round"/></svg>
+      Discovery Config
+    </a>
+    <a href="source-monitor.html" class="nav-item">
+      <svg class="nav-icon" viewBox="0 0 15 15" fill="none"><path d="M1.5 10.5l4-4 3 3 5-6" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"/><circle cx="13" cy="4.5" r="1" fill="currentColor"/></svg>
+      Source Health Monitor
+    </a>
+    <a href="discovery-2.html" class="nav-item">
+      <svg class="nav-icon" viewBox="0 0 15 15" fill="none"><path d="M2.5 5.5h10M2.5 8.5h8M2.5 11.5h5" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/><rect x="1.5" y="1.5" width="12" height="12" rx="1.5" stroke="currentColor" stroke-width="1.3"/></svg>
+      Discovery Audit Log
+    </a>
+    <a href="design-system.html" class="nav-item">
+      <svg class="nav-icon" viewBox="0 0 15 15" fill="none"><circle cx="4" cy="4" r="1.5" fill="currentColor"/><circle cx="11" cy="4" r="1.5" fill="currentColor"/><circle cx="4" cy="11" r="1.5" fill="currentColor"/><circle cx="11" cy="11" r="1.5" fill="currentColor"/><circle cx="7.5" cy="7.5" r="1.5" fill="currentColor"/></svg>
+      Design System
+    </a>
+    <a href="#" class="nav-item">
+      <svg class="nav-icon" viewBox="0 0 15 15" fill="none"><circle cx="7.5" cy="7.5" r="5.5" stroke="currentColor" stroke-width="1.3"/><circle cx="7.5" cy="7.5" r="2" stroke="currentColor" stroke-width="1.3"/></svg>
+      Settings
+    </a>
+  </nav>
+
+  <div class="sidebar-user">
+    <div class="avatar-sm">DM</div>
+    <div style="min-width:0">
+      <span class="user-name">D. Mackenzie</span>
+      <span class="user-role">Senior Editor</span>
+    </div>
+  </div>
+</aside>
+
+<!-- TOPBAR -->
+<header class="topbar">
+  <span class="topbar-breadcrumb">Board <span>/</span> Union Media</span>
+  <div class="topbar-sep"></div>
+
+  <select class="filter-sel" id="filter-assignee">
+    <option value="">All writers</option>
+    <option>J. MacPherson</option>
+    <option>K. Reid</option>
+    <option>M. Stewart</option>
+    <option>A. Ingram</option>
+    <option>R. Okafor</option>
+    <option>S. Kelman</option>
+  </select>
+
+  <select class="filter-sel" id="filter-risk">
+    <option value="">All risk</option>
+    <option value="high">High risk</option>
+    <option value="med">Medium risk</option>
+    <option value="low">Low risk</option>
+  </select>
+
+  <button class="btn-toggle" id="filter-blocked">
+    <svg width="10" height="10" viewBox="0 0 10 10" fill="none">
+      <circle cx="5" cy="5" r="4" stroke="currentColor" stroke-width="1.3"/>
+      <path d="M2 2l6 6" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/>
+    </svg>
+    Blocked
+  </button>
+
+  <div class="spacer"></div>
+
+  <div class="search-box">
+    <svg width="12" height="12" viewBox="0 0 12 12" fill="none" style="flex-shrink:0">
+      <circle cx="5" cy="5" r="3.5" stroke="currentColor" stroke-width="1.2" opacity=".5"/>
+      <path d="M7.5 7.5L10 10" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" opacity=".5"/>
+    </svg>
+    <input id="filter-search" type="text" placeholder="Find story…">
+  </div>
+
+  <button class="btn-primary" style="margin-left:4px">+ New story</button>
+</header>
+
+<!-- BOARD WRAP -->
+<main class="board-wrap">
+
+  <div class="stats-bar">
+    <div class="stat">
+      <div class="stat-dot" style="background:var(--accent)"></div>
+      <span id="stat-inflight"><span class="stat-val">30</span> in flight</span>
+    </div>
+    <div class="stat">
+      <div class="stat-dot" style="background:var(--danger)"></div>
+      <span id="stat-blocked-count"><span class="stat-val">6</span> blocked</span>
+    </div>
+    <div class="stat">
+      <div class="stat-dot" style="background:var(--warn)"></div>
+      <span><span class="stat-val" id="stat-held">3</span> awaiting decision</span>
+    </div>
+    <div class="stat">
+      <div class="stat-dot" style="background:var(--success)"></div>
+      <span><span class="stat-val" id="stat-ready">2</span> ready to publish</span>
+    </div>
+    <span class="stat-action" id="board-last-updated">Updated 14:47</span>
+  </div>
+
+  <div class="board-scroll">
+    <div class="board" id="board"></div>
+  </div>
+
+</main>
+
+</div><!-- .shell -->
+
+<script>
+/* ── COLUMN DEFINITIONS ── */
+const COLUMNS = [
+  { id: 'discovery', label: 'Discovery',         color: '#4b5672' },
+  { id: 'triage',    label: 'Triage',             color: '#0ea5e9' },
+  { id: 'research',  label: 'Research',           color: '#6366f1' },
+  { id: 'draft',     label: 'Draft',              color: '#3b82f6' },
+  { id: 'interlink', label: 'Interlink',          color: '#ec4899' },
+  { id: 'edit',      label: 'Edit',               color: '#8b5cf6' },
+  { id: 'review',    label: 'Review',             color: '#f59e0b' },
+  { id: 'prepub',    label: 'Pre-publish Pack',   color: '#14b8a6' },
+  { id: 'decision',  label: 'Awaiting Decision',  color: '#f97316' },
+  { id: 'pubprep',   label: 'Publishing Prep',    color: '#22c55e' },
+  { id: 'published', label: 'Published',          color: '#4b8f62' },
+];
+
+/* ── ASSIGNEES ── */
+const ASSIGNEES = {
+  'J. MacPherson': { init: 'JM', bg: '#1d3064', fg: '#93b4fd' },
+  'K. Reid':       { init: 'KR', bg: '#0c3254', fg: '#7dd3fc' },
+  'M. Stewart':    { init: 'MS', bg: '#2d1f5e', fg: '#c4b5fd' },
+  'A. Ingram':     { init: 'AI', bg: '#14302a', fg: '#6ee7b7' },
+  'R. Okafor':     { init: 'RO', bg: '#2c1a00', fg: '#fcd34d' },
+  'S. Kelman':     { init: 'SK', bg: '#301020', fg: '#f9a8d4' },
+};
+
+/* ── CARD DATA ── */
+const CARDS = [
+  // DISCOVERY
+  { id:'CRN-4412', hl:'Aberdeen council votes on £2.1bn harbour regeneration plan',              sec:'Politics',    stage:'discovery', who:null,            risk:'med',  age:45,   blocked:false },
+  { id:'CRN-4413', hl:'Shell announces North Sea decommissioning ahead of schedule',             sec:'Energy',      stage:'discovery', who:null,            risk:'high', age:130,  blocked:false },
+  { id:'CRN-4414', hl:'University of Aberdeen AI research centre secures £8m UKRI grant',        sec:'Technology',  stage:'discovery', who:null,            risk:'low',  age:210,  blocked:false },
+  // TRIAGE
+  { id:'CRN-4410', hl:'SNP energy policy splits Holyrood coalition after Aberdeen vote',         sec:'Politics',    stage:'triage',    who:'J. MacPherson', risk:'high', age:1560, blocked:true, btype:'blocked', breason:'awaiting legal sign-off' },
+  { id:'CRN-4411', hl:'Subsea 7 redundancies: 340 jobs at risk in Aberdeen and Inverness',      sec:'Business',    stage:'triage',    who:'K. Reid',       risk:'high', age:260,  blocked:false },
+  // RESEARCH
+  { id:'CRN-4405', hl:'North Sea transition authority findings leaked ahead of publication',     sec:'Energy',      stage:'research',  who:'M. Stewart',    risk:'high', age:2520, blocked:true, btype:'blocked', breason:'source confirmation outstanding' },
+  { id:'CRN-4406', hl:"Aberdeen City Council homeless figures 'significantly undercounted', audit shows", sec:'Politics', stage:'research', who:'R. Okafor', risk:'med', age:1320, blocked:false },
+  { id:'CRN-4407', hl:'Grampian NHS: A&E breach targets missed for third quarter running',       sec:'Health',      stage:'research',  who:'A. Ingram',     risk:'med',  age:1740, blocked:false },
+  { id:'CRN-4409', hl:'Robert Gordon University spinout raises £3.4m Series A',                  sec:'Business',    stage:'research',  who:'J. MacPherson', risk:'low',  age:480,  blocked:false },
+  // DRAFT
+  { id:'CRN-4398', hl:'Former Aberdeen FC chairman takes charge of Peterhead merger bid',        sec:'Sport',       stage:'draft',     who:'S. Kelman',     risk:'low',  age:3360, blocked:false },
+  { id:'CRN-4399', hl:'Offshore wind contract delays add £400m to east coast grid costs',        sec:'Energy',      stage:'draft',     who:'K. Reid',       risk:'high', age:2760, blocked:true, btype:'blocked', breason:'union comment outstanding' },
+  { id:'CRN-4400', hl:'Fish farm planning application divides Aberdeenshire coastal communities', sec:'Environment', stage:'draft',     who:'M. Stewart',    risk:'med',  age:2040, blocked:false },
+  { id:'CRN-4401', hl:'Aberdeen Grammar School inspection review: full findings',                 sec:'Education',   stage:'draft',     who:'A. Ingram',     risk:'med',  age:2940, blocked:false },
+  { id:'CRN-4402', hl:'Petroineos refinery closure: 18-month worker consultation confirmed',     sec:'Business',    stage:'draft',     who:'R. Okafor',     risk:'high', age:4860, blocked:true, btype:'blocked', breason:'union comment outstanding' },
+  // EDIT
+  { id:'CRN-4392', hl:'Scottish Government Bute House Agreement successor: what it means for energy', sec:'Politics', stage:'edit',   who:'S. Kelman',     risk:'high', age:1920, blocked:false },
+  { id:'CRN-4394', hl:'Aberdeen property market Q1 2026 analysis',                               sec:'Business',    stage:'edit',      who:'J. MacPherson', risk:'low',  age:960,  blocked:false },
+  { id:'CRN-4395', hl:'Deeside trail network: community survey results and council response',     sec:'Environment', stage:'edit',      who:'M. Stewart',    risk:'low',  age:2880, blocked:false },
+  // REVIEW
+  { id:'CRN-4388', hl:'NHS Grampian internal audit: maternity care failures 2023–2025',          sec:'Health',      stage:'review',    who:'A. Ingram',     risk:'high', age:2040, blocked:true, btype:'held',    breason:'senior editor final review' },
+  { id:'CRN-4389', hl:'Harbour expansion: full environmental impact assessment',                  sec:'Environment', stage:'review',    who:'K. Reid',       risk:'med',  age:1560, blocked:false },
+  // PRE-PUBLISH PACK
+  { id:'CRN-4382', hl:'Salmon farming: special report — data, maps and interactives',            sec:'Environment', stage:'prepub',    who:'R. Okafor',     risk:'high', age:360,  blocked:false },
+  { id:'CRN-4383', hl:'Aberdeen FC mid-season squad analysis',                                    sec:'Sport',       stage:'prepub',    who:'S. Kelman',     risk:'low',  age:225,  blocked:false },
+  // AWAITING DECISION
+  { id:'CRN-4377', hl:'Controversial councillor conduct: naming the ward — legal advice in',     sec:'Politics',    stage:'decision',  who:'M. Stewart',    risk:'high', age:4200, blocked:true, btype:'held',    breason:'editorial director sign-off' },
+  { id:'CRN-4378', hl:'Crown Estate Scotland revenue: exclusivity versus public interest?',      sec:'Business',    stage:'decision',  who:'A. Ingram',     risk:'high', age:4980, blocked:true, btype:'held',    breason:'editorial director sign-off' },
+  { id:'CRN-4379', hl:'Former police chief allegations: full legal review completed',            sec:'Courts',      stage:'decision',  who:'K. Reid',       risk:'high', age:7320, blocked:true, btype:'held',    breason:'editorial director sign-off' },
+  // READY TO PUBLISH
+  { id:'CRN-4372', hl:"Shell's North Sea exit strategy: full analysis",                          sec:'Energy',      stage:'pubprep',     who:'J. MacPherson', risk:'high', age:75,   blocked:false },
+  { id:'CRN-4374', hl:'Aberdeen primary school admissions 2026: by the numbers',                 sec:'Education',   stage:'pubprep',     who:'S. Kelman',     risk:'low',  age:45,   blocked:false },
+  // PUBLISHED TODAY
+  { id:'CRN-4368', hl:'Offshore Energies UK report: investment down 12% year-on-year',           sec:'Energy',      stage:'published', who:'R. Okafor',     risk:'med',  age:0,    blocked:false, liveAt:'09:14' },
+  { id:'CRN-4369', hl:'First Minister visits Aberdeen hydrogen hub',                              sec:'Politics',    stage:'published', who:'A. Ingram',     risk:'low',  age:0,    blocked:false, liveAt:'11:30' },
+  { id:'CRN-4371', hl:'Aberdeen 4–1 St Mirren: Duk hat-trick caps dominant display',             sec:'Sport',       stage:'published', who:'S. Kelman',     risk:'low',  age:0,    blocked:false, liveAt:'13:05' },
+  { id:'CRN-4373', hl:'Council budget shortfall: cuts to libraries and leisure centres confirmed',sec:'Politics',    stage:'published', who:'M. Stewart',    risk:'high', age:0,    blocked:false, liveAt:'14:42' },
+];
+
+/* ── HELPERS ── */
+function fmtAge(mins) {
+  if (mins < 60) return `${mins}m`;
+  if (mins < 1440) {
+    const h = Math.floor(mins / 60), m = mins % 60;
+    return m > 0 ? `${h}h ${m}m` : `${h}h`;
+  }
+  const d = Math.floor(mins / 1440), h = Math.floor((mins % 1440) / 60);
+  return h > 0 ? `${d}d ${h}h` : `${d}d`;
+}
+
+function ageCls(mins) {
+  if (mins >= 4320) return 'overdue';
+  if (mins >= 1440) return 'aging';
+  return '';
+}
+
+function nextCol(stageId) {
+  const i = COLUMNS.findIndex(c => c.id === stageId);
+  return (i >= 0 && i < COLUMNS.length - 1) ? COLUMNS[i + 1] : null;
+}
+
+/* ── RENDER CARD HTML ── */
+function cardHTML(c) {
+  const a    = c.who ? ASSIGNEES[c.who] : null;
+  const next = nextCol(c.stage);
+
+  /* age cell */
+  let ageTxt, ageCl;
+  if (c.stage === 'published') {
+    ageTxt = `Live ${c.liveAt}`;
+    ageCl  = 'live';
+  } else {
+    ageTxt = fmtAge(c.age);
+    ageCl  = ageCls(c.age);
+  }
+
+  /* assignee avatar */
+  const dotStyle = a
+    ? `style="background:${a.bg};color:${a.fg}"`
+    : `style="background:#161d2e;color:#4b5672"`;
+  const dotText  = a ? a.init : '–';
+  const nameText = c.who || 'Unassigned';
+
+  /* move button */
+  const canMove = next && c.stage !== 'decision' && c.stage !== 'published';
+  const moveLbl = next ? next.label.replace('Pre-publish Pack', 'Pre-pub').replace('Publishing Prep', 'Pub Prep').split(' ')[0] : '';
+  const moveBtn = canMove
+    ? `<button class="move-btn" data-id="${c.id}" data-to="${next.id}">→ ${moveLbl}</button>`
+    : '';
+
+  /* block/held banner */
+  let blockHtml = '';
+  if (c.blocked) {
+    const isHeld = c.btype === 'held';
+    blockHtml = `<div class="card-block${isHeld ? ' held-type' : ''}">
+      <span class="${isHeld ? 'held-lbl' : 'block-lbl'}">${isHeld ? 'HELD' : 'BLOCKED'}</span>
+      <span class="block-reason">${c.breason}</span>
+    </div>`;
+  }
+
+  return `<div class="card"
+      data-id="${c.id}"
+      data-stage="${c.stage}"
+      data-assignee="${c.who || ''}"
+      data-risk="${c.risk}"
+      data-blocked="${c.blocked}">
+    <div class="card-top">
+      <span class="card-id">${c.id}</span>
+      <div class="card-badges">
+        <span class="risk-badge risk-${c.risk}">${c.risk === 'med' ? 'MED' : c.risk.toUpperCase()}</span>
+        <span class="card-age ${ageCl}">${ageTxt}</span>
+      </div>
+    </div>
+    <div class="card-section">${c.sec}</div>
+    <p class="card-hl">${c.hl}</p>
+    <div class="card-foot">
+      <div class="card-assignee">
+        <div class="p-dot" ${dotStyle}>${dotText}</div>
+        <span class="p-name">${nameText}</span>
+      </div>
+      ${moveBtn}
+    </div>
+    ${blockHtml}
+  </div>`;
+}
+
+/* ── RENDER BOARD ── */
+function renderBoard() {
+  const board = document.getElementById('board');
+  board.innerHTML = COLUMNS.map(col => {
+    const colCards = CARDS.filter(c => c.stage === col.id);
+    const body = colCards.length > 0
+      ? colCards.map(cardHTML).join('')
+      : '<div class="col-empty">No stories at this stage</div>';
+
+    const addBtn = col.id !== 'published'
+      ? `<div class="col-add">
+          <svg width="10" height="10" viewBox="0 0 10 10" fill="none" style="flex-shrink:0">
+            <path d="M5 1v8M1 5h8" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/>
+          </svg>
+          Add story
+        </div>`
+      : '';
+
+    return `<div class="col" data-col="${col.id}" style="border-top-color:${col.color}">
+      <div class="col-header">
+        <div class="col-dot" style="background:${col.color}"></div>
+        <span class="col-label">${col.label}</span>
+        <span class="col-count" data-col-count="${col.id}">${colCards.length}</span>
+      </div>
+      <div class="col-body" id="col-${col.id}">${body}</div>
+      ${addBtn}
+    </div>`;
+  }).join('');
+
+  bindEvents();
+}
+
+/* ── BIND EVENTS ── */
+function bindEvents() {
+  /* Card click → selected */
+  document.querySelectorAll('.card').forEach(el => {
+    el.addEventListener('click', e => {
+      if (e.target.classList.contains('move-btn')) return;
+      const wasSelected = el.classList.contains('selected');
+      document.querySelectorAll('.card.selected').forEach(c => c.classList.remove('selected'));
+      if (!wasSelected) el.classList.add('selected');
+    });
+  });
+
+  /* Move button → advance stage */
+  document.querySelectorAll('.move-btn').forEach(btn => {
+    btn.addEventListener('click', e => {
+      e.stopPropagation();
+      const card = CARDS.find(c => c.id === btn.dataset.id);
+      if (card) {
+        card.stage = btn.dataset.to;
+        renderBoard();
+        applyFilters();
+      }
+    });
+  });
+}
+
+/* ── FILTER STATE ── */
+const filters = { assignee: '', risk: '', blocked: false, search: '' };
+
+function applyFilters() {
+  document.querySelectorAll('.card').forEach(card => {
+    const matchA = !filters.assignee || card.dataset.assignee === filters.assignee;
+    const matchR = !filters.risk     || card.dataset.risk === filters.risk;
+    const matchB = !filters.blocked  || card.dataset.blocked === 'true';
+    const hl     = card.querySelector('.card-hl')?.textContent.toLowerCase() || '';
+    const id     = card.dataset.id.toLowerCase();
+    const matchS = !filters.search   || hl.includes(filters.search) || id.includes(filters.search);
+    card.classList.toggle('hidden', !(matchA && matchR && matchB && matchS));
+  });
+
+  /* Update column counts */
+  document.querySelectorAll('[data-col-count]').forEach(el => {
+    const col     = el.dataset.colCount;
+    const visible = document.querySelectorAll(`[data-stage="${col}"]:not(.hidden)`).length;
+    const total   = document.querySelectorAll(`[data-stage="${col}"]`).length;
+    el.textContent = visible < total ? `${visible}/${total}` : `${total}`;
+  });
+
+  /* Empty-state per column */
+  document.querySelectorAll('.col-body').forEach(body => {
+    const hasCards = [...body.querySelectorAll('.card:not(.hidden)')].length > 0;
+    let empty = body.querySelector('.col-empty');
+    if (!hasCards && !empty) {
+      const d = document.createElement('div');
+      d.className = 'col-empty';
+      d.textContent = 'No matching stories';
+      body.appendChild(d);
+    } else if (hasCards && empty) {
+      empty.remove();
+    }
+  });
+}
+
+/* ── WIRE FILTER CONTROLS ── */
+document.getElementById('filter-assignee').addEventListener('change', e => {
+  filters.assignee = e.target.value; applyFilters();
+});
+document.getElementById('filter-risk').addEventListener('change', e => {
+  filters.risk = e.target.value; applyFilters();
+});
+const blockedBtn = document.getElementById('filter-blocked');
+blockedBtn.addEventListener('click', () => {
+  filters.blocked = !filters.blocked;
+  blockedBtn.classList.toggle('active', filters.blocked);
+  applyFilters();
+});
+document.getElementById('filter-search').addEventListener('input', e => {
+  filters.search = e.target.value.toLowerCase(); applyFilters();
+});
+
+/* ── INIT ── */
+renderBoard();
+</script>
+</body>
+</html>

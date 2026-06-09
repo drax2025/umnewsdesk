@@ -1,0 +1,1114 @@
+<!doctype html>
+<html lang="en" data-theme="dark">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Candidate Inbox — Union Media</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg:             #0b0d12;
+  --surface:        #10131c;
+  --surface-2:      #161d2e;
+  --fg:             #dde4f0;
+  --fg-2:           #7e8ea8;
+  --muted:          #4b5672;
+  --border:         #1c2438;
+  --border-mid:     #273047;
+  --accent:         #3b82f6;
+  --accent-on:      #fff;
+  --accent-hover:   #2563eb;
+  --accent-subtle:  rgba(59,130,246,.10);
+  --success:        #22c55e;
+  --success-subtle: rgba(34,197,94,.08);
+  --warn:           #f59e0b;
+  --warn-subtle:    rgba(245,158,11,.08);
+  --danger:         #ef4444;
+  --danger-subtle:  rgba(239,68,68,.08);
+  --font: Inter, "Helvetica Neue", system-ui, sans-serif;
+  --mono: "SF Mono", "Cascadia Code", ui-monospace, Menlo, monospace;
+  --sidebar-w: 216px;
+  --topbar-h:  48px;
+  --r: 6px;
+}
+[data-theme="light"] {
+  --bg:             #f4f6f9;
+  --surface:        #ffffff;
+  --surface-2:      #eef1f6;
+  --fg:             #0d1117;
+  --fg-2:           #4a5568;
+  --muted:          #8b95a8;
+  --border:         #dde3ed;
+  --border-mid:     #c7d0e0;
+  --accent:         #2563eb;
+  --accent-on:      #fff;
+  --accent-hover:   #1d4ed8;
+  --accent-subtle:  rgba(37,99,235,.09);
+  --success:        #16a34a;
+  --success-subtle: rgba(22,163,74,.08);
+  --warn:           #d97706;
+  --warn-subtle:    rgba(217,119,6,.08);
+  --danger:         #dc2626;
+  --danger-subtle:  rgba(220,38,38,.08);
+}
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+html, body {
+  height: 100%; background: var(--bg); color: var(--fg);
+  font-family: var(--font); font-size: 13px; line-height: 1.45;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* ── SHELL ── */
+.shell {
+  display: grid;
+  grid-template-columns: var(--sidebar-w) 1fr;
+  grid-template-rows: var(--topbar-h) 1fr;
+  height: 100vh; overflow: hidden;
+}
+
+/* ── SIDEBAR ── */
+.sidebar {
+  grid-row: 1 / 3; background: var(--surface);
+  border-right: 1px solid var(--border);
+  display: flex; flex-direction: column; overflow-y: auto;
+}
+.sidebar-pub { padding: 14px 16px 12px; border-bottom: 1px solid var(--border); }
+.pub-name { font-size: 13px; font-weight: 600; color: var(--fg); letter-spacing: -0.015em; display: block; }
+.pub-meta { font-size: 11px; color: var(--muted); margin-top: 2px; font-family: var(--mono); font-variant-numeric: tabular-nums; }
+.sidebar-nav { padding: 8px 0; flex: 1; }
+.nav-section { padding: 14px 16px 4px; font-size: 10px; font-weight: 600; letter-spacing: 0.07em; text-transform: uppercase; color: var(--muted); }
+.nav-item {
+  display: flex; align-items: center; gap: 9px;
+  padding: 7px 16px; font-size: 13px; color: var(--fg-2);
+  cursor: pointer; text-decoration: none; position: relative;
+  transition: background 100ms, color 100ms;
+}
+.nav-item:hover { background: var(--surface-2); color: var(--fg); }
+.nav-item.active { color: var(--fg); background: var(--accent-subtle); }
+.nav-item.active::before {
+  content: ''; position: absolute; left: 0; top: 4px; bottom: 4px;
+  width: 2px; background: var(--accent); border-radius: 0 2px 2px 0;
+}
+.nav-icon { width: 15px; height: 15px; flex-shrink: 0; opacity: .65; }
+.nav-item.active .nav-icon, .nav-item:hover .nav-icon { opacity: 1; }
+.nav-badge {
+  margin-left: auto; font-size: 10px; font-family: var(--mono);
+  font-variant-numeric: tabular-nums; color: var(--muted);
+  background: var(--bg); border: 1px solid var(--border);
+  padding: 1px 6px; border-radius: 9999px; line-height: 1.6;
+}
+.nav-badge.urgent { color: var(--warn); border-color: rgba(245,158,11,.4); background: var(--warn-subtle); }
+.sidebar-user {
+  padding: 12px 16px; border-top: 1px solid var(--border);
+  display: flex; align-items: center; gap: 9px;
+}
+.avatar-sm {
+  width: 26px; height: 26px; border-radius: 50%;
+  background: var(--accent-subtle); border: 1px solid var(--border-mid);
+  display: flex; align-items: center; justify-content: center;
+  font-size: 10px; font-weight: 700; color: var(--accent);
+  flex-shrink: 0; font-family: var(--mono);
+}
+.user-name { font-size: 12px; font-weight: 500; color: var(--fg); display: block; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.user-role { font-size: 11px; color: var(--muted); display: block; }
+
+/* ── TOPBAR ── */
+.topbar {
+  background: var(--surface); border-bottom: 1px solid var(--border);
+  display: flex; align-items: center; padding: 0 18px; gap: 10px;
+}
+.topbar-title { font-size: 13px; font-weight: 600; color: var(--fg); letter-spacing: -0.01em; }
+.topbar-sep { color: var(--border-mid); margin: 0 2px; }
+.topbar-crumb { font-size: 12px; color: var(--muted); font-weight: 400; }
+.topbar-crumb.active { color: var(--fg-2); font-weight: 500; }
+.topbar-spacer { flex: 1; }
+.theme-toggle {
+  display: flex; align-items: center; gap: 5px; height: 28px; padding: 0 10px;
+  border: 1px solid var(--border); border-radius: var(--r);
+  background: transparent; color: var(--fg-2); font-size: 11.5px; font-family: var(--font);
+  cursor: pointer; transition: background 100ms, color 100ms;
+}
+.theme-toggle:hover { background: var(--surface-2); color: var(--fg); }
+.icon-btn {
+  width: 28px; height: 28px; display: flex; align-items: center; justify-content: center;
+  border: 1px solid var(--border); background: transparent; border-radius: var(--r);
+  color: var(--fg-2); cursor: pointer; transition: background 100ms, color 100ms;
+}
+.icon-btn:hover { background: var(--surface-2); color: var(--fg); }
+.topbar-avatar {
+  width: 28px; height: 28px; border-radius: 50%;
+  background: var(--accent-subtle); border: 1px solid var(--border-mid);
+  display: flex; align-items: center; justify-content: center;
+  font-size: 10px; font-weight: 700; color: var(--accent);
+  cursor: pointer; font-family: var(--mono);
+}
+
+/* ── MAIN ── */
+.main {
+  overflow: hidden; background: var(--bg);
+  display: flex; flex-direction: column;
+}
+
+/* ── FILTER BAR ── */
+.filter-bar {
+  display: flex; align-items: center; gap: 6px;
+  padding: 8px 14px;
+  border-bottom: 1px solid var(--border);
+  background: var(--surface);
+  flex-shrink: 0;
+  flex-wrap: wrap;
+}
+
+.filter-label {
+  font-size: 10.5px; font-weight: 600; letter-spacing: 0.05em;
+  text-transform: uppercase; color: var(--muted);
+  font-family: var(--mono); flex-shrink: 0; margin-right: 2px;
+}
+
+.status-chips { display: flex; gap: 4px; align-items: center; }
+.chip {
+  padding: 3px 9px; border-radius: 9999px;
+  font-size: 11.5px; font-weight: 500; cursor: pointer;
+  border: 1px solid var(--border-mid); color: var(--fg-2);
+  background: transparent; font-family: var(--font);
+  transition: background 100ms, color 100ms, border-color 100ms;
+  white-space: nowrap;
+  display: inline-flex; align-items: center; gap: 4px;
+}
+.chip:hover { background: var(--surface-2); color: var(--fg); }
+.chip.on { background: var(--accent-subtle); border-color: rgba(59,130,246,.4); color: var(--accent); }
+.chip-count {
+  font-size: 10px; font-family: var(--mono); font-variant-numeric: tabular-nums;
+}
+
+.filter-sep { width: 1px; height: 18px; background: var(--border); flex-shrink: 0; margin: 0 2px; }
+
+.filter-select {
+  height: 27px; padding: 0 22px 0 8px; background: var(--bg);
+  border: 1px solid var(--border); border-radius: var(--r);
+  color: var(--fg-2); font-size: 11.5px; font-family: var(--font);
+  cursor: pointer; appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6'%3E%3Cpath d='M1 1l4 4 4-4' stroke='%234b5672' stroke-width='1.5' fill='none' stroke-linecap='round'/%3E%3C/svg%3E");
+  background-repeat: no-repeat; background-position: right 6px center;
+  transition: border-color 100ms;
+}
+.filter-select:focus { outline: none; border-color: var(--accent); }
+
+.filter-search {
+  display: flex; align-items: center; gap: 5px;
+  background: var(--bg); border: 1px solid var(--border);
+  border-radius: var(--r); padding: 0 8px; height: 27px;
+  transition: border-color 120ms; margin-left: auto;
+  min-width: 180px;
+}
+.filter-search:focus-within { border-color: var(--accent); }
+.filter-search input {
+  border: none; background: transparent; color: var(--fg);
+  font-size: 11.5px; font-family: var(--font); outline: none; width: 100%;
+}
+.filter-search input::placeholder { color: var(--muted); }
+
+/* ── BULK BAR ── */
+.bulk-bar {
+  display: flex; align-items: center; gap: 8px;
+  padding: 6px 14px;
+  border-bottom: 1px solid var(--border);
+  background: rgba(59,130,246,.04);
+  flex-shrink: 0;
+}
+.bulk-bar.hidden { display: none; }
+.bulk-count { font-size: 12px; font-weight: 600; color: var(--accent); font-family: var(--mono); }
+.bulk-label { font-size: 12px; color: var(--fg-2); flex: 1; }
+.btn {
+  height: 27px; padding: 0 11px; border-radius: var(--r);
+  font-size: 12px; font-weight: 500; font-family: var(--font); cursor: pointer;
+  transition: background 100ms, color 100ms, border-color 100ms;
+  display: inline-flex; align-items: center; gap: 5px;
+  white-space: nowrap; border: 1px solid transparent;
+}
+.btn-ghost  { background: transparent; border-color: var(--border-mid); color: var(--fg-2); }
+.btn-ghost:hover { background: var(--surface-2); color: var(--fg); }
+.btn-primary { background: var(--accent); border-color: var(--accent); color: var(--accent-on); }
+.btn-primary:hover { background: var(--accent-hover); border-color: var(--accent-hover); }
+.btn-sm { height: 24px; padding: 0 8px; font-size: 11px; }
+.btn-deselect {
+  background: transparent; border-color: transparent;
+  color: var(--muted); font-size: 12px; padding: 0 6px;
+}
+.btn-deselect:hover { color: var(--fg-2); }
+
+/* ── BODY ── */
+.body-cols {
+  flex: 1; display: grid;
+  grid-template-columns: 1fr 264px;
+  min-height: 0; overflow: hidden;
+}
+
+/* ── TABLE PANEL ── */
+.table-panel {
+  display: flex; flex-direction: column;
+  overflow: hidden; border-right: 1px solid var(--border);
+}
+
+.table-wrap { flex: 1; overflow-y: auto; overflow-x: auto; scrollbar-width: thin; scrollbar-color: var(--border-mid) transparent; }
+
+table {
+  width: 100%; border-collapse: collapse;
+  min-width: 900px;
+}
+
+thead th {
+  position: sticky; top: 0; z-index: 2;
+  background: var(--surface); border-bottom: 1px solid var(--border);
+  padding: 6px 10px; font-size: 10.5px; font-weight: 600;
+  letter-spacing: 0.045em; text-transform: uppercase; color: var(--muted);
+  text-align: left; white-space: nowrap; user-select: none; cursor: pointer;
+}
+thead th:hover { color: var(--fg-2); }
+thead th.sort-asc::after  { content: ' ↑'; color: var(--accent); }
+thead th.sort-desc::after { content: ' ↓'; color: var(--accent); }
+
+.th-check { width: 36px; padding: 6px 8px 6px 14px; }
+input[type="checkbox"] {
+  accent-color: var(--accent); width: 13px; height: 13px; cursor: pointer;
+}
+
+tbody tr {
+  border-bottom: 1px solid var(--border);
+  transition: background 70ms;
+  position: relative;
+}
+tbody tr:hover { background: var(--surface-2); }
+tbody tr.selected { background: rgba(59,130,246,.06); }
+
+td { padding: 8px 10px; vertical-align: middle; }
+.td-check { padding: 8px 8px 8px 14px; width: 36px; }
+
+/* Candidate ID */
+.cand-id {
+  font-family: var(--mono); font-size: 10.5px; font-weight: 600;
+  color: var(--accent); letter-spacing: 0.05em; white-space: nowrap;
+  cursor: pointer; text-decoration: none;
+  display: block;
+}
+.cand-id:hover { text-decoration: underline; }
+
+/* Headline cell */
+.hl-cell { min-width: 220px; max-width: 300px; }
+.hl-text {
+  font-size: 12.5px; font-weight: 500; color: var(--fg);
+  line-height: 1.3; cursor: pointer; display: block; letter-spacing: -0.01em;
+}
+.hl-text:hover { color: var(--accent); }
+.hl-src {
+  font-size: 10.5px; color: var(--muted); display: block; margin-top: 2px;
+  font-family: var(--mono); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 280px;
+}
+
+/* Time */
+.td-time {
+  font-family: var(--mono); font-size: 11px; color: var(--fg-2);
+  font-variant-numeric: tabular-nums; white-space: nowrap;
+}
+
+/* Layer badge */
+.layer-badge {
+  display: inline-block; padding: 1px 6px; border-radius: 3px;
+  font-size: 10px; font-weight: 600; letter-spacing: 0.05em; text-transform: uppercase;
+  font-family: var(--mono); white-space: nowrap;
+}
+.lb-1 { background: rgba(59,130,246,.10); border: 1px solid rgba(59,130,246,.3); color: #93b4fd; }
+.lb-2 { background: rgba(168,85,247,.10); border: 1px solid rgba(168,85,247,.3); color: #c084fc; }
+.lb-3 { background: rgba(14,165,233,.10); border: 1px solid rgba(14,165,233,.3); color: #7dd3fc; }
+.lb-4 { background: rgba(75,86,114,.14); border: 1px solid var(--border-mid); color: var(--fg-2); }
+
+/* Stream */
+.td-stream { font-size: 11.5px; color: var(--fg-2); white-space: nowrap; }
+
+/* Status chips */
+.status-chip {
+  display: inline-flex; align-items: center; gap: 3px; padding: 2px 7px;
+  border-radius: 9999px; font-size: 10.5px; font-weight: 500; white-space: nowrap;
+}
+.status-chip::before { content: ''; width: 5px; height: 5px; border-radius: 50%; flex-shrink: 0; }
+.sc-ready    { background: var(--success-subtle); border: 1px solid rgba(34,197,94,.3);   color: var(--success); }
+.sc-ready::before { background: var(--success); }
+.sc-dedup    { background: var(--warn-subtle);   border: 1px solid rgba(245,158,11,.3);   color: var(--warn); }
+.sc-dedup::before { background: var(--warn); }
+.sc-held     { background: rgba(168,85,247,.10); border: 1px solid rgba(168,85,247,.35);  color: #c084fc; }
+.sc-held::before { background: #c084fc; }
+.sc-review   { background: var(--danger-subtle); border: 1px solid rgba(239,68,68,.3);    color: var(--danger); }
+.sc-review::before { background: var(--danger); }
+.sc-pointer  { background: rgba(75,86,114,.14);  border: 1px solid var(--border-mid);     color: var(--fg-2); }
+.sc-pointer::before { background: var(--muted); }
+.sc-verified { background: var(--success-subtle); border: 1px solid rgba(34,197,94,.3);   color: var(--success); }
+.sc-verified::before { background: var(--success); }
+.sc-pending  { background: var(--warn-subtle);   border: 1px solid rgba(245,158,11,.3);   color: var(--warn); }
+.sc-pending::before { background: var(--warn); }
+.sc-unverif  { background: rgba(75,86,114,.14);  border: 1px solid var(--border-mid);     color: var(--fg-2); }
+.sc-unverif::before { background: var(--muted); }
+
+/* Age */
+.td-age { font-family: var(--mono); font-size: 11px; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.age-ok   { color: var(--fg-2); }
+.age-warn { color: var(--warn); }
+.age-over { color: var(--danger); font-weight: 600; }
+
+/* Row actions — shown on hover */
+.row-actions {
+  display: none; align-items: center; gap: 4px;
+  white-space: nowrap;
+}
+tbody tr:hover .row-actions { display: flex; }
+tbody tr:not(:hover) .row-actions-cell .td-age { display: block; }
+tbody tr:hover .row-actions-cell .td-age { display: none; }
+
+.row-btn {
+  height: 22px; padding: 0 7px;
+  border-radius: 4px; font-size: 11px; font-weight: 500;
+  font-family: var(--font); cursor: pointer;
+  border: 1px solid var(--border-mid); background: transparent;
+  color: var(--fg-2); transition: background 80ms, color 80ms;
+}
+.row-btn:hover { background: var(--surface-2); color: var(--fg); }
+.row-btn.primary { background: var(--accent-subtle); border-color: rgba(59,130,246,.4); color: var(--accent); }
+.row-btn.primary:hover { background: var(--accent); border-color: var(--accent); color: #fff; }
+
+/* Table footer */
+.table-footer {
+  display: flex; align-items: center; gap: 10px;
+  padding: 7px 14px; border-top: 1px solid var(--border);
+  background: var(--surface); flex-shrink: 0;
+}
+.tf-count { font-size: 11.5px; color: var(--muted); font-family: var(--mono); font-variant-numeric: tabular-nums; }
+.tf-count strong { color: var(--fg-2); }
+.tf-spacer { flex: 1; }
+.tf-page { display: flex; align-items: center; gap: 5px; font-size: 11.5px; color: var(--fg-2); }
+.page-btn {
+  width: 24px; height: 24px; display: flex; align-items: center; justify-content: center;
+  border: 1px solid var(--border); background: transparent; border-radius: 4px;
+  color: var(--fg-2); cursor: pointer; font-size: 11px;
+  transition: background 80ms, color 80ms;
+}
+.page-btn:hover { background: var(--surface-2); color: var(--fg); }
+.page-btn.on { background: var(--accent-subtle); border-color: rgba(59,130,246,.4); color: var(--accent); }
+
+/* ── ROUTE SUMMARY PANEL ── */
+.route-panel {
+  background: var(--surface); overflow-y: auto;
+  display: flex; flex-direction: column;
+  scrollbar-width: thin; scrollbar-color: var(--border-mid) transparent;
+}
+.rp-header {
+  padding: 10px 14px 8px;
+  border-bottom: 1px solid var(--border);
+  display: flex; align-items: center; gap: 6px;
+}
+.rp-title {
+  font-size: 10px; font-weight: 700; letter-spacing: 0.09em;
+  text-transform: uppercase; color: var(--muted); font-family: var(--mono); flex: 1;
+}
+.rp-refresh {
+  width: 22px; height: 22px; display: flex; align-items: center; justify-content: center;
+  border: 1px solid var(--border); background: transparent; border-radius: 4px;
+  color: var(--muted); cursor: pointer; font-size: 10px;
+  transition: background 80ms, color 80ms;
+}
+.rp-refresh:hover { background: var(--surface-2); color: var(--fg-2); }
+
+.route-cards { padding: 10px; display: flex; flex-direction: column; gap: 8px; }
+
+.route-card {
+  background: var(--bg); border: 1px solid var(--border);
+  border-radius: var(--r); padding: 10px 12px; cursor: pointer;
+  transition: background 100ms, border-color 100ms;
+  text-decoration: none; display: block;
+}
+.route-card:hover { background: var(--surface-2); border-color: var(--border-mid); }
+
+.rc-top { display: flex; align-items: baseline; gap: 6px; margin-bottom: 3px; }
+.rc-val {
+  font-size: 20px; font-weight: 600; font-family: var(--mono);
+  font-variant-numeric: tabular-nums; letter-spacing: -0.03em; line-height: 1;
+}
+.rc-val.v-success { color: var(--success); }
+.rc-val.v-warn    { color: var(--warn); }
+.rc-val.v-muted   { color: var(--fg-2); }
+.rc-val.v-hold    { color: #c084fc; }
+.rc-label { font-size: 12px; font-weight: 500; color: var(--fg-2); line-height: 1.2; }
+.rc-sub { font-size: 11px; color: var(--muted); line-height: 1.4; }
+.rc-dot { width: 6px; height: 6px; border-radius: 50%; flex-shrink: 0; margin-bottom: 1px; }
+
+.rp-divider {
+  margin: 4px 10px;
+  border: none; border-top: 1px solid var(--border);
+}
+
+.rp-stats { padding: 4px 10px 10px; }
+.rp-stat-row {
+  display: flex; align-items: center; gap: 6px;
+  padding: 5px 0; border-bottom: 1px solid var(--border);
+  font-size: 11.5px;
+}
+.rp-stat-row:last-child { border-bottom: none; }
+.rp-stat-key { color: var(--muted); flex: 1; }
+.rp-stat-val { color: var(--fg-2); font-family: var(--mono); font-variant-numeric: tabular-nums; font-weight: 500; }
+.rp-stat-val.success { color: var(--success); }
+.rp-stat-val.warn    { color: var(--warn); }
+.rp-stat-val.danger  { color: var(--danger); }
+
+.rp-ops {
+  margin: 0 10px 10px;
+  background: var(--bg); border: 1px solid var(--border); border-radius: var(--r);
+  overflow: hidden;
+}
+.rp-ops-head {
+  padding: 7px 10px; border-bottom: 1px solid var(--border);
+  font-size: 10px; font-weight: 700; letter-spacing: 0.07em; text-transform: uppercase;
+  color: var(--muted); font-family: var(--mono);
+  display: flex; align-items: center; gap: 6px;
+}
+.ops-count { font-size: 10px; font-family: var(--mono); color: var(--warn); }
+.rp-ops-item {
+  padding: 7px 10px; border-bottom: 1px solid var(--border);
+  cursor: pointer; transition: background 70ms;
+  display: flex; align-items: flex-start; gap: 7px;
+}
+.rp-ops-item:last-child { border-bottom: none; }
+.rp-ops-item:hover { background: var(--surface-2); }
+.ops-id { font-family: var(--mono); font-size: 10px; font-weight: 600; color: var(--warn); letter-spacing: 0.04em; white-space: nowrap; flex-shrink: 0; padding-top: 1px; }
+.ops-text { font-size: 11.5px; color: var(--fg-2); line-height: 1.4; }
+
+/* ── NOTE MODAL ── */
+.modal-overlay {
+  position: fixed; inset: 0; background: rgba(0,0,0,.6);
+  display: flex; align-items: center; justify-content: center;
+  z-index: 100; opacity: 0; pointer-events: none; transition: opacity 150ms;
+}
+.modal-overlay.open { opacity: 1; pointer-events: all; }
+.modal {
+  background: var(--surface); border: 1px solid var(--border);
+  border-radius: 10px; width: 420px; max-width: calc(100vw - 40px);
+  box-shadow: 0 24px 64px rgba(0,0,0,.5);
+  transform: translateY(8px); transition: transform 150ms;
+}
+.modal-overlay.open .modal { transform: none; }
+.modal-head {
+  padding: 14px 16px 12px;
+  border-bottom: 1px solid var(--border);
+  display: flex; align-items: center; gap: 8px;
+}
+.modal-title { font-size: 13px; font-weight: 600; color: var(--fg); flex: 1; letter-spacing: -0.01em; }
+.modal-close {
+  width: 24px; height: 24px; display: flex; align-items: center; justify-content: center;
+  border: none; background: transparent; color: var(--muted); cursor: pointer;
+  border-radius: 4px; font-size: 16px; line-height: 1;
+  transition: background 80ms, color 80ms;
+}
+.modal-close:hover { background: var(--surface-2); color: var(--fg); }
+.modal-body { padding: 14px 16px; }
+.modal-cand { font-family: var(--mono); font-size: 11px; font-weight: 600; color: var(--accent); margin-bottom: 8px; display: block; letter-spacing: 0.05em; }
+.modal-hl { font-size: 13px; font-weight: 500; color: var(--fg); margin-bottom: 12px; line-height: 1.3; display: block; }
+.modal-label { font-size: 10.5px; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; color: var(--muted); font-family: var(--mono); display: block; margin-bottom: 5px; }
+.modal-select {
+  width: 100%; height: 30px; padding: 0 28px 0 9px;
+  background: var(--bg); border: 1px solid var(--border);
+  border-radius: var(--r); color: var(--fg); font-size: 12.5px;
+  font-family: var(--font); appearance: none; cursor: pointer; margin-bottom: 10px;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6'%3E%3Cpath d='M1 1l4 4 4-4' stroke='%234b5672' stroke-width='1.5' fill='none' stroke-linecap='round'/%3E%3C/svg%3E");
+  background-repeat: no-repeat; background-position: right 8px center;
+}
+.modal-select:focus { outline: none; border-color: var(--accent); }
+.modal-textarea {
+  width: 100%; min-height: 80px; padding: 8px 10px;
+  background: var(--bg); border: 1px solid var(--border);
+  border-radius: var(--r); color: var(--fg); font-size: 12.5px;
+  font-family: var(--font); resize: vertical; line-height: 1.5;
+}
+.modal-textarea:focus { outline: none; border-color: var(--accent); }
+.modal-textarea::placeholder { color: var(--muted); }
+.modal-foot {
+  padding: 10px 16px 14px;
+  display: flex; justify-content: flex-end; gap: 7px;
+}
+</style>
+</head>
+<body>
+<div class="shell">
+
+<!-- ── SIDEBAR ── -->
+<aside class="sidebar">
+  <div class="sidebar-pub">
+    <span class="pub-name">Union Media</span>
+    <span class="pub-meta">unionmedia.co.uk · Editorial Ops</span>
+  </div>
+      <nav class="sidebar-nav">
+    <div class="nav-section">Overview</div>
+    <a href="dashboard.html" class="nav-item">
+      <svg class="nav-icon" viewBox="0 0 15 15" fill="none"><rect x="1.5" y="1.5" width="5" height="5" rx="1" fill="currentColor"/><rect x="8.5" y="1.5" width="5" height="5" rx="1" fill="currentColor"/><rect x="1.5" y="8.5" width="5" height="5" rx="1" fill="currentColor"/><rect x="8.5" y="8.5" width="5" height="5" rx="1" fill="currentColor"/></svg>
+      Dashboard
+    </a>
+    <div class="nav-section">Editorial</div>
+    <a href="pipeline-dashboard.html" class="nav-item">
+      <svg class="nav-icon" viewBox="0 0 15 15" fill="none"><rect x="1.5" y="2.5" width="12" height="1.5" rx=".5" fill="currentColor"/><rect x="1.5" y="6.5" width="12" height="1.5" rx=".5" fill="currentColor"/><rect x="1.5" y="10.5" width="12" height="1.5" rx=".5" fill="currentColor"/></svg>
+      Pipeline
+    </a>
+    <a href="pipeline-board.html" class="nav-item">
+      <svg class="nav-icon" viewBox="0 0 15 15" fill="none"><rect x="1" y="1.5" width="4" height="12" rx="1" fill="currentColor"/><rect x="6" y="1.5" width="4" height="8.5" rx="1" fill="currentColor"/><rect x="11" y="1.5" width="3" height="5.5" rx="1" fill="currentColor"/></svg>
+      Board
+    </a>
+    <a href="#" class="nav-item">
+      <svg class="nav-icon" viewBox="0 0 15 15" fill="none"><rect x="1.5" y="2.5" width="12" height="11" rx="1.5" stroke="currentColor" stroke-width="1.3"/><path d="M1.5 6h12" stroke="currentColor" stroke-width="1.3"/><path d="M5 1.5V4M10 1.5V4" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/></svg>
+      Calendar
+      <span class="nav-badge">18</span>
+    </a>
+    <a href="article-dossier.html" class="nav-item">
+      <svg class="nav-icon" viewBox="0 0 15 15" fill="none"><path d="M3.5 1.5h5.5l3 3v9h-8.5v-12z" stroke="currentColor" stroke-width="1.3" stroke-linejoin="round"/><path d="M9 1.5v3.5h3" stroke="currentColor" stroke-width="1.3"/><path d="M5 7.5h5M5 9.5h3" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/></svg>
+      Article Dossier
+    </a>
+    <div class="nav-section">Management</div>
+    <a href="approvals.html" class="nav-item">
+      <svg class="nav-icon" viewBox="0 0 15 15" fill="none"><path d="M2 7.5L6 11.5L13 3.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      Approvals
+      <span class="nav-badge urgent">4</span>
+    </a>
+    <a href="#" class="nav-item">
+      <svg class="nav-icon" viewBox="0 0 15 15" fill="none"><circle cx="5" cy="5.5" r="2" stroke="currentColor" stroke-width="1.3"/><circle cx="10.5" cy="5.5" r="2" stroke="currentColor" stroke-width="1.3"/><path d="M1 13c0-2 1.79-3.5 4-3.5h5c2.21 0 4 1.5 4 3.5" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/></svg>
+      Team
+    </a>
+    <div class="nav-section">Discovery</div>
+    <a href="discovery.html" class="nav-item">
+      <svg class="nav-icon" viewBox="0 0 15 15" fill="none"><circle cx="6.5" cy="6.5" r="4" stroke="currentColor" stroke-width="1.3"/><path d="M11 11l2.5 2.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
+      Discovery Overview
+      <span class="nav-badge urgent">3</span>
+    </a>
+    <a href="candidate-inbox.html" class="nav-item active">
+      <svg class="nav-icon" viewBox="0 0 15 15" fill="none"><path d="M1.5 4.5h12v8.5h-12z" stroke="currentColor" stroke-width="1.3" stroke-linejoin="round"/><path d="M1.5 4.5l6 4 6-4" stroke="currentColor" stroke-width="1.3" stroke-linejoin="round"/></svg>
+      Candidate Inbox
+      <span class="nav-badge">89</span>
+    </a>
+    <a href="ops-rr-queue.html" class="nav-item">
+      <svg class="nav-icon" viewBox="0 0 15 15" fill="none"><path d="M7.5 1.5v5M7.5 9.5v.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/><circle cx="7.5" cy="7.5" r="6" stroke="currentColor" stroke-width="1.3"/></svg>
+      OPS-RR Queue
+      <span class="nav-badge urgent">7</span>
+    </a>
+    <a href="sweep-run-detail.html" class="nav-item">
+      <svg class="nav-icon" viewBox="0 0 15 15" fill="none"><circle cx="7.5" cy="7.5" r="6" stroke="currentColor" stroke-width="1.3"/><path d="M7.5 4.5v3l2 2" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/></svg>
+      Sweep Run Detail
+    </a>
+    <div class="nav-section">System</div>
+    <a href="discovery-config.html" class="nav-item">
+      <svg class="nav-icon" viewBox="0 0 15 15" fill="none"><circle cx="7.5" cy="7.5" r="3" stroke="currentColor" stroke-width="1.3"/><path d="M7.5 1v1.5M7.5 12.5V14M1 7.5h1.5M12.5 7.5H14M2.9 2.9l1.1 1.1M11 11l1.1 1.1M11 2.9L9.9 4M4 11l-1.1 1.1" stroke="currentColor" stroke-width="1.2" stroke-linecap="round"/></svg>
+      Discovery Config
+    </a>
+    <a href="source-monitor.html" class="nav-item">
+      <svg class="nav-icon" viewBox="0 0 15 15" fill="none"><path d="M1.5 10.5l4-4 3 3 5-6" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"/><circle cx="13" cy="4.5" r="1" fill="currentColor"/></svg>
+      Source Health Monitor
+    </a>
+    <a href="discovery-2.html" class="nav-item">
+      <svg class="nav-icon" viewBox="0 0 15 15" fill="none"><path d="M2.5 5.5h10M2.5 8.5h8M2.5 11.5h5" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/><rect x="1.5" y="1.5" width="12" height="12" rx="1.5" stroke="currentColor" stroke-width="1.3"/></svg>
+      Discovery Audit Log
+    </a>
+    <a href="design-system.html" class="nav-item">
+      <svg class="nav-icon" viewBox="0 0 15 15" fill="none"><circle cx="4" cy="4" r="1.5" fill="currentColor"/><circle cx="11" cy="4" r="1.5" fill="currentColor"/><circle cx="4" cy="11" r="1.5" fill="currentColor"/><circle cx="11" cy="11" r="1.5" fill="currentColor"/><circle cx="7.5" cy="7.5" r="1.5" fill="currentColor"/></svg>
+      Design System
+    </a>
+    <a href="#" class="nav-item">
+      <svg class="nav-icon" viewBox="0 0 15 15" fill="none"><circle cx="7.5" cy="7.5" r="5.5" stroke="currentColor" stroke-width="1.3"/><circle cx="7.5" cy="7.5" r="2" stroke="currentColor" stroke-width="1.3"/></svg>
+      Settings
+    </a>
+  </nav>
+  <div class="sidebar-user">
+    <div class="avatar-sm">DM</div>
+    <div style="min-width:0">
+      <span class="user-name">D. Mackenzie</span>
+      <span class="user-role">Senior Editor</span>
+    </div>
+  </div>
+</aside>
+
+<!-- ── TOPBAR ── -->
+<header class="topbar">
+  <span class="topbar-title">Discovery</span>
+  <span class="topbar-sep">›</span>
+  <a href="discovery.html" class="topbar-crumb" style="text-decoration:none;color:var(--muted);transition:color 100ms" onmouseover="this.style.color='var(--fg-2)'" onmouseout="this.style.color='var(--muted)'">Ranger Recon</a>
+  <span class="topbar-sep">›</span>
+  <span class="topbar-crumb active">Candidate Inbox</span>
+  <span class="topbar-spacer"></span>
+  <button class="icon-btn" title="Export CSV">
+    <svg width="13" height="13" viewBox="0 0 13 13" fill="none"><path d="M6.5 1v8M3 6l3.5 3.5L10 6" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"/><path d="M1.5 10.5h10" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/></svg>
+  </button>
+  <button class="icon-btn" title="OPS-RR Queue">
+    <svg width="13" height="13" viewBox="0 0 13 13" fill="none"><circle cx="6.5" cy="6.5" r="5" stroke="currentColor" stroke-width="1.3"/><path d="M6.5 3.5v3.5l2 2" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/></svg>
+  </button>
+  <button class="theme-toggle" onclick="toggleTheme()">
+    <svg width="12" height="12" viewBox="0 0 12 12" fill="none"><circle cx="6" cy="6" r="2.5" stroke="currentColor" stroke-width="1.2"/><path d="M6 1v1M6 10v1M1 6h1M10 6h1M2.64 2.64l.71.71M8.65 8.65l.71.71M2.64 9.36l.71-.71M8.65 3.35l.71-.71" stroke="currentColor" stroke-width="1.2" stroke-linecap="round"/></svg>
+    <span id="theme-label">Light</span>
+  </button>
+  <div class="topbar-avatar">DM</div>
+</header>
+
+<!-- ── MAIN ── -->
+<main class="main">
+
+  <!-- FILTER BAR -->
+  <div class="filter-bar">
+    <span class="filter-label">Status</span>
+    <div class="status-chips">
+      <button class="chip on" onclick="filterStatus(this,'all')">All <span class="chip-count" id="count-all">89</span></button>
+      <button class="chip" onclick="filterStatus(this,'ready')">Ready <span class="chip-count" id="count-ready">47</span></button>
+      <button class="chip" onclick="filterStatus(this,'dedup')">Held — Duplicate <span class="chip-count" id="count-dedup">22</span></button>
+      <button class="chip" onclick="filterStatus(this,'held')">Held — Source <span class="chip-count" id="count-held">11</span></button>
+      <button class="chip" onclick="filterStatus(this,'review')">Needs Review <span class="chip-count" id="count-review">6</span></button>
+      <button class="chip" onclick="filterStatus(this,'pointer')">Pointer <span class="chip-count" id="count-pointer">3</span></button>
+    </div>
+    <div class="filter-sep"></div>
+    <select class="filter-select" id="filter-layer" onchange="applyFilters()">
+      <option value="">Layer — All</option>
+      <option value="L1">L1 Corporate</option>
+      <option value="L2">L2 Institutional</option>
+      <option value="L3">L3 National</option>
+      <option value="L4">L4 Signal</option>
+    </select>
+    <select class="filter-select" id="filter-stream" onchange="applyFilters()">
+      <option value="">Stream — All</option>
+      <option value="Energy">Energy</option>
+      <option value="Housing">Housing</option>
+      <option value="Politics">Politics</option>
+      <option value="Courts">Courts</option>
+      <option value="Finance">Finance</option>
+      <option value="Health">Health</option>
+      <option value="Offshore">Offshore</option>
+    </select>
+    <select class="filter-select" id="filter-verified" onchange="applyFilters()">
+      <option value="">Verification — All</option>
+      <option value="verified">Verified</option>
+      <option value="pending">Pending</option>
+      <option value="unverified">Unverified</option>
+    </select>
+    <div class="filter-search">
+      <svg width="11" height="11" viewBox="0 0 11 11" fill="none"><circle cx="4.8" cy="4.8" r="3.5" stroke="var(--muted)" stroke-width="1.2"/><path d="M7.7 7.7l2 2" stroke="var(--muted)" stroke-width="1.2" stroke-linecap="round"/></svg>
+      <input type="text" placeholder="Search headline or ID…" id="search-input" oninput="applyFilters()">
+    </div>
+  </div>
+
+  <!-- BULK BAR -->
+  <div class="bulk-bar hidden" id="bulk-bar">
+    <span class="bulk-count" id="bulk-count">0</span>
+    <span class="bulk-label">selected</span>
+    <button class="btn btn-primary btn-sm" onclick="bulkAction('triage')">Send to F1 Triage</button>
+    <button class="btn btn-ghost btn-sm" onclick="bulkAction('hold')">Hold</button>
+    <button class="btn btn-ghost btn-sm" onclick="bulkAction('ops')">Raise OPS-RR</button>
+    <button class="btn-deselect btn btn-ghost btn-sm" onclick="clearSelection()">Deselect all</button>
+  </div>
+
+  <!-- BODY -->
+  <div class="body-cols">
+
+    <!-- TABLE -->
+    <div class="table-panel">
+      <div class="table-wrap">
+        <table id="candidates-table">
+          <thead>
+            <tr>
+              <th class="th-check"><input type="checkbox" id="check-all" onchange="toggleAll(this)"></th>
+              <th onclick="sortBy('id')">ID</th>
+              <th onclick="sortBy('hl')">Working Headline</th>
+              <th onclick="sortBy('time')">Surfaced</th>
+              <th onclick="sortBy('layer')">Layer</th>
+              <th onclick="sortBy('stream')">Stream</th>
+              <th onclick="sortBy('dup')">Duplicate</th>
+              <th onclick="sortBy('ver')">Verification</th>
+              <th onclick="sortBy('triage')">Triage</th>
+              <th onclick="sortBy('age')">Age</th>
+            </tr>
+          </thead>
+          <tbody id="candidates-body"></tbody>
+        </table>
+      </div>
+      <div class="table-footer">
+        <span class="tf-count"><strong id="visible-count">89</strong> of <strong>89</strong> candidates</span>
+        <span class="tf-spacer"></span>
+        <span class="tf-page">
+          <button class="page-btn">‹</button>
+          <button class="page-btn on">1</button>
+          <button class="page-btn">2</button>
+          <button class="page-btn">3</button>
+          <button class="page-btn">›</button>
+        </span>
+      </div>
+    </div>
+
+    <!-- ROUTE SUMMARY -->
+    <aside class="route-panel">
+      <div class="rp-header">
+        <span class="rp-title">Route Summary</span>
+        <span style="font-size:10.5px;color:var(--muted);font-family:var(--mono);">AM · 06:00</span>
+        <button class="rp-refresh">↻</button>
+      </div>
+
+      <div class="route-cards">
+        <a href="#" class="route-card" onclick="filterStatus(document.querySelector('.chip'),'ready');return false">
+          <div class="rc-top">
+            <span class="rc-val v-success">47</span>
+          </div>
+          <div class="rc-label">Ready for F1 Triage</div>
+          <div class="rc-sub">Passed verification + dedup check. Oldest: 4h 12m.</div>
+        </a>
+        <a href="#" class="route-card">
+          <div class="rc-top">
+            <span class="rc-val v-warn">22</span>
+          </div>
+          <div class="rc-label">Held — Duplicate</div>
+          <div class="rc-sub">Similar story already in pipeline (within 72h window).</div>
+        </a>
+        <a href="#" class="route-card">
+          <div class="rc-top">
+            <span class="rc-val v-hold">11</span>
+          </div>
+          <div class="rc-label">Held — Source Issue</div>
+          <div class="rc-sub">Primary URL unverified or source flagged with active OPS-RR.</div>
+        </a>
+        <a href="#" class="route-card">
+          <div class="rc-top">
+            <span class="rc-val v-muted">3</span>
+          </div>
+          <div class="rc-label">Parked — Pointer Only</div>
+          <div class="rc-sub">No primary content. Signal logged for reference.</div>
+        </a>
+        <a href="#" class="route-card">
+          <div class="rc-top">
+            <span class="rc-val v-muted" style="color:var(--danger)">6</span>
+          </div>
+          <div class="rc-label">Needs Review</div>
+          <div class="rc-sub">Flagged by operator or schema mismatch — requires manual check.</div>
+        </a>
+      </div>
+
+      <hr class="rp-divider">
+
+      <div class="rp-stats">
+        <div class="rp-stat-row">
+          <span class="rp-stat-key">Acceptance rate</span>
+          <span class="rp-stat-val success">52.8%</span>
+        </div>
+        <div class="rp-stat-row">
+          <span class="rp-stat-key">Dedup hold rate</span>
+          <span class="rp-stat-val warn">24.7%</span>
+        </div>
+        <div class="rp-stat-row">
+          <span class="rp-stat-key">Oldest in queue</span>
+          <span class="rp-stat-val warn">4h 12m</span>
+        </div>
+        <div class="rp-stat-row">
+          <span class="rp-stat-key">Avg score (ready)</span>
+          <span class="rp-stat-val">0.74</span>
+        </div>
+        <div class="rp-stat-row">
+          <span class="rp-stat-key">Run source</span>
+          <span class="rp-stat-val"><a href="sweep-run-detail.html" style="color:var(--accent);text-decoration:none;font-size:11px;">RR-2841</a></span>
+        </div>
+        <div class="rp-stat-row">
+          <span class="rp-stat-key">Last updated</span>
+          <span class="rp-stat-val">06:04:34</span>
+        </div>
+      </div>
+
+      <hr class="rp-divider">
+
+      <div class="rp-ops">
+        <div class="rp-ops-head">
+          Open OPS-RR
+          <span class="ops-count">3 open</span>
+        </div>
+        <div class="rp-ops-item">
+          <span class="ops-id">OPS-RR-0142</span>
+          <span class="ops-text">companies-house-api.gov.uk — parse failure on filing structure</span>
+        </div>
+        <div class="rp-ops-item">
+          <span class="ops-id">OPS-RR-0141</span>
+          <span class="ops-text">northsea.com — 503 repeat (streak 7); unreachable since 04:12</span>
+        </div>
+        <div class="rp-ops-item">
+          <span class="ops-id">OPS-RR-0139</span>
+          <span class="ops-text">scottishlegal.com — schema change on press-release template</span>
+        </div>
+      </div>
+    </aside>
+
+  </div>
+</main>
+
+<!-- NOTE MODAL -->
+<div class="modal-overlay" id="note-modal">
+  <div class="modal">
+    <div class="modal-head">
+      <span class="modal-title">Add Operator Note</span>
+      <button class="modal-close" onclick="closeModal()">×</button>
+    </div>
+    <div class="modal-body">
+      <span class="modal-cand" id="modal-cand-id">REC-0000</span>
+      <span class="modal-hl" id="modal-cand-hl">—</span>
+      <label class="modal-label">Note type</label>
+      <select class="modal-select">
+        <option>General observation</option>
+        <option>Source concern</option>
+        <option>Duplicate flag</option>
+        <option>Legal sensitivity</option>
+        <option>Follow-up required</option>
+      </select>
+      <label class="modal-label">Note</label>
+      <textarea class="modal-textarea" placeholder="Enter your note…" rows="4"></textarea>
+    </div>
+    <div class="modal-foot">
+      <button class="btn btn-ghost" onclick="closeModal()">Cancel</button>
+      <button class="btn btn-primary" onclick="saveNote()">Save note</button>
+    </div>
+  </div>
+</div>
+
+<script>
+/* ── DATA ── */
+const CANDIDATES = [
+  { id:'REC-0891', hl:'Rosebank field decommissioning levy dispute escalates to OGA arbitration', src:'northsea.com/news/rosebank-oga-arbitration', layer:'L1', stream:'Energy',   dup:'ready',   ver:'verified',   triage:'ready',   age:14, run:'RR-2841' },
+  { id:'REC-0890', hl:'Aberdeen City Council approves 740-home Bucksburn masterplan after third consultation', src:'aberdeencity.gov.uk/planning/bucksburn', layer:'L2', stream:'Housing',  dup:'ready',   ver:'verified',   triage:'ready',   age:22, run:'RR-2841' },
+  { id:'REC-0889', hl:'Holyrood debate: MSPs divided on North Sea transition funding formula', src:'parliament.scot/bills/energy-transition', layer:'L2', stream:'Politics', dup:'dedup',   ver:'verified',   triage:'dedup',   age:252, run:'RR-2841' },
+  { id:'REC-0888', hl:'Scottish Legal News: advocate raises Article 8 challenge on Cove Bay evictions', src:'scottishlegal.com/news/cove-bay-article8', layer:'L3', stream:'Courts',   dup:'ready',   ver:'pending',    triage:'held',    age:47, run:'RR-2841' },
+  { id:'REC-0887', hl:'ONS regional productivity data: NE Scotland lags UK average by 11 points', src:'ons.gov.uk/releases/regional-productivity-q3', layer:'L3', stream:'Finance',  dup:'ready',   ver:'verified',   triage:'ready',   age:19, run:'RR-2841' },
+  { id:'REC-0886', hl:'NHS Grampian waiting list for orthopaedics breaches 52-week target for first time since 2021', src:'nhsgrampian.scot.nhs.uk/news/waiting-lists', layer:'L2', stream:'Health',   dup:'ready',   ver:'verified',   triage:'ready',   age:31, run:'RR-2841' },
+  { id:'REC-0885', hl:'Companies House: Harbour Energy registers new Aberdeen subsidiary ahead of reported restructure', src:'companies-house-api.gov.uk/filing/HARBOUR-2025', layer:'L1', stream:'Energy',   dup:'held',    ver:'unverified', triage:'held',    age:61, run:'RR-2841' },
+  { id:'REC-0884', hl:'STV report: Scottish Government renewable leasing dispute with Crown Estate reaches judicial review', src:'stv.tv/news/crown-estate-judicial-review', layer:'L3', stream:'Energy',   dup:'ready',   ver:'verified',   triage:'ready',   age:8,  run:'RR-2841' },
+  { id:'REC-0883', hl:'Aberdeen Grammar School redevelopment tender awarded to Robertson Construction at £38.4m', src:'aberdeencity.gov.uk/tenders/grammar-school', layer:'L2', stream:'Housing',  dup:'dedup',   ver:'verified',   triage:'dedup',   age:187, run:'RR-2841' },
+  { id:'REC-0882', hl:'PA Wire: Fatal accident inquiry into Peterhead fishing vessel collision opens in Aberdeen Sheriff Court', src:'pa.media/wire/fishing-fai-aberdeen-2025', layer:'L1', stream:'Courts',   dup:'ready',   ver:'verified',   triage:'ready',   age:5,  run:'RR-2841' },
+  { id:'REC-0881', hl:'Moray Council seeks emergency planning permission waiver for Elgin flood defence works', src:'moray.gov.uk/planning/elgin-flood-defence', layer:'L2', stream:'Housing',  dup:'ready',   ver:'pending',    triage:'review',  age:73, run:'RR-2841' },
+  { id:'REC-0880', hl:'Scotsman: SNP energy spokesman faces register of interests scrutiny over offshore wind advisory role', src:'scotsman.com/news/snp-energy-interests', layer:'L3', stream:'Politics', dup:'dedup',   ver:'verified',   triage:'dedup',   age:320, run:'RR-2841' },
+  { id:'REC-0879', hl:'Aberdeen Science Centre receives £2.1m grant for immersive North Sea industry exhibition', src:'aberdeensciencecentre.org/news/north-sea-grant', layer:'L1', stream:'Finance',  dup:'ready',   ver:'verified',   triage:'ready',   age:41, run:'RR-2841' },
+  { id:'REC-0878', hl:'BBC Scotland: rural GP crisis deepens — 17 Aberdeenshire practices operating single-handed', src:'bbc.co.uk/news/scotland/gp-crisis-aberdeenshire', layer:'L3', stream:'Health',   dup:'ready',   ver:'verified',   triage:'ready',   age:12, run:'RR-2841' },
+  { id:'REC-0877', hl:'Pointer: Holyrood written answer on oil and gas licence moratorium — no primary content available', src:'parliament.scot/written-answers/oag-moratorium', layer:'L4', stream:'Energy',   dup:'pointer', ver:'unverified', triage:'pointer', age:95, run:'RR-2841' },
+  { id:'REC-0876', hl:'Robert Gordon University announces partnership with Equinor for offshore wind engineering degree', src:'rgu.ac.uk/news/equinor-wind-partnership', layer:'L2', stream:'Energy',   dup:'ready',   ver:'verified',   triage:'ready',   age:27, run:'RR-2841' },
+  { id:'REC-0875', hl:'Aberdeen Harbour Board quarterly report: container throughput up 7% but Ro-Ro traffic down on Norwegian routes', src:'aberdeen-harbour.co.uk/news/q3-report', layer:'L1', stream:'Finance',  dup:'held',    ver:'pending',    triage:'held',    age:82, run:'RR-2841' },
+  { id:'REC-0874', hl:'Scottish Water confirms Deeside treatment plant upgrade after E. coli detection in August sampling', src:'scottishwater.co.uk/news/deeside-upgrade', layer:'L2', stream:'Health',   dup:'review',  ver:'pending',    triage:'review',  age:120, run:'RR-2841' },
+  { id:'REC-0873', hl:'Offshore Europe preview: three Aberdeen firms shortlisted for SPE safety innovation award', src:'offshore-europe.co.uk/news/spe-safety-award', layer:'L1', stream:'Energy',   dup:'dedup',   ver:'verified',   triage:'dedup',   age:248, run:'RR-2841' },
+  { id:'REC-0872', hl:'Holyrood Stage 3: Tenants\' Rights (Scotland) Bill passes with amended rent cap provisions', src:'parliament.scot/bills/tenants-rights-stage3', layer:'L2', stream:'Housing',  dup:'ready',   ver:'verified',   triage:'ready',   age:16, run:'RR-2841' },
+  { id:'REC-0871', hl:'Pointer: LinkedIn post from Offshore Energies UK on workforce diversity — no primary article', src:'linkedin.com/posts/oeuk-diversity-2025', layer:'L4', stream:'Offshore',  dup:'pointer', ver:'unverified', triage:'pointer', age:210, run:'RR-2841' },
+  { id:'REC-0870', hl:'Aberdeen City deals with record noise complaints from Union Square Christmas market construction', src:'aberdeencity.gov.uk/complaints/union-square-noise', layer:'L1', stream:'Housing',  dup:'ready',   ver:'verified',   triage:'ready',   age:53, run:'RR-2841' },
+  { id:'REC-0869', hl:'Court of Session ruling: Forestry Commission boundary dispute in Cairngorms dismissed on standing', src:'scotcourts.gov.uk/decisions/forestry-cairngorms', layer:'L3', stream:'Courts',   dup:'ready',   ver:'verified',   triage:'ready',   age:34, run:'RR-2841' },
+  { id:'REC-0868', hl:'Grampian Police Federation raises concerns over armed response vehicle cover gaps in rural Aberdeenshire', src:'bbc.co.uk/news/scotland/armed-response-aberdeenshire', layer:'L3', stream:'Politics', dup:'review',  ver:'pending',    triage:'review',  age:98, run:'RR-2841' },
+  { id:'REC-0867', hl:'Scottish Procurement Alliance publishes new digital services framework — Aberdeen firms among early signatories', src:'scottishprocurement.scot/news/digital-framework', layer:'L2', stream:'Finance',  dup:'ready',   ver:'verified',   triage:'ready',   age:29, run:'RR-2841' },
+];
+
+let filtered = [...CANDIDATES];
+let selected = new Set();
+let activeStatusFilter = 'all';
+let sortKey = 'age';
+let sortDir = 1;
+
+function age(mins) {
+  if (mins < 60) return `${mins}m`;
+  if (mins < 1440) return `${Math.floor(mins/60)}h ${mins%60}m`;
+  return `${Math.floor(mins/1440)}d ${Math.floor((mins%1440)/60)}h`;
+}
+
+function ageCls(mins, triage) {
+  if (triage === 'dedup' || triage === 'pointer') return 'age-ok';
+  if (mins > 240) return 'age-over';
+  if (mins > 120) return 'age-warn';
+  return 'age-ok';
+}
+
+function dupChip(d) {
+  const map = {
+    ready:   ['sc-ready',  'Clear'],
+    dedup:   ['sc-dedup',  'Duplicate'],
+    held:    ['sc-held',   'Held'],
+    review:  ['sc-review', 'Review'],
+    pointer: ['sc-pointer','—'],
+  };
+  const [cls, lbl] = map[d] || ['sc-pointer','—'];
+  return `<span class="status-chip ${cls}">${lbl}</span>`;
+}
+
+function verChip(v) {
+  const map = {
+    verified:   ['sc-verified', 'Verified'],
+    pending:    ['sc-pending',  'Pending'],
+    unverified: ['sc-unverif', 'Unverified'],
+  };
+  const [cls, lbl] = map[v] || ['sc-unverif','—'];
+  return `<span class="status-chip ${cls}">${lbl}</span>`;
+}
+
+function triageChip(t) {
+  const map = {
+    ready:   ['sc-ready',  'Ready for F1'],
+    dedup:   ['sc-dedup',  'Held — Dedup'],
+    held:    ['sc-held',   'Held — Source'],
+    review:  ['sc-review', 'Needs Review'],
+    pointer: ['sc-pointer','Pointer'],
+  };
+  const [cls, lbl] = map[t] || ['sc-pointer','—'];
+  return `<span class="status-chip ${cls}">${lbl}</span>`;
+}
+
+function layerBadge(l) {
+  const map = { L1:'lb-1', L2:'lb-2', L3:'lb-3', L4:'lb-4' };
+  return `<span class="layer-badge ${map[l]||'lb-4'}">${l}</span>`;
+}
+
+function surfacedAt(idx) {
+  const base = new Date();
+  base.setMinutes(base.getMinutes() - CANDIDATES[idx].age);
+  return base.toTimeString().slice(0,5);
+}
+
+function render() {
+  const tbody = document.getElementById('candidates-body');
+  tbody.innerHTML = filtered.map((c, i) => {
+    const sel = selected.has(c.id);
+    const triagedClass = c.triage === 'ready' ? '' : 'dim';
+    return `<tr class="${sel?'selected':''}" data-id="${c.id}">
+      <td class="td-check"><input type="checkbox" ${sel?'checked':''} onchange="toggleRow(this,'${c.id}')"></td>
+      <td><a href="#" class="cand-id" onclick="openDetail('${c.id}');return false">${c.id}</a></td>
+      <td class="hl-cell">
+        <span class="hl-text ${triagedClass}" onclick="openDetail('${c.id}')">${c.hl}</span>
+        <span class="hl-src">${c.src}</span>
+      </td>
+      <td class="td-time">${surfacedAt(CANDIDATES.indexOf(c))}</td>
+      <td>${layerBadge(c.layer)}</td>
+      <td class="td-stream">${c.stream}</td>
+      <td>${dupChip(c.dup)}</td>
+      <td>${verChip(c.ver)}</td>
+      <td>${triageChip(c.triage)}</td>
+      <td class="row-actions-cell">
+        <span class="td-age ${ageCls(c.age, c.triage)}">${age(c.age)}</span>
+        <span class="row-actions">
+          ${c.triage === 'ready' ? `<button class="row-btn primary" onclick="sendTriage('${c.id}')">→ F1</button>` : ''}
+          <button class="row-btn" onclick="holdRow('${c.id}')">Hold</button>
+          <button class="row-btn" onclick="openNote('${c.id}','${c.hl.replace(/'/g,"\\'").slice(0,60)}…')">Note</button>
+        </span>
+      </td>
+    </tr>`;
+  }).join('');
+  document.getElementById('visible-count').textContent = filtered.length;
+}
+
+function applyFilters() {
+  const layer   = document.getElementById('filter-layer').value;
+  const stream  = document.getElementById('filter-stream').value;
+  const verFilt = document.getElementById('filter-verified').value;
+  const q       = document.getElementById('search-input').value.toLowerCase();
+  filtered = CANDIDATES.filter(c => {
+    if (activeStatusFilter !== 'all' && c.triage !== activeStatusFilter) return false;
+    if (layer  && c.layer  !== layer)  return false;
+    if (stream && c.stream !== stream) return false;
+    if (verFilt && c.ver   !== verFilt) return false;
+    if (q && !c.hl.toLowerCase().includes(q) && !c.id.toLowerCase().includes(q)) return false;
+    return true;
+  });
+  render();
+}
+
+function filterStatus(btn, status) {
+  document.querySelectorAll('.status-chips .chip').forEach(c => c.classList.remove('on'));
+  btn.classList.add('on');
+  activeStatusFilter = status;
+  applyFilters();
+}
+
+function sortBy(key) {
+  if (sortKey === key) sortDir *= -1;
+  sortKey = key;
+  const keyMap = { id:'id', hl:'hl', time:'age', layer:'layer', stream:'stream', dup:'dup', ver:'ver', triage:'triage', age:'age' };
+  const k = keyMap[key];
+  filtered.sort((a,b) => {
+    const av = a[k], bv = b[k];
+    if (typeof av === 'number') return (av - bv) * sortDir;
+    return av.localeCompare(bv) * sortDir;
+  });
+  render();
+}
+
+function toggleRow(cb, id) {
+  if (cb.checked) selected.add(id); else selected.delete(id);
+  const row = cb.closest('tr');
+  row.classList.toggle('selected', cb.checked);
+  updateBulkBar();
+}
+
+function toggleAll(cb) {
+  filtered.forEach(c => { if (cb.checked) selected.add(c.id); else selected.delete(c.id); });
+  updateBulkBar();
+  render();
+}
+
+function updateBulkBar() {
+  const bar = document.getElementById('bulk-bar');
+  const cnt = document.getElementById('bulk-count');
+  cnt.textContent = selected.size;
+  bar.classList.toggle('hidden', selected.size === 0);
+}
+
+function clearSelection() {
+  selected.clear();
+  document.getElementById('check-all').checked = false;
+  updateBulkBar();
+  render();
+}
+
+function bulkAction(type) {
+  const n = selected.size;
+  const labels = { triage:'Sent to F1 Triage', hold:'Held', ops:'OPS-RR raised for' };
+  alert(`${labels[type]}: ${n} candidate${n!==1?'s':''}`);
+  clearSelection();
+}
+
+function sendTriage(id) {
+  alert(`${id} sent to F1 Triage queue.`);
+}
+
+function holdRow(id) {
+  const c = CANDIDATES.find(x => x.id === id);
+  if (c) { c.triage = 'held'; c.dup = 'held'; }
+  applyFilters();
+}
+
+function openDetail(id) {
+  alert(`Opening Candidate Detail for ${id}…`);
+}
+
+function openNote(id, hl) {
+  document.getElementById('modal-cand-id').textContent = id;
+  document.getElementById('modal-cand-hl').textContent = hl;
+  document.getElementById('note-modal').classList.add('open');
+}
+
+function closeModal() {
+  document.getElementById('note-modal').classList.remove('open');
+}
+
+function saveNote() {
+  closeModal();
+}
+
+function toggleTheme() {
+  const html = document.documentElement;
+  const lbl  = document.getElementById('theme-label');
+  if (html.getAttribute('data-theme') === 'dark') {
+    html.setAttribute('data-theme', 'light');
+    lbl.textContent = 'Dark';
+  } else {
+    html.setAttribute('data-theme', 'dark');
+    lbl.textContent = 'Light';
+  }
+}
+
+document.getElementById('note-modal').addEventListener('click', function(e) {
+  if (e.target === this) closeModal();
+});
+
+/* init */
+render();
+</script>
+</body>
+</html>

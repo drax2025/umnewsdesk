@@ -1,0 +1,607 @@
+<!doctype html>
+<html lang="en" data-theme="dark">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Discovery Audit Log — Union Media</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg:             #0b0d12;
+  --surface:        #10131c;
+  --surface-2:      #161d2e;
+  --fg:             #dde4f0;
+  --fg-2:           #7e8ea8;
+  --muted:          #4b5672;
+  --border:         #1c2438;
+  --border-mid:     #273047;
+  --accent:         #3b82f6;
+  --accent-on:      #fff;
+  --accent-hover:   #2563eb;
+  --accent-subtle:  rgba(59,130,246,.10);
+  --success:        #22c55e;
+  --success-subtle: rgba(34,197,94,.08);
+  --warn:           #f59e0b;
+  --warn-subtle:    rgba(245,158,11,.08);
+  --danger:         #ef4444;
+  --danger-subtle:  rgba(239,68,68,.08);
+  --font: Inter, "Helvetica Neue", system-ui, sans-serif;
+  --mono: "SF Mono", "Cascadia Code", ui-monospace, Menlo, monospace;
+  --sidebar-w: 216px;
+  --topbar-h:  48px;
+  --drawer-w:  320px;
+  --r: 6px;
+}
+[data-theme="light"] {
+  --bg:             #f4f6f9;
+  --surface:        #ffffff;
+  --surface-2:      #eef1f6;
+  --fg:             #0d1117;
+  --fg-2:           #4a5568;
+  --muted:          #8b95a8;
+  --border:         #dde3ed;
+  --border-mid:     #c7d0e0;
+  --accent:         #2563eb;
+  --accent-on:      #fff;
+  --accent-hover:   #1d4ed8;
+  --accent-subtle:  rgba(37,99,235,.09);
+  --success:        #16a34a;
+  --success-subtle: rgba(22,163,74,.08);
+  --warn:           #d97706;
+  --warn-subtle:    rgba(217,119,6,.08);
+  --danger:         #dc2626;
+  --danger-subtle:  rgba(220,38,38,.08);
+}
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+html, body { height: 100%; background: var(--bg); color: var(--fg); font-family: var(--font); font-size: 13px; line-height: 1.45; -webkit-font-smoothing: antialiased; }
+.shell { display: grid; grid-template-columns: var(--sidebar-w) 1fr; grid-template-rows: var(--topbar-h) 1fr; height: 100vh; overflow: hidden; }
+.sidebar { grid-row: 1 / 3; background: var(--surface); border-right: 1px solid var(--border); display: flex; flex-direction: column; overflow-y: auto; }
+.sidebar-pub { padding: 14px 16px 12px; border-bottom: 1px solid var(--border); }
+.pub-name { font-size: 13px; font-weight: 600; color: var(--fg); letter-spacing: -0.015em; display: block; }
+.pub-meta { font-size: 11px; color: var(--muted); margin-top: 2px; font-family: var(--mono); font-variant-numeric: tabular-nums; }
+.sidebar-nav { padding: 8px 0; flex: 1; }
+.nav-section { padding: 14px 16px 4px; font-size: 10px; font-weight: 600; letter-spacing: 0.07em; text-transform: uppercase; color: var(--muted); }
+.nav-item { display: flex; align-items: center; gap: 9px; padding: 7px 16px; font-size: 13px; color: var(--fg-2); cursor: pointer; text-decoration: none; position: relative; transition: background 100ms, color 100ms; }
+.nav-item:hover { background: var(--surface-2); color: var(--fg); }
+.nav-item.active { color: var(--fg); background: var(--accent-subtle); }
+.nav-item.active::before { content: ''; position: absolute; left: 0; top: 4px; bottom: 4px; width: 2px; background: var(--accent); border-radius: 0 2px 2px 0; }
+.nav-icon { width: 15px; height: 15px; flex-shrink: 0; opacity: .65; }
+.nav-item.active .nav-icon, .nav-item:hover .nav-icon { opacity: 1; }
+.nav-badge { margin-left: auto; font-size: 10px; font-family: var(--mono); font-variant-numeric: tabular-nums; color: var(--muted); background: var(--bg); border: 1px solid var(--border); padding: 1px 6px; border-radius: 9999px; line-height: 1.6; }
+.nav-badge.urgent { color: var(--warn); border-color: rgba(245,158,11,.4); background: var(--warn-subtle); }
+.sidebar-user { padding: 12px 16px; border-top: 1px solid var(--border); display: flex; align-items: center; gap: 9px; }
+.avatar-sm { width: 26px; height: 26px; border-radius: 50%; background: var(--accent-subtle); border: 1px solid var(--border-mid); display: flex; align-items: center; justify-content: center; font-size: 10px; font-weight: 700; color: var(--accent); flex-shrink: 0; font-family: var(--mono); }
+.user-name { font-size: 12px; font-weight: 500; color: var(--fg); display: block; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.user-role { font-size: 11px; color: var(--muted); display: block; }
+.topbar { background: var(--surface); border-bottom: 1px solid var(--border); display: flex; align-items: center; padding: 0 18px; gap: 10px; }
+.topbar-title { font-size: 13px; font-weight: 600; color: var(--fg); letter-spacing: -0.01em; }
+.topbar-sep { color: var(--border-mid); margin: 0 2px; font-weight: 300; }
+.topbar-sub { font-size: 12px; color: var(--muted); font-weight: 400; flex: 1; }
+.theme-toggle { display: flex; align-items: center; gap: 5px; height: 28px; padding: 0 10px; border: 1px solid var(--border); border-radius: var(--r); background: transparent; color: var(--fg-2); font-size: 11.5px; font-family: var(--font); cursor: pointer; transition: background 100ms, color 100ms; }
+.theme-toggle:hover { background: var(--surface-2); color: var(--fg); }
+.icon-btn { width: 28px; height: 28px; display: flex; align-items: center; justify-content: center; border: 1px solid var(--border); background: transparent; border-radius: var(--r); color: var(--fg-2); cursor: pointer; transition: background 100ms, color 100ms; }
+.icon-btn:hover { background: var(--surface-2); color: var(--fg); }
+.topbar-avatar { width: 28px; height: 28px; border-radius: 50%; background: var(--accent-subtle); border: 1px solid var(--border-mid); display: flex; align-items: center; justify-content: center; font-size: 10px; font-weight: 700; color: var(--accent); cursor: pointer; font-family: var(--mono); }
+.main { overflow: hidden; background: var(--bg); display: flex; flex-direction: column; }
+
+/* FILTER BAR */
+.filter-bar { display: flex; align-items: center; gap: 7px; padding: 8px 14px; border-bottom: 1px solid var(--border); background: var(--surface); flex-shrink: 0; flex-wrap: wrap; }
+.filter-group { display: flex; align-items: center; gap: 5px; }
+.filter-sep { width: 1px; height: 20px; background: var(--border); flex-shrink: 0; }
+.f-input { height: 28px; padding: 0 9px; background: var(--bg); border: 1px solid var(--border); border-radius: var(--r); color: var(--fg); font-size: 12px; font-family: var(--font); outline: none; transition: border-color 120ms; }
+.f-input:focus { border-color: var(--accent); }
+.f-input::placeholder { color: var(--muted); }
+.f-select { height: 28px; padding: 0 22px 0 9px; background: var(--bg); border: 1px solid var(--border); border-radius: var(--r); color: var(--fg-2); font-size: 12px; font-family: var(--font); cursor: pointer; appearance: none; background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6'%3E%3Cpath d='M1 1l4 4 4-4' stroke='%234b5672' stroke-width='1.5' fill='none' stroke-linecap='round'/%3E%3C/svg%3E"); background-repeat: no-repeat; background-position: right 7px center; outline: none; }
+.f-chip { height: 26px; padding: 0 9px; border: 1px solid var(--border); border-radius: 9999px; background: transparent; font-size: 11.5px; font-weight: 500; color: var(--fg-2); cursor: pointer; transition: all 80ms; white-space: nowrap; font-family: var(--font); }
+.f-chip:hover { background: var(--surface-2); color: var(--fg); }
+.f-chip.on { background: var(--accent-subtle); border-color: rgba(59,130,246,.4); color: #93b4fd; }
+.f-label { font-size: 11px; font-weight: 500; color: var(--muted); white-space: nowrap; }
+.btn { height: 27px; padding: 0 11px; border-radius: var(--r); font-size: 12px; font-weight: 500; font-family: var(--font); cursor: pointer; transition: background 100ms, color 100ms, border-color 100ms; display: inline-flex; align-items: center; gap: 5px; white-space: nowrap; border: 1px solid transparent; }
+.btn-ghost { background: transparent; border-color: var(--border-mid); color: var(--fg-2); }
+.btn-ghost:hover { background: var(--surface-2); color: var(--fg); }
+
+/* STATS STRIP */
+.stats-strip { display: flex; gap: 0; border-bottom: 1px solid var(--border); background: var(--bg); flex-shrink: 0; }
+.stat-cell { display: flex; align-items: center; gap: 8px; padding: 7px 16px; border-right: 1px solid var(--border); }
+.stat-cell:last-child { border-right: none; margin-left: auto; }
+.sc-val { font-size: 16px; font-weight: 600; font-family: var(--mono); font-variant-numeric: tabular-nums; letter-spacing: -0.025em; color: var(--fg); }
+.sc-label { font-size: 11px; color: var(--fg-2); }
+.sc-dot { width: 7px; height: 7px; border-radius: 50%; flex-shrink: 0; }
+
+/* TABLE AREA */
+.table-area { flex: 1; display: flex; overflow: hidden; }
+.table-wrap { flex: 1; overflow-y: auto; scrollbar-width: thin; scrollbar-color: var(--border-mid) transparent; }
+table { width: 100%; border-collapse: collapse; min-width: 760px; }
+thead th { position: sticky; top: 0; z-index: 2; background: var(--surface); border-bottom: 1px solid var(--border); padding: 7px 12px; font-size: 10px; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; color: var(--muted); text-align: left; white-space: nowrap; user-select: none; cursor: pointer; }
+thead th:hover { color: var(--fg-2); }
+thead th.sort-desc::after { content: ' ↓'; color: var(--accent); font-size: 9px; }
+thead th.sort-asc::after { content: ' ↑'; color: var(--accent); font-size: 9px; }
+tbody tr { border-bottom: 1px solid var(--border); transition: background 70ms; cursor: pointer; }
+tbody tr:hover { background: var(--surface); }
+tbody tr.selected { background: rgba(59,130,246,.07); }
+tbody tr.selected td:first-child { border-left: 2px solid var(--accent); padding-left: 10px; }
+td { padding: 8px 12px; vertical-align: middle; }
+.td-ts { font-family: var(--mono); font-size: 11px; font-variant-numeric: tabular-nums; color: var(--muted); white-space: nowrap; min-width: 72px; }
+.evt-badge { display: inline-flex; align-items: center; padding: 2px 6px; border-radius: 3px; font-size: 10px; font-weight: 700; letter-spacing: 0.04em; text-transform: uppercase; font-family: var(--mono); white-space: nowrap; }
+.eb-sweep-ok   { background: var(--success-subtle); border: 1px solid rgba(34,197,94,.3);  color: #86efac; }
+.eb-sweep-fail { background: var(--danger-subtle);  border: 1px solid rgba(239,68,68,.3);  color: #fca5a5; }
+.eb-candidate  { background: var(--accent-subtle);  border: 1px solid rgba(59,130,246,.3); color: #93b4fd; }
+.eb-held       { background: var(--warn-subtle);    border: 1px solid rgba(245,158,11,.3); color: #fcd34d; }
+.eb-ops-rr     { background: var(--danger-subtle);  border: 1px solid rgba(239,68,68,.3);  color: #fca5a5; }
+.eb-ops-res    { background: var(--success-subtle); border: 1px solid rgba(34,197,94,.3);  color: #86efac; }
+.eb-config     { background: rgba(168,85,247,.10);  border: 1px solid rgba(168,85,247,.35); color: #c084fc; }
+.eb-operator   { background: rgba(20,184,166,.09);  border: 1px solid rgba(20,184,166,.35); color: #5eead4; }
+.eb-verify     { background: var(--warn-subtle);    border: 1px solid rgba(245,158,11,.3); color: #fcd34d; }
+.eb-dedup      { background: rgba(75,86,114,.15);   border: 1px solid var(--border-mid);   color: var(--fg-2); }
+.eb-heartbeat  { background: rgba(75,86,114,.10);   border: 1px solid var(--border);       color: var(--muted); }
+.eb-escalation { background: var(--danger-subtle);  border: 1px solid rgba(239,68,68,.4);  color: var(--danger); font-weight: 800; }
+.td-entity { min-width: 100px; }
+.entity-id { font-family: var(--mono); font-size: 11px; color: var(--accent); cursor: pointer; display: block; white-space: nowrap; font-weight: 600; text-decoration: none; }
+.entity-id:hover { text-decoration: underline; }
+.entity-sub { font-size: 10.5px; color: var(--muted); display: block; white-space: nowrap; }
+.td-summary { min-width: 200px; }
+.summary-text { font-size: 12px; color: var(--fg); display: block; line-height: 1.35; }
+.td-source { min-width: 110px; }
+.src-name { font-size: 11.5px; color: var(--fg-2); display: block; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 140px; }
+.src-layer { font-size: 10px; font-family: var(--mono); color: var(--muted); }
+.td-actor { min-width: 110px; }
+.actor-row { display: flex; align-items: center; gap: 5px; }
+.av-xs { width: 18px; height: 18px; border-radius: 50%; flex-shrink: 0; display: flex; align-items: center; justify-content: center; font-size: 8px; font-weight: 700; font-family: var(--mono); border: 1px solid var(--border-mid); }
+.actor-name { font-size: 11.5px; color: var(--fg-2); white-space: nowrap; }
+.system-actor { font-family: var(--mono); font-size: 10.5px; color: var(--muted); }
+.td-link { width: 28px; padding: 8px 6px 8px 0; text-align: right; }
+.link-icon { display: inline-flex; align-items: center; justify-content: center; width: 20px; height: 20px; color: var(--muted); transition: color 100ms; cursor: pointer; }
+tbody tr:hover .link-icon { color: var(--accent); }
+.date-row td { padding: 6px 12px; background: var(--bg); }
+.date-label { font-size: 10px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted); font-family: var(--mono); }
+
+/* DRAWER */
+.drawer { width: var(--drawer-w); flex-shrink: 0; background: var(--surface); border-left: 1px solid var(--border); display: flex; flex-direction: column; overflow: hidden; transform: translateX(var(--drawer-w)); transition: transform 200ms cubic-bezier(0.28, 0, 0.22, 1); }
+.drawer.open { transform: translateX(0); }
+.drawer-head { padding: 11px 14px 10px; border-bottom: 1px solid var(--border); display: flex; align-items: flex-start; gap: 8px; flex-shrink: 0; }
+.drawer-close { width: 22px; height: 22px; flex-shrink: 0; display: flex; align-items: center; justify-content: center; border: 1px solid var(--border); border-radius: 4px; background: transparent; color: var(--fg-2); cursor: pointer; margin-left: auto; transition: background 100ms; }
+.drawer-close:hover { background: var(--surface-2); color: var(--fg); }
+.drawer-id { font-family: var(--mono); font-size: 10.5px; color: var(--muted); letter-spacing: 0.06em; text-transform: uppercase; margin-bottom: 3px; display: block; }
+.drawer-title { font-size: 13px; font-weight: 600; color: var(--fg); line-height: 1.3; letter-spacing: -0.01em; }
+.drawer-nav { display: flex; align-items: center; gap: 4px; padding: 6px 14px; border-bottom: 1px solid var(--border); flex-shrink: 0; }
+.drawer-nav-btn { height: 24px; padding: 0 8px; border: 1px solid var(--border); border-radius: 4px; background: transparent; color: var(--fg-2); font-size: 11px; font-family: var(--font); cursor: pointer; transition: background 100ms, color 100ms; display: flex; align-items: center; gap: 4px; }
+.drawer-nav-btn:hover { background: var(--surface-2); color: var(--fg); }
+.drawer-nav-btn:disabled { opacity: .3; cursor: not-allowed; }
+.drawer-nav-pos { font-size: 10.5px; font-family: var(--mono); color: var(--muted); margin-left: auto; font-variant-numeric: tabular-nums; }
+.drawer-body { flex: 1; overflow-y: auto; padding: 14px; scrollbar-width: thin; scrollbar-color: var(--border-mid) transparent; }
+.d-section { margin-bottom: 16px; }
+.d-label { font-size: 10px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted); font-family: var(--mono); margin-bottom: 7px; display: block; }
+.d-meta-grid { display: grid; grid-template-columns: 90px 1fr; gap: 4px 8px; }
+.d-meta-key { font-size: 11.5px; color: var(--muted); }
+.d-meta-val { font-size: 11.5px; color: var(--fg-2); font-family: var(--mono); word-break: break-all; }
+.d-meta-val.hi { color: var(--fg); }
+.d-meta-val.link { color: var(--accent); cursor: pointer; }
+.d-meta-val.link:hover { text-decoration: underline; }
+.payload-block { background: var(--bg); border: 1px solid var(--border); border-radius: var(--r); padding: 10px 12px; font-size: 11px; font-family: var(--mono); color: var(--fg-2); line-height: 1.6; white-space: pre-wrap; word-break: break-all; }
+.payload-key  { color: var(--muted); }
+.payload-str  { color: #86efac; }
+.payload-num  { color: #93b4fd; }
+.payload-bool { color: #fcd34d; }
+.related-links { display: flex; flex-direction: column; gap: 4px; }
+.rel-link { display: flex; align-items: center; gap: 7px; padding: 6px 9px; background: var(--bg); border: 1px solid var(--border); border-radius: var(--r); cursor: pointer; text-decoration: none; transition: background 100ms, border-color 100ms; }
+.rel-link:hover { background: var(--surface-2); border-color: var(--border-mid); }
+.rel-link-label { font-size: 12px; color: var(--fg-2); flex: 1; }
+.rel-link-id { font-family: var(--mono); font-size: 10.5px; color: var(--accent); }
+.adj-events { display: flex; flex-direction: column; gap: 4px; }
+.adj-evt { display: flex; align-items: center; gap: 8px; padding: 6px 9px; background: var(--bg); border: 1px solid var(--border); border-radius: var(--r); cursor: pointer; transition: background 100ms; }
+.adj-evt:hover { background: var(--surface-2); }
+.adj-ts { font-family: var(--mono); font-size: 10px; color: var(--muted); white-space: nowrap; font-variant-numeric: tabular-nums; }
+.adj-sum { font-size: 11.5px; color: var(--fg-2); flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.empty-drawer { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 8px; padding: 24px; }
+.empty-drawer-title { font-size: 12.5px; font-weight: 500; color: var(--fg-2); }
+.empty-drawer-sub   { font-size: 11.5px; color: var(--muted); text-align: center; line-height: 1.5; }
+
+/* PAGER */
+.pager { display: flex; align-items: center; gap: 8px; padding: 8px 14px; border-top: 1px solid var(--border); background: var(--surface); flex-shrink: 0; }
+.pager-info { font-size: 11.5px; color: var(--muted); flex: 1; font-variant-numeric: tabular-nums; }
+.page-btn { height: 26px; padding: 0 9px; border: 1px solid var(--border); border-radius: 4px; background: transparent; color: var(--fg-2); font-size: 11.5px; font-family: var(--font); cursor: pointer; transition: background 100ms, color 100ms; }
+.page-btn:hover { background: var(--surface-2); color: var(--fg); }
+.page-btn.active { background: var(--accent-subtle); border-color: rgba(59,130,246,.4); color: var(--accent); }
+.page-btn:disabled { opacity: .3; cursor: not-allowed; }
+</style>
+</head>
+<body>
+<div class="shell">
+
+<aside class="sidebar">
+  <div class="sidebar-pub">
+    <span class="pub-name">Union Media</span>
+    <span class="pub-meta">unionmedia.co.uk · Editorial Ops</span>
+  </div>
+      <nav class="sidebar-nav">
+    <div class="nav-section">Overview</div>
+    <a href="dashboard.html" class="nav-item">
+      <svg class="nav-icon" viewBox="0 0 15 15" fill="none"><rect x="1.5" y="1.5" width="5" height="5" rx="1" fill="currentColor"/><rect x="8.5" y="1.5" width="5" height="5" rx="1" fill="currentColor"/><rect x="1.5" y="8.5" width="5" height="5" rx="1" fill="currentColor"/><rect x="8.5" y="8.5" width="5" height="5" rx="1" fill="currentColor"/></svg>
+      Dashboard
+    </a>
+    <div class="nav-section">Editorial</div>
+    <a href="pipeline-dashboard.html" class="nav-item">
+      <svg class="nav-icon" viewBox="0 0 15 15" fill="none"><rect x="1.5" y="2.5" width="12" height="1.5" rx=".5" fill="currentColor"/><rect x="1.5" y="6.5" width="12" height="1.5" rx=".5" fill="currentColor"/><rect x="1.5" y="10.5" width="12" height="1.5" rx=".5" fill="currentColor"/></svg>
+      Pipeline
+    </a>
+    <a href="pipeline-board.html" class="nav-item">
+      <svg class="nav-icon" viewBox="0 0 15 15" fill="none"><rect x="1" y="1.5" width="4" height="12" rx="1" fill="currentColor"/><rect x="6" y="1.5" width="4" height="8.5" rx="1" fill="currentColor"/><rect x="11" y="1.5" width="3" height="5.5" rx="1" fill="currentColor"/></svg>
+      Board
+    </a>
+    <a href="#" class="nav-item">
+      <svg class="nav-icon" viewBox="0 0 15 15" fill="none"><rect x="1.5" y="2.5" width="12" height="11" rx="1.5" stroke="currentColor" stroke-width="1.3"/><path d="M1.5 6h12" stroke="currentColor" stroke-width="1.3"/><path d="M5 1.5V4M10 1.5V4" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/></svg>
+      Calendar
+      <span class="nav-badge">18</span>
+    </a>
+    <a href="article-dossier.html" class="nav-item">
+      <svg class="nav-icon" viewBox="0 0 15 15" fill="none"><path d="M3.5 1.5h5.5l3 3v9h-8.5v-12z" stroke="currentColor" stroke-width="1.3" stroke-linejoin="round"/><path d="M9 1.5v3.5h3" stroke="currentColor" stroke-width="1.3"/><path d="M5 7.5h5M5 9.5h3" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/></svg>
+      Article Dossier
+    </a>
+    <div class="nav-section">Management</div>
+    <a href="approvals.html" class="nav-item">
+      <svg class="nav-icon" viewBox="0 0 15 15" fill="none"><path d="M2 7.5L6 11.5L13 3.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      Approvals
+      <span class="nav-badge urgent">4</span>
+    </a>
+    <a href="#" class="nav-item">
+      <svg class="nav-icon" viewBox="0 0 15 15" fill="none"><circle cx="5" cy="5.5" r="2" stroke="currentColor" stroke-width="1.3"/><circle cx="10.5" cy="5.5" r="2" stroke="currentColor" stroke-width="1.3"/><path d="M1 13c0-2 1.79-3.5 4-3.5h5c2.21 0 4 1.5 4 3.5" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/></svg>
+      Team
+    </a>
+    <div class="nav-section">Discovery</div>
+    <a href="discovery.html" class="nav-item">
+      <svg class="nav-icon" viewBox="0 0 15 15" fill="none"><circle cx="6.5" cy="6.5" r="4" stroke="currentColor" stroke-width="1.3"/><path d="M11 11l2.5 2.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
+      Discovery Overview
+      <span class="nav-badge urgent">3</span>
+    </a>
+    <a href="candidate-inbox.html" class="nav-item">
+      <svg class="nav-icon" viewBox="0 0 15 15" fill="none"><path d="M1.5 4.5h12v8.5h-12z" stroke="currentColor" stroke-width="1.3" stroke-linejoin="round"/><path d="M1.5 4.5l6 4 6-4" stroke="currentColor" stroke-width="1.3" stroke-linejoin="round"/></svg>
+      Candidate Inbox
+      <span class="nav-badge">89</span>
+    </a>
+    <a href="ops-rr-queue.html" class="nav-item">
+      <svg class="nav-icon" viewBox="0 0 15 15" fill="none"><path d="M7.5 1.5v5M7.5 9.5v.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/><circle cx="7.5" cy="7.5" r="6" stroke="currentColor" stroke-width="1.3"/></svg>
+      OPS-RR Queue
+      <span class="nav-badge urgent">7</span>
+    </a>
+    <a href="sweep-run-detail.html" class="nav-item">
+      <svg class="nav-icon" viewBox="0 0 15 15" fill="none"><circle cx="7.5" cy="7.5" r="6" stroke="currentColor" stroke-width="1.3"/><path d="M7.5 4.5v3l2 2" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/></svg>
+      Sweep Run Detail
+    </a>
+    <div class="nav-section">System</div>
+    <a href="discovery-config.html" class="nav-item">
+      <svg class="nav-icon" viewBox="0 0 15 15" fill="none"><circle cx="7.5" cy="7.5" r="3" stroke="currentColor" stroke-width="1.3"/><path d="M7.5 1v1.5M7.5 12.5V14M1 7.5h1.5M12.5 7.5H14M2.9 2.9l1.1 1.1M11 11l1.1 1.1M11 2.9L9.9 4M4 11l-1.1 1.1" stroke="currentColor" stroke-width="1.2" stroke-linecap="round"/></svg>
+      Discovery Config
+    </a>
+    <a href="source-monitor.html" class="nav-item">
+      <svg class="nav-icon" viewBox="0 0 15 15" fill="none"><path d="M1.5 10.5l4-4 3 3 5-6" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"/><circle cx="13" cy="4.5" r="1" fill="currentColor"/></svg>
+      Source Health Monitor
+    </a>
+    <a href="discovery-2.html" class="nav-item active">
+      <svg class="nav-icon" viewBox="0 0 15 15" fill="none"><path d="M2.5 5.5h10M2.5 8.5h8M2.5 11.5h5" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/><rect x="1.5" y="1.5" width="12" height="12" rx="1.5" stroke="currentColor" stroke-width="1.3"/></svg>
+      Discovery Audit Log
+    </a>
+    <a href="design-system.html" class="nav-item">
+      <svg class="nav-icon" viewBox="0 0 15 15" fill="none"><circle cx="4" cy="4" r="1.5" fill="currentColor"/><circle cx="11" cy="4" r="1.5" fill="currentColor"/><circle cx="4" cy="11" r="1.5" fill="currentColor"/><circle cx="11" cy="11" r="1.5" fill="currentColor"/><circle cx="7.5" cy="7.5" r="1.5" fill="currentColor"/></svg>
+      Design System
+    </a>
+    <a href="#" class="nav-item">
+      <svg class="nav-icon" viewBox="0 0 15 15" fill="none"><circle cx="7.5" cy="7.5" r="5.5" stroke="currentColor" stroke-width="1.3"/><circle cx="7.5" cy="7.5" r="2" stroke="currentColor" stroke-width="1.3"/></svg>
+      Settings
+    </a>
+  </nav>
+  <div class="sidebar-user">
+    <div class="avatar-sm">DM</div>
+    <div style="min-width:0">
+      <span class="user-name">D. Mackenzie</span>
+      <span class="user-role">Senior Editor</span>
+    </div>
+  </div>
+</aside>
+
+<header class="topbar">
+  <span class="topbar-title">Discovery</span>
+  <span class="topbar-sep">/</span>
+  <span class="topbar-sub">Audit Log</span>
+  <button class="theme-toggle" onclick="toggleTheme()">
+    <svg width="12" height="12" viewBox="0 0 12 12" fill="none"><circle cx="6" cy="6" r="2.5" stroke="currentColor" stroke-width="1.2"/><path d="M6 1v1M6 10v1M1 6h1M10 6h1M2.64 2.64l.71.71M8.65 8.65l.71.71M2.64 9.36l.71-.71M8.65 3.35l.71-.71" stroke="currentColor" stroke-width="1.2" stroke-linecap="round"/></svg>
+    <span id="theme-label">Light mode</span>
+  </button>
+  <button class="icon-btn" title="Notifications">
+    <svg width="14" height="14" viewBox="0 0 14 14" fill="none"><path d="M7 1.5a4 4 0 0 1 4 4v2.5l1 2H2l1-2V5.5a4 4 0 0 1 4-4z" stroke="currentColor" stroke-width="1.2"/><path d="M5.5 11.5a1.5 1.5 0 0 0 3 0" stroke="currentColor" stroke-width="1.2" stroke-linecap="round"/></svg>
+  </button>
+  <div class="topbar-avatar">DM</div>
+</header>
+
+<main class="main">
+  <!-- Filter bar -->
+  <div class="filter-bar">
+    <div class="filter-group">
+      <span class="f-label">Date</span>
+      <input type="text" class="f-input" value="28 May 2026" style="width:116px">
+      <span class="f-label" style="color:var(--border-mid)">—</span>
+      <input type="text" class="f-input" value="Today" style="width:60px">
+    </div>
+    <div class="filter-sep"></div>
+    <div class="filter-group" style="gap:4px">
+      <span class="f-label">Type</span>
+      <button class="f-chip on" onclick="toggleChip(this)">All</button>
+      <button class="f-chip" onclick="toggleChip(this)">Sweep</button>
+      <button class="f-chip" onclick="toggleChip(this)">Candidate</button>
+      <button class="f-chip" onclick="toggleChip(this)">OPS-RR</button>
+      <button class="f-chip" onclick="toggleChip(this)">Config</button>
+      <button class="f-chip" onclick="toggleChip(this)">Operator</button>
+    </div>
+    <div class="filter-sep"></div>
+    <input type="text" class="f-input" placeholder="Sweep ID, candidate, entity…" style="width:200px" oninput="filterRows(this.value)">
+    <select class="f-select" style="width:130px">
+      <option>All sources</option>
+      <option>companies-house-api</option>
+      <option>northsea.com</option>
+      <option>pa-wire.co.uk</option>
+      <option>bbc.co.uk/scotland</option>
+    </select>
+    <select class="f-select" style="width:120px">
+      <option>All operators</option>
+      <option>D. Mackenzie</option>
+      <option>S. Reid</option>
+      <option>A. Thompson</option>
+      <option>System</option>
+    </select>
+    <button class="btn btn-ghost" style="margin-left:auto" onclick="exportLog()">
+      <svg width="12" height="12" viewBox="0 0 12 12" fill="none"><path d="M2 9h8M6 1v6M3.5 4.5L6 7l2.5-2.5" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      Export CSV
+    </button>
+  </div>
+
+  <!-- Stats strip -->
+  <div class="stats-strip">
+    <div class="stat-cell"><span class="sc-val">284</span><span class="sc-label">Events today</span></div>
+    <div class="stat-cell"><div class="sc-dot" style="background:var(--success)"></div><span class="sc-val" style="font-size:14px;color:var(--success)">4</span><span class="sc-label">Sweeps complete</span></div>
+    <div class="stat-cell"><div class="sc-dot" style="background:var(--accent)"></div><span class="sc-val" style="font-size:14px;color:var(--accent)">247</span><span class="sc-label">Candidates routed</span></div>
+    <div class="stat-cell"><div class="sc-dot" style="background:var(--warn)"></div><span class="sc-val" style="font-size:14px;color:var(--warn)">14</span><span class="sc-label">Parse failures</span></div>
+    <div class="stat-cell"><div class="sc-dot" style="background:var(--danger)"></div><span class="sc-val" style="font-size:14px;color:var(--danger)">3</span><span class="sc-label">OPS-RR raised</span></div>
+    <div class="stat-cell"><div class="sc-dot" style="background:rgba(168,85,247,.8)"></div><span class="sc-val" style="font-size:14px;color:#c084fc">2</span><span class="sc-label">Config changes</span></div>
+    <div class="stat-cell"><span class="sc-label" style="font-family:var(--mono);font-size:10.5px;margin-right:4px">Refreshed</span><span class="sc-val" style="font-size:13px" id="last-refresh">—</span></div>
+  </div>
+
+  <!-- Table + drawer -->
+  <div class="table-area">
+    <div class="table-wrap">
+      <table id="log-table">
+        <thead>
+          <tr>
+            <th class="sort-desc" onclick="sortBy(0)">Timestamp</th>
+            <th onclick="sortBy(1)">Type</th>
+            <th onclick="sortBy(2)">Entity</th>
+            <th>Summary</th>
+            <th onclick="sortBy(4)">Source</th>
+            <th onclick="sortBy(5)">Actor</th>
+            <th></th>
+          </tr>
+        </thead>
+        <tbody id="log-body"></tbody>
+      </table>
+    </div>
+
+    <aside class="drawer" id="drawer">
+      <div id="drawer-content">
+        <div class="empty-drawer">
+          <svg width="28" height="28" viewBox="0 0 28 28" fill="none"><rect x="3" y="4" width="22" height="20" rx="2.5" stroke="currentColor" stroke-width="1.4" opacity=".3"/><path d="M8 10h12M8 14h8M8 18h5" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" opacity=".3"/></svg>
+          <span class="empty-drawer-title">No event selected</span>
+          <span class="empty-drawer-sub">Click any row to inspect its full payload and related links.</span>
+        </div>
+      </div>
+    </aside>
+  </div>
+
+  <!-- Pager -->
+  <div class="pager">
+    <span class="pager-info">Showing 1–27 of 284 events · filtered to 2 days</span>
+    <button class="page-btn" disabled>← Prev</button>
+    <button class="page-btn active">1</button>
+    <button class="page-btn">2</button>
+    <button class="page-btn">3</button>
+    <span style="font-size:12px;color:var(--muted)">…</span>
+    <button class="page-btn">6</button>
+    <button class="page-btn">Next →</button>
+  </div>
+</main>
+</div>
+
+<script>
+const EVENTS = [
+  { id:'EVT-8841', ts:'10:17:38', date:'Today',     type:'heartbeat',  label:'Heartbeat',       cls:'eb-heartbeat', entity:'RR-2841',    sub:'AM Sweep',          summary:'Heartbeat recorded. 42/42 sites checked. In-progress.',       source:'—',                    layer:'',   actor:'System',       actorType:'sys',  link:'sweep-run-detail.html' },
+  { id:'EVT-8840', ts:'10:14:51', date:'Today',     type:'ops-res',    label:'OPS Resolved',    cls:'eb-ops-res',   entity:'OPS-RR-0138',sub:'northsea.com',       summary:'OPS-RR-0138 marked resolved by S. Reid. Streak reset to 0.',  source:'northsea.com',         layer:'L2', actor:'S. Reid',      actorType:'op',   av:'SR', avBg:'#1e3a5f', link:'ops-rr-queue.html' },
+  { id:'EVT-8839', ts:'10:12:07', date:'Today',     type:'config',     label:'Config Changed',  cls:'eb-config',    entity:'CFG-v2.7.1', sub:'Source Layer',       summary:'northsea.com parse_timeout raised 8s → 12s.',               source:'northsea.com',         layer:'L2', actor:'S. Reid',      actorType:'op',   av:'SR', avBg:'#1e3a5f', link:'discovery-config.html' },
+  { id:'EVT-8838', ts:'10:09:24', date:'Today',     type:'candidate',  label:'Candidate Routed',cls:'eb-candidate', entity:'RR-C-5052',  sub:'Ready · L1',         summary:'Rosebank field arbitration briefing — routed to F1 triage.',  source:'energy-voice.com',     layer:'L1', actor:'System',       actorType:'sys',  link:'candidate-inbox.html' },
+  { id:'EVT-8837', ts:'10:07:18', date:'Today',     type:'held',       label:'Candidate Held',  cls:'eb-held',      entity:'RR-C-5051',  sub:'Held · Dedup',       summary:'ONS regional output data — near-match CHR-2843 (82%). Held.', source:'ons.gov.uk',            layer:'L3', actor:'System',       actorType:'sys',  link:'candidate-inbox.html' },
+  { id:'EVT-8836', ts:'10:05:44', date:'Today',     type:'candidate',  label:'Candidate Routed',cls:'eb-candidate', entity:'RR-C-5050',  sub:'Ready · L2',         summary:'NHS Grampian A&E waiting times Q1 2026 — routed to F1.',     source:'bbc.co.uk/scotland',   layer:'L2', actor:'System',       actorType:'sys',  link:'candidate-inbox.html' },
+  { id:'EVT-8835', ts:'10:03:52', date:'Today',     type:'ops-rr',     label:'OPS-RR Raised',   cls:'eb-ops-rr',    entity:'OPS-RR-0143',sub:'P2 · Open',          summary:'Scottish Legal News parse failure streak 4. OPS-RR-0143 auto-created.', source:'scottishlegal.com', layer:'L2', actor:'System', actorType:'sys', link:'ops-rr-queue.html' },
+  { id:'EVT-8834', ts:'09:58:12', date:'Today',     type:'verify',     label:'Verify Fail',     cls:'eb-verify',    entity:'RR-C-5048',  sub:'Held · Verify',      summary:'Primary URL resolution failed. 3 redirect hops, final 404.', source:'northsea.com',         layer:'L2', actor:'System',       actorType:'sys',  link:'candidate-inbox.html' },
+  { id:'EVT-8833', ts:'09:54:39', date:'Today',     type:'sweep-ok',   label:'Sweep Complete',  cls:'eb-sweep-ok',  entity:'RR-2841',    sub:'AM Sweep',           summary:'AM sweep RR-2841 complete. 247 candidates. 4m 34s duration.',source:'42 sources',           layer:'',   actor:'System',       actorType:'sys',  link:'sweep-run-detail.html' },
+  { id:'EVT-8832', ts:'09:54:38', date:'Today',     type:'ops-rr',     label:'OPS-RR Raised',   cls:'eb-ops-rr',    entity:'OPS-RR-0142',sub:'P1 · Investigating', summary:'Companies House API schema change — XPath mismatch. P1 SLA breach imminent.', source:'companies-house.gov.uk', layer:'L3', actor:'System', actorType:'sys', link:'ops-rr-queue.html' },
+  { id:'EVT-8831', ts:'09:49:07', date:'Today',     type:'dedup',      label:'Dedup Match',     cls:'eb-dedup',     entity:'RR-C-5047',  sub:'Held · Dedup',       summary:'Aberdeen City Council housing — exact match gather index GI-1842. Held.', source:'aberdeencity.gov.uk', layer:'L3', actor:'System', actorType:'sys', link:'candidate-inbox.html' },
+  { id:'EVT-8830', ts:'09:47:33', date:'Today',     type:'candidate',  label:'Candidate Routed',cls:'eb-candidate', entity:'RR-C-5046',  sub:'Ready · L3',         summary:'Holyrood energy debate transcript — routed to F1 triage.',   source:'parliament.scot',      layer:'L3', actor:'System',       actorType:'sys',  link:'candidate-inbox.html' },
+  { id:'EVT-8829', ts:'09:43:18', date:'Today',     type:'operator',   label:'Operator Note',   cls:'eb-operator',  entity:'SRC-0047',   sub:'northsea.com',       summary:'Note: "northsea.com back online after maintenance window."', source:'northsea.com',         layer:'L2', actor:'D. Mackenzie', actorType:'op',   av:'DM', avBg:'#1a2f5a', link:'source-monitor.html' },
+  { id:'EVT-8828', ts:'09:38:51', date:'Today',     type:'sweep-fail', label:'Sweep Partial',   cls:'eb-sweep-fail',entity:'RR-2841',    sub:'AM In-progress',     summary:'northsea.com unreachable (503). Failure streak 8. Escalation queued.', source:'northsea.com', layer:'L2', actor:'System', actorType:'sys', link:'sweep-run-detail.html' },
+  { id:'EVT-8827', ts:'09:22:09', date:'Today',     type:'candidate',  label:'Candidate Routed',cls:'eb-candidate', entity:'RR-C-5044',  sub:'Ready · L1',         summary:'PA Wire: Scottish Barclays branch closures confirmation.',   source:'pa-wire.co.uk',        layer:'L1', actor:'System',       actorType:'sys',  link:'candidate-inbox.html' },
+  { id:'EVT-8826', ts:'09:10:44', date:'Today',     type:'ops-rr',     label:'OPS-RR Raised',   cls:'eb-ops-rr',    entity:'OPS-RR-0141',sub:'P2 · Open',          summary:'BBC Scotland rate limit triggered (HTTP 429). OPS-RR-0141 raised.', source:'bbc.co.uk/scotland', layer:'L2', actor:'System', actorType:'sys', link:'ops-rr-queue.html' },
+  { id:'EVT-8825', ts:'09:05:12', date:'Today',     type:'config',     label:'Config Published', cls:'eb-config',   entity:'CFG-v2.7.0', sub:'Published',          summary:'Config v2.7.0 published. Signal-only list: +3 L4 domains.',   source:'—',                    layer:'',   actor:'A. Thompson',  actorType:'op',   av:'AT', avBg:'#1a3a2f', link:'discovery-config.html' },
+  { id:'EVT-8824', ts:'06:02:14', date:'Today',     type:'sweep-ok',   label:'Sweep Complete',  cls:'eb-sweep-ok',  entity:'RR-2840',    sub:'Early AM',           summary:'Early AM check-run complete. 189 candidates. 3m 51s.',       source:'42 sources',           layer:'',   actor:'System',       actorType:'sys',  link:'sweep-run-detail.html' },
+  { id:'EVT-8823', ts:'18:47:29', date:'Yesterday', type:'sweep-fail', label:'Sweep Failed',    cls:'eb-sweep-fail',entity:'RR-2839',    sub:'PM Sweep',           summary:'PM sweep RR-2839 failed. Companies House 503 for all requests. 0 candidates.', source:'companies-house.gov.uk', layer:'L3', actor:'System', actorType:'sys', link:'sweep-run-detail.html' },
+  { id:'EVT-8822', ts:'18:22:08', date:'Yesterday', type:'ops-res',    label:'OPS Resolved',    cls:'eb-ops-res',   entity:'OPS-RR-0140',sub:'P1 Resolved',        summary:'OPS-RR-0140 resolved. Companies House API restored.',         source:'companies-house.gov.uk',layer:'L3', actor:'A. Thompson', actorType:'op',  av:'AT', avBg:'#1a3a2f', link:'ops-rr-queue.html' },
+  { id:'EVT-8821', ts:'17:44:55', date:'Yesterday', type:'escalation', label:'REC-ESC',         cls:'eb-escalation',entity:'REC-ESC-0071',sub:'northsea.com',      summary:'northsea.com streak exceeded threshold (7). REC-ESC-0071 auto-triggered.', source:'northsea.com', layer:'L2', actor:'System', actorType:'sys', link:'ops-rr-queue.html' },
+  { id:'EVT-8820', ts:'17:39:01', date:'Yesterday', type:'candidate',  label:'Candidate Routed',cls:'eb-candidate', entity:'RR-C-5039',  sub:'Ready · L2',         summary:'Court of Session ruling on Aberdeen planning appeal.',        source:'scotcourts.gov.uk',    layer:'L2', actor:'System',       actorType:'sys',  link:'candidate-inbox.html' },
+  { id:'EVT-8819', ts:'17:35:44', date:'Yesterday', type:'dedup',      label:'Dedup Match',     cls:'eb-dedup',     entity:'RR-C-5038',  sub:'Held · Dedup',       summary:'STV Politics: ferry procurement — WordPress match to published article.', source:'stv.tv', layer:'L2', actor:'System', actorType:'sys', link:'candidate-inbox.html' },
+  { id:'EVT-8818', ts:'16:58:20', date:'Yesterday', type:'verify',     label:'Verify Fail',     cls:'eb-verify',    entity:'RR-C-5037',  sub:'Pointer Only',       summary:'Signal-only domain triggered for theenergyst.com — pointer routing applied.', source:'theenergyst.com', layer:'L4', actor:'System', actorType:'sys', link:'candidate-inbox.html' },
+  { id:'EVT-8817', ts:'14:12:44', date:'Yesterday', type:'sweep-ok',   label:'Sweep Complete',  cls:'eb-sweep-ok',  entity:'RR-2838',    sub:'PM Sweep',           summary:'PM sweep RR-2838 complete. 203 candidates. 5m 12s.',          source:'42 sources',           layer:'',   actor:'System',       actorType:'sys',  link:'sweep-run-detail.html' },
+  { id:'EVT-8816', ts:'11:28:37', date:'Yesterday', type:'operator',   label:'Operator Note',   cls:'eb-operator',  entity:'SRC-0033',   sub:'Companies House API',summary:'Note: "API key rotation scheduled 18:00. Expect brief outage."', source:'companies-house.gov.uk', layer:'L3', actor:'S. Reid', actorType:'op', av:'SR', avBg:'#1e3a5f', link:'source-monitor.html' },
+  { id:'EVT-8815', ts:'09:51:18', date:'Yesterday', type:'sweep-ok',   label:'Sweep Complete',  cls:'eb-sweep-ok',  entity:'RR-2837',    sub:'AM Sweep',           summary:'AM sweep RR-2837 complete. 231 candidates. 4m 18s.',          source:'42 sources',           layer:'',   actor:'System',       actorType:'sys',  link:'sweep-run-detail.html' },
+];
+
+const PAYLOADS = {
+  'EVT-8833': { event_id:'"EVT-8833"', type:'"SWEEP_COMPLETE"', sweep_id:'"RR-2841"', sweep_slot:'"AM"', started_at:'"09:50:05Z"', duration_s:274, sites_checked:42, reached_items:31, reached_empty:5, parse_fail:4, not_reached:2, candidates:247, dedup_holds:31, escalations:3 },
+  'EVT-8832': { event_id:'"EVT-8832"', type:'"OPS_RR_RAISED"', alert_id:'"OPS-RR-0142"', severity:'"P1"', source:'"companies-house.gov.uk"', trigger:'"PARSE_FAILURE"', consecutive_failures:3, sla_breach_at:'"10:54:38Z"', auto_created:true },
+  'EVT-8839': { event_id:'"EVT-8839"', type:'"CONFIG_CHANGED"', version:'"v2.7.1"', changed_by:'"S. Reid"', target:'"northsea.com"', field:'"parse_timeout_seconds"', old_value:8, new_value:12, reason:'"Source shows slow responses under load"' },
+  'EVT-8821': { event_id:'"EVT-8821"', type:'"REC_ESC_TRIGGERED"', alert_id:'"REC-ESC-0071"', source:'"northsea.com"', failure_streak:7, threshold:5, auto_triggered:true, timestamp:'"17:44:55Z"' },
+};
+
+let activeRow = null;
+let activeIdx = null;
+
+function renderTable() {
+  const tbody = document.getElementById('log-body');
+  let html = '';
+  let lastDate = null;
+  EVENTS.forEach((e, i) => {
+    if (e.date !== lastDate) {
+      html += `<tr class="date-row"><td colspan="7"><span class="date-label">${e.date}</span></td></tr>`;
+      lastDate = e.date;
+    }
+    const actorCell = e.actorType === 'sys'
+      ? `<span class="system-actor">SYSTEM</span>`
+      : `<div class="actor-row"><div class="av-xs" style="background:${e.avBg||'#1a2f4a'};color:#7eb8f0">${e.av||'?'}</div><span class="actor-name">${e.actor}</span></div>`;
+    html += `<tr data-idx="${i}" onclick="selectRow(this,${i})">
+      <td class="td-ts">${e.ts}</td>
+      <td><span class="evt-badge ${e.cls}">${e.label}</span></td>
+      <td class="td-entity"><a class="entity-id" href="${e.link}">${e.entity}</a><span class="entity-sub">${e.sub}</span></td>
+      <td class="td-summary"><span class="summary-text">${e.summary}</span></td>
+      <td class="td-source"><span class="src-name" title="${e.source}">${e.source}</span>${e.layer ? `<span class="src-layer">${e.layer}</span>` : ''}</td>
+      <td class="td-actor">${actorCell}</td>
+      <td class="td-link"><span class="link-icon" onclick="event.stopPropagation();location.href='${e.link}'"><svg width="11" height="11" viewBox="0 0 11 11" fill="none"><path d="M2 9L9 2M9 2H4M9 2v5" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"/></svg></span></td>
+    </tr>`;
+  });
+  tbody.innerHTML = html;
+}
+
+function selectRow(row, idx) {
+  if (activeRow) activeRow.classList.remove('selected');
+  if (activeIdx === idx) { activeRow = null; activeIdx = null; document.getElementById('drawer').classList.remove('open'); return; }
+  row.classList.add('selected');
+  activeRow = row; activeIdx = idx;
+  document.getElementById('drawer').classList.add('open');
+  renderDrawer(idx);
+}
+
+function selectRowByIdx(idx) {
+  if (idx < 0 || idx >= EVENTS.length) return;
+  const rows = document.querySelectorAll('#log-body tr[data-idx]');
+  rows.forEach(r => { if (+r.getAttribute('data-idx') === idx) selectRow(r, idx); });
+}
+
+function closeDrawer() {
+  if (activeRow) activeRow.classList.remove('selected');
+  activeRow = null; activeIdx = null;
+  document.getElementById('drawer').classList.remove('open');
+}
+
+function renderDrawer(idx) {
+  const e = EVENTS[idx];
+  const payload = PAYLOADS[e.id];
+  const prev = idx > 0 ? idx - 1 : null;
+  const next = idx < EVENTS.length - 1 ? idx + 1 : null;
+
+  let payloadHtml = payload
+    ? Object.entries(payload).map(([k, v]) => {
+        const cls = typeof v === 'string' ? 'payload-str' : typeof v === 'boolean' ? 'payload-bool' : 'payload-num';
+        return `<span class="payload-key">${k}</span>: <span class="${cls}">${v}</span>`;
+      }).join('\n')
+    : `<span class="payload-key">event_id</span>: <span class="payload-str">"${e.id}"</span>\n<span class="payload-key">type</span>: <span class="payload-str">"${e.label.toUpperCase().replace(/ /g,'_')}"</span>\n<span class="payload-key">timestamp</span>: <span class="payload-str">"${e.date} ${e.ts}"</span>\n<span class="payload-key">entity</span>: <span class="payload-str">"${e.entity}"</span>\n<span class="payload-key">source</span>: <span class="payload-str">"${e.source}"</span>\n<span class="payload-key">actor</span>: <span class="payload-str">"${e.actor}"</span>`;
+
+  const relLinks = buildRelated(e);
+  const adjPrev = next !== null ? `<div class="adj-evt" onclick="selectRowByIdx(${next})"><span class="adj-ts">${EVENTS[next].ts}</span><span class="evt-badge ${EVENTS[next].cls}" style="font-size:9px;padding:1px 4px">${EVENTS[next].label}</span><span class="adj-sum">${EVENTS[next].summary}</span></div>` : '';
+  const adjNext = prev !== null ? `<div class="adj-evt" onclick="selectRowByIdx(${prev})"><span class="adj-ts">${EVENTS[prev].ts}</span><span class="evt-badge ${EVENTS[prev].cls}" style="font-size:9px;padding:1px 4px">${EVENTS[prev].label}</span><span class="adj-sum">${EVENTS[prev].summary}</span></div>` : '';
+
+  document.getElementById('drawer-content').innerHTML = `
+    <div class="drawer-head">
+      <div style="flex:1;min-width:0">
+        <span class="drawer-id">${e.id}</span>
+        <span class="drawer-title">${e.summary.slice(0,70)}${e.summary.length>70?'…':''}</span>
+      </div>
+      <button class="drawer-close" onclick="closeDrawer()"><svg width="10" height="10" viewBox="0 0 10 10" fill="none"><path d="M1 1l8 8M9 1L1 9" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/></svg></button>
+    </div>
+    <div class="drawer-nav">
+      <button class="drawer-nav-btn" ${next===null?'disabled':''} onclick="selectRowByIdx(${next})">← Older</button>
+      <button class="drawer-nav-btn" ${prev===null?'disabled':''} onclick="selectRowByIdx(${prev})">Newer →</button>
+      <span class="drawer-nav-pos">${idx+1} / ${EVENTS.length}</span>
+    </div>
+    <div class="drawer-body">
+      <div class="d-section">
+        <span class="d-label">Event metadata</span>
+        <div class="d-meta-grid">
+          <span class="d-meta-key">ID</span><span class="d-meta-val hi">${e.id}</span>
+          <span class="d-meta-key">Timestamp</span><span class="d-meta-val">${e.date} ${e.ts}</span>
+          <span class="d-meta-key">Type</span><span class="d-meta-val"><span class="evt-badge ${e.cls}">${e.label}</span></span>
+          <span class="d-meta-key">Entity</span><span class="d-meta-val link" onclick="location.href='${e.link}'">${e.entity}</span>
+          <span class="d-meta-key">Source</span><span class="d-meta-val">${e.source}${e.layer?' · '+e.layer:''}</span>
+          <span class="d-meta-key">Actor</span><span class="d-meta-val">${e.actor}</span>
+        </div>
+      </div>
+      <div class="d-section">
+        <span class="d-label">Event payload</span>
+        <div class="payload-block">${payloadHtml}</div>
+      </div>
+      <div class="d-section">
+        <span class="d-label">Related</span>
+        <div class="related-links">${relLinks || '<span style="font-size:12px;color:var(--muted)">No linked entities.</span>'}</div>
+      </div>
+      <div class="d-section">
+        <span class="d-label">Adjacent events</span>
+        <div class="adj-events">${adjPrev}${adjNext}</div>
+      </div>
+    </div>`;
+}
+
+function buildRelated(e) {
+  const out = [];
+  if (e.entity.startsWith('RR-') && !e.entity.startsWith('RR-C-')) out.push(['Sweep Run Detail', e.entity, 'sweep-run-detail.html']);
+  if (e.entity.startsWith('RR-C-')) { out.push(['Candidate Detail', e.entity, 'candidate-detail.html']); out.push(['Candidate Inbox', 'Filtered view', 'candidate-inbox.html']); }
+  if (e.entity.startsWith('OPS-RR-') || e.entity.startsWith('REC-ESC-')) out.push(['OPS-RR Queue', e.entity, 'ops-rr-queue.html']);
+  if (e.entity.startsWith('CFG-')) out.push(['Discovery Config', e.entity, 'discovery-config.html']);
+  if (e.entity.startsWith('SRC-')) out.push(['Source Health Monitor', e.entity, 'source-monitor.html']);
+  if (e.source && e.source !== '—' && e.source !== '42 sources') out.push(['Source Health', e.source, 'source-monitor.html']);
+  return out.map(([label, id, href]) => `<a class="rel-link" href="${href}"><svg width="12" height="12" viewBox="0 0 12 12" fill="none"><path d="M2 10L10 2M10 2H5M10 2v5" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"/></svg><span class="rel-link-label">${label}</span><span class="rel-link-id">${id}</span></a>`).join('');
+}
+
+function toggleChip(el) {
+  document.querySelectorAll('.f-chip').forEach(c => c.classList.remove('on'));
+  el.classList.add('on');
+}
+
+function filterRows(q) {
+  const rows = document.querySelectorAll('#log-body tr[data-idx]');
+  rows.forEach(r => {
+    r.style.display = q ? (r.textContent.toLowerCase().includes(q.toLowerCase()) ? '' : 'none') : '';
+  });
+}
+
+function sortBy(col) {
+  const ths = document.querySelectorAll('thead th');
+  ths.forEach(t => t.classList.remove('sort-asc','sort-desc'));
+  ths[col].classList.add('sort-desc');
+}
+
+function exportLog() {
+  const csv = 'Event ID,Timestamp,Type,Entity,Summary,Source,Actor\n' +
+    EVENTS.map(e => [e.id, `${e.date} ${e.ts}`, e.label, e.entity, `"${e.summary}"`, e.source, e.actor].join(',')).join('\n');
+  const a = Object.assign(document.createElement('a'), { href: URL.createObjectURL(new Blob([csv],{type:'text/csv'})), download:'discovery-audit-log.csv' });
+  a.click();
+}
+
+function toggleTheme() {
+  const html = document.documentElement;
+  const isDark = html.getAttribute('data-theme') === 'dark';
+  html.setAttribute('data-theme', isDark ? 'light' : 'dark');
+  document.getElementById('theme-label').textContent = isDark ? 'Dark mode' : 'Light mode';
+}
+
+function tick() {
+  const el = document.getElementById('last-refresh');
+  if (el) el.textContent = new Date().toTimeString().slice(0,8);
+}
+setInterval(tick, 1000); tick();
+renderTable();
+</script>
+</body>
+</html>

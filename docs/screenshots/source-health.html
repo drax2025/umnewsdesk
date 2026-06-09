@@ -1,0 +1,1005 @@
+<!doctype html>
+<html lang="en" data-theme="dark">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Source Health — northsea.com — Union Media</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg:             #0b0d12;
+  --surface:        #10131c;
+  --surface-2:      #161d2e;
+  --fg:             #dde4f0;
+  --fg-2:           #7e8ea8;
+  --muted:          #4b5672;
+  --border:         #1c2438;
+  --border-mid:     #273047;
+  --accent:         #3b82f6;
+  --accent-on:      #fff;
+  --accent-hover:   #2563eb;
+  --accent-subtle:  rgba(59,130,246,.10);
+  --success:        #22c55e;
+  --success-subtle: rgba(34,197,94,.08);
+  --warn:           #f59e0b;
+  --warn-subtle:    rgba(245,158,11,.08);
+  --danger:         #ef4444;
+  --danger-subtle:  rgba(239,68,68,.08);
+  --font: Inter, "Helvetica Neue", system-ui, sans-serif;
+  --mono: "SF Mono", "Cascadia Code", ui-monospace, Menlo, monospace;
+  --sidebar-w: 216px;
+  --topbar-h:  48px;
+  --r: 6px;
+}
+[data-theme="light"] {
+  --bg:             #f4f6f9;
+  --surface:        #ffffff;
+  --surface-2:      #eef1f6;
+  --fg:             #0d1117;
+  --fg-2:           #4a5568;
+  --muted:          #8b95a8;
+  --border:         #dde3ed;
+  --border-mid:     #c7d0e0;
+  --accent:         #2563eb;
+  --accent-on:      #fff;
+  --accent-hover:   #1d4ed8;
+  --accent-subtle:  rgba(37,99,235,.09);
+  --success:        #16a34a;
+  --success-subtle: rgba(22,163,74,.08);
+  --warn:           #d97706;
+  --warn-subtle:    rgba(217,119,6,.08);
+  --danger:         #dc2626;
+  --danger-subtle:  rgba(220,38,38,.08);
+}
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+html, body {
+  height: 100%; background: var(--bg); color: var(--fg);
+  font-family: var(--font); font-size: 13px; line-height: 1.45;
+  -webkit-font-smoothing: antialiased;
+}
+.shell {
+  display: grid;
+  grid-template-columns: var(--sidebar-w) 1fr;
+  grid-template-rows: var(--topbar-h) 1fr;
+  height: 100vh; overflow: hidden;
+}
+/* ── SIDEBAR ── */
+.sidebar {
+  grid-row: 1 / 3; background: var(--surface);
+  border-right: 1px solid var(--border);
+  display: flex; flex-direction: column; overflow-y: auto;
+}
+.sidebar-pub { padding: 14px 16px 12px; border-bottom: 1px solid var(--border); }
+.pub-name { font-size: 13px; font-weight: 600; color: var(--fg); letter-spacing: -0.015em; display: block; }
+.pub-meta { font-size: 11px; color: var(--muted); margin-top: 2px; font-family: var(--mono); font-variant-numeric: tabular-nums; }
+.sidebar-nav { padding: 8px 0; flex: 1; }
+.nav-section { padding: 14px 16px 4px; font-size: 10px; font-weight: 600; letter-spacing: 0.07em; text-transform: uppercase; color: var(--muted); }
+.nav-item {
+  display: flex; align-items: center; gap: 9px;
+  padding: 7px 16px; font-size: 13px; color: var(--fg-2);
+  cursor: pointer; text-decoration: none; position: relative;
+  transition: background 100ms, color 100ms;
+}
+.nav-item:hover { background: var(--surface-2); color: var(--fg); }
+.nav-item.active { color: var(--fg); background: var(--accent-subtle); }
+.nav-item.active::before {
+  content: ''; position: absolute; left: 0; top: 4px; bottom: 4px;
+  width: 2px; background: var(--accent); border-radius: 0 2px 2px 0;
+}
+.nav-icon { width: 15px; height: 15px; flex-shrink: 0; opacity: .65; }
+.nav-item.active .nav-icon, .nav-item:hover .nav-icon { opacity: 1; }
+.nav-badge {
+  margin-left: auto; font-size: 10px; font-family: var(--mono);
+  font-variant-numeric: tabular-nums; color: var(--muted);
+  background: var(--bg); border: 1px solid var(--border);
+  padding: 1px 6px; border-radius: 9999px; line-height: 1.6;
+}
+.nav-badge.urgent { color: var(--warn); border-color: rgba(245,158,11,.4); background: var(--warn-subtle); }
+.sidebar-user {
+  padding: 12px 16px; border-top: 1px solid var(--border);
+  display: flex; align-items: center; gap: 9px;
+}
+.avatar-sm {
+  width: 26px; height: 26px; border-radius: 50%;
+  background: var(--accent-subtle); border: 1px solid var(--border-mid);
+  display: flex; align-items: center; justify-content: center;
+  font-size: 10px; font-weight: 700; color: var(--accent);
+  flex-shrink: 0; font-family: var(--mono);
+}
+.user-name { font-size: 12px; font-weight: 500; color: var(--fg); display: block; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.user-role { font-size: 11px; color: var(--muted); display: block; }
+/* ── TOPBAR ── */
+.topbar {
+  background: var(--surface); border-bottom: 1px solid var(--border);
+  display: flex; align-items: center; padding: 0 18px; gap: 7px;
+}
+.topbar-back {
+  display: flex; align-items: center; gap: 4px;
+  font-size: 12px; color: var(--fg-2); cursor: pointer;
+  padding: 3px 7px 3px 3px; border-radius: var(--r);
+  text-decoration: none; transition: background 100ms, color 100ms; flex-shrink: 0;
+}
+.topbar-back:hover { background: var(--surface-2); color: var(--fg); }
+.topbar-sep { color: var(--border-mid); font-size: 14px; line-height: 1; }
+.topbar-crumb { font-size: 12px; color: var(--fg-2); flex-shrink: 0; }
+.topbar-crumb.active { color: var(--fg); font-weight: 500; }
+.topbar-spacer { flex: 1; }
+.theme-toggle {
+  display: flex; align-items: center; gap: 5px; height: 28px; padding: 0 10px;
+  border: 1px solid var(--border); border-radius: var(--r);
+  background: transparent; color: var(--fg-2); font-size: 11.5px; font-family: var(--font);
+  cursor: pointer; transition: background 100ms, color 100ms;
+}
+.theme-toggle:hover { background: var(--surface-2); color: var(--fg); }
+.icon-btn {
+  width: 28px; height: 28px; display: flex; align-items: center; justify-content: center;
+  border: 1px solid var(--border); background: transparent; border-radius: var(--r);
+  color: var(--fg-2); cursor: pointer; transition: background 100ms, color 100ms; flex-shrink: 0;
+}
+.icon-btn:hover { background: var(--surface-2); color: var(--fg); }
+.topbar-avatar {
+  width: 28px; height: 28px; border-radius: 50%;
+  background: var(--accent-subtle); border: 1px solid var(--border-mid);
+  display: flex; align-items: center; justify-content: center;
+  font-size: 10px; font-weight: 700; color: var(--accent);
+  cursor: pointer; font-family: var(--mono); flex-shrink: 0;
+}
+/* ── MAIN ── */
+.main { overflow: hidden; background: var(--bg); display: flex; flex-direction: column; }
+/* ── SOURCE HEADER ── */
+.src-header {
+  background: var(--surface); border-bottom: 1px solid var(--border);
+  padding: 12px 18px 11px; flex-shrink: 0;
+}
+.src-header-top { display: flex; align-items: flex-start; gap: 10px; margin-bottom: 9px; }
+.src-url-block { flex: 1; min-width: 0; }
+.src-url {
+  font-size: 15px; font-weight: 600; color: var(--fg); letter-spacing: -0.02em;
+  font-family: var(--mono); display: block; margin-bottom: 3px;
+}
+.src-sub { font-size: 11.5px; color: var(--fg-2); }
+.src-badges { display: flex; align-items: center; gap: 5px; flex-shrink: 0; padding-top: 2px; }
+.src-actions { display: flex; gap: 5px; flex-shrink: 0; }
+.badge-degraded {
+  display: inline-flex; align-items: center; gap: 4px;
+  padding: 2px 7px; border-radius: 9999px; font-size: 10.5px; font-weight: 700;
+  letter-spacing: 0.04em; text-transform: uppercase;
+  background: var(--warn-subtle); border: 1px solid rgba(245,158,11,.4); color: var(--warn);
+}
+.badge-degraded::before { content: ''; width: 5px; height: 5px; border-radius: 50%; background: var(--warn); }
+.layer-badge {
+  display: inline-flex; align-items: center; padding: 2px 6px; border-radius: 3px;
+  font-size: 10px; font-weight: 700; letter-spacing: 0.05em; text-transform: uppercase;
+  font-family: var(--mono); background: var(--accent-subtle);
+  border: 1px solid rgba(59,130,246,.3); color: #93b4fd;
+}
+.stream-badge {
+  display: inline-flex; align-items: center; padding: 2px 6px; border-radius: 9999px;
+  font-size: 10.5px; font-weight: 500;
+  background: rgba(14,165,233,.10); border: 1px solid rgba(14,165,233,.35); color: #7dd3fc;
+}
+.src-meta-row { display: flex; align-items: center; flex-wrap: wrap; gap: 0; }
+.meta-item {
+  display: flex; align-items: center; gap: 4px; padding-right: 13px; margin-right: 13px;
+  border-right: 1px solid var(--border); font-size: 11.5px;
+}
+.meta-item:last-child { border-right: none; padding-right: 0; margin-right: 0; }
+.meta-label { color: var(--muted); }
+.meta-val { color: var(--fg-2); font-weight: 500; }
+.meta-val.warn { color: var(--warn); }
+.meta-val.danger { color: var(--danger); font-weight: 700; }
+/* ── SNAPSHOT RIBBON ── */
+.snapshot-ribbon {
+  display: grid; grid-template-columns: repeat(5, 1fr);
+  border-bottom: 1px solid var(--border); flex-shrink: 0;
+}
+.snap-tile {
+  padding: 11px 16px; border-right: 1px solid var(--border);
+  transition: background 100ms;
+}
+.snap-tile:last-child { border-right: none; }
+.snap-val {
+  font-size: 21px; font-weight: 600; font-family: var(--mono);
+  font-variant-numeric: tabular-nums; letter-spacing: -0.03em;
+  color: var(--fg); line-height: 1.1; margin-bottom: 2px;
+  display: flex; align-items: baseline; gap: 4px;
+}
+.snap-val .unit { font-size: 13px; font-weight: 400; color: var(--fg-2); }
+.snap-val.warn   { color: var(--warn); }
+.snap-val.danger { color: var(--danger); }
+.snap-val.success { color: var(--success); }
+.snap-label { font-size: 11px; font-weight: 500; color: var(--fg-2); margin-bottom: 1px; }
+.snap-sub   { font-size: 10.5px; color: var(--muted); font-family: var(--mono); }
+/* ── BODY ── */
+.body-cols {
+  flex: 1; display: grid;
+  grid-template-columns: 1fr 292px;
+  min-height: 0; overflow: hidden;
+}
+.scroll-col {
+  overflow-y: auto; padding: 16px;
+  scrollbar-width: thin; scrollbar-color: var(--border-mid) transparent;
+  display: flex; flex-direction: column; gap: 16px;
+  border-right: 1px solid var(--border);
+}
+/* ── SECTION HEADERS ── */
+.sec-head { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; }
+.sec-label { font-size: 10px; font-weight: 700; letter-spacing: 0.09em; text-transform: uppercase; color: var(--muted); font-family: var(--mono); flex: 1; }
+.sec-meta  { font-size: 11px; color: var(--muted); font-family: var(--mono); }
+.sec-link  { font-size: 11px; color: var(--accent); cursor: pointer; text-decoration: none; transition: opacity 100ms; }
+.sec-link:hover { opacity: .75; }
+/* ── CARDS ── */
+.card {
+  background: var(--surface); border: 1px solid var(--border);
+  border-radius: var(--r); overflow: hidden;
+}
+/* ── TREND METRICS ── */
+.trend-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.trend-card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--r); padding: 12px 14px; }
+.trend-title { font-size: 10.5px; font-weight: 600; color: var(--muted); text-transform: uppercase; letter-spacing: 0.07em; font-family: var(--mono); margin-bottom: 10px; }
+.trend-bars { display: flex; align-items: flex-end; gap: 3px; height: 48px; }
+.trend-bar-wrap { flex: 1; display: flex; flex-direction: column; align-items: center; gap: 3px; }
+.trend-bar {
+  width: 100%; border-radius: 2px 2px 0 0;
+  transition: opacity 100ms;
+}
+.trend-bar:hover { opacity: .75; }
+.trend-week { font-size: 9px; font-family: var(--mono); color: var(--muted); }
+.trend-summary { display: flex; align-items: center; justify-content: space-between; margin-top: 8px; }
+.trend-current { font-size: 18px; font-weight: 600; font-family: var(--mono); font-variant-numeric: tabular-nums; color: var(--fg); letter-spacing: -0.02em; }
+.trend-delta { font-size: 11px; font-family: var(--mono); padding: 1px 6px; border-radius: 3px; }
+.trend-delta.up   { color: var(--success); background: var(--success-subtle); border: 1px solid rgba(34,197,94,.3); }
+.trend-delta.down { color: var(--danger);  background: var(--danger-subtle);  border: 1px solid rgba(239,68,68,.3); }
+.trend-delta.flat { color: var(--muted);   background: transparent; border: 1px solid var(--border); }
+/* ── RUN HISTORY TABLE ── */
+.run-table { width: 100%; border-collapse: collapse; }
+.run-table thead th {
+  position: sticky; top: 0; background: var(--surface);
+  padding: 7px 10px; font-size: 10.5px; font-weight: 600;
+  letter-spacing: 0.04em; text-transform: uppercase; color: var(--muted);
+  text-align: left; white-space: nowrap; border-bottom: 1px solid var(--border);
+}
+.run-table tbody tr { border-bottom: 1px solid var(--border); transition: background 70ms; }
+.run-table tbody tr:last-child { border-bottom: none; }
+.run-table tbody tr:hover { background: var(--surface-2); }
+.run-table td { padding: 8px 10px; vertical-align: middle; font-size: 12px; }
+.run-id { font-family: var(--mono); font-size: 11px; color: var(--accent); cursor: pointer; text-decoration: none; white-space: nowrap; }
+.run-id:hover { text-decoration: underline; }
+.run-date { font-family: var(--mono); font-size: 11px; color: var(--muted); white-space: nowrap; font-variant-numeric: tabular-nums; }
+.outcome-chip {
+  display: inline-flex; align-items: center; gap: 3px; padding: 2px 6px;
+  border-radius: 9999px; font-size: 10.5px; font-weight: 500; white-space: nowrap;
+}
+.outcome-chip::before { content: ''; width: 4px; height: 4px; border-radius: 50%; flex-shrink: 0; }
+.oc-ok      { background: var(--success-subtle); border: 1px solid rgba(34,197,94,.3);  color: #86efac; }
+.oc-ok::before { background: var(--success); }
+.oc-items0  { background: rgba(75,86,114,.12); border: 1px solid var(--border-mid); color: var(--fg-2); }
+.oc-items0::before { background: var(--muted); }
+.oc-parse   { background: var(--warn-subtle); border: 1px solid rgba(245,158,11,.3); color: var(--warn); }
+.oc-parse::before { background: var(--warn); }
+.oc-fail    { background: var(--danger-subtle); border: 1px solid rgba(239,68,68,.3);  color: #fca5a5; }
+.oc-fail::before { background: var(--danger); }
+.http-code { font-family: var(--mono); font-size: 11px; font-variant-numeric: tabular-nums; }
+.http-ok  { color: var(--success); }
+.http-4xx { color: var(--warn); }
+.http-5xx { color: var(--danger); }
+.num-cell { font-family: var(--mono); font-size: 11px; font-variant-numeric: tabular-nums; color: var(--fg-2); text-align: right; white-space: nowrap; }
+.num-cell.warn { color: var(--warn); }
+.num-cell.danger { color: var(--danger); font-weight: 600; }
+.action-link { font-size: 11px; color: var(--accent); text-decoration: none; white-space: nowrap; }
+.action-link:hover { text-decoration: underline; }
+/* ── URL TRACE ── */
+.trace-table { width: 100%; border-collapse: collapse; }
+.trace-table thead th {
+  padding: 6px 10px; font-size: 10.5px; font-weight: 600;
+  letter-spacing: 0.04em; text-transform: uppercase; color: var(--muted);
+  text-align: left; white-space: nowrap; border-bottom: 1px solid var(--border);
+  background: var(--surface);
+}
+.trace-table tbody tr { border-bottom: 1px solid var(--border); transition: background 70ms; }
+.trace-table tbody tr:last-child { border-bottom: none; }
+.trace-table tbody tr:hover { background: var(--surface-2); }
+.trace-table td { padding: 7px 10px; font-size: 11.5px; vertical-align: middle; }
+.trace-url { font-family: var(--mono); font-size: 11px; color: var(--fg-2); word-break: break-all; }
+.trace-date { font-family: var(--mono); font-size: 11px; color: var(--muted); white-space: nowrap; font-variant-numeric: tabular-nums; }
+.trace-delta { font-size: 10.5px; padding: 1px 5px; border-radius: 3px; }
+.trace-delta.changed { background: var(--warn-subtle); border: 1px solid rgba(245,158,11,.3); color: var(--warn); }
+.trace-delta.stable { color: var(--muted); }
+/* ── RIGHT PANEL ── */
+.right-col {
+  overflow-y: auto; background: var(--surface);
+  display: flex; flex-direction: column;
+  scrollbar-width: thin; scrollbar-color: var(--border-mid) transparent;
+}
+.panel { border-bottom: 1px solid var(--border); }
+.panel-header {
+  padding: 10px 14px 9px; border-bottom: 1px solid var(--border);
+  display: flex; align-items: center; gap: 6px;
+}
+.panel-title { font-size: 10px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted); flex: 1; font-family: var(--mono); }
+.panel-count { font-size: 10px; font-family: var(--mono); color: var(--muted); background: var(--bg); border: 1px solid var(--border); padding: 0 5px; border-radius: 9999px; line-height: 1.7; }
+.panel-count.warn { color: var(--warn); border-color: rgba(245,158,11,.4); background: var(--warn-subtle); }
+/* ── ALERT ROWS ── */
+.alert-row {
+  padding: 10px 14px; border-bottom: 1px solid var(--border);
+  cursor: pointer; transition: background 70ms;
+}
+.alert-row:last-child { border-bottom: none; }
+.alert-row:hover { background: var(--surface-2); }
+.alert-top { display: flex; align-items: center; gap: 5px; margin-bottom: 4px; }
+.alert-id { font-family: var(--mono); font-size: 10px; font-weight: 600; color: var(--muted); letter-spacing: 0.06em; text-transform: uppercase; }
+.alert-status { display: inline-flex; align-items: center; gap: 3px; padding: 1px 5px; border-radius: 3px; font-size: 9.5px; font-weight: 700; letter-spacing: 0.04em; text-transform: uppercase; font-family: var(--mono); }
+.as-open  { background: var(--danger-subtle); border: 1px solid rgba(239,68,68,.3); color: var(--danger); }
+.as-inv   { background: var(--warn-subtle);   border: 1px solid rgba(245,158,11,.3); color: var(--warn); }
+.as-res   { background: var(--success-subtle);border: 1px solid rgba(34,197,94,.3);  color: var(--success); }
+.alert-sev { display: inline-flex; padding: 1px 4px; border-radius: 3px; font-size: 9.5px; font-weight: 700; letter-spacing: 0.04em; text-transform: uppercase; font-family: var(--mono); }
+.sev-p1 { background: var(--danger-subtle); border: 1px solid rgba(239,68,68,.3); color: var(--danger); }
+.sev-p2 { background: var(--warn-subtle);   border: 1px solid rgba(245,158,11,.3); color: var(--warn); }
+.sev-p3 { background: rgba(75,86,114,.12);  border: 1px solid var(--border-mid);  color: var(--fg-2); }
+.alert-desc { font-size: 12px; color: var(--fg); line-height: 1.35; margin-bottom: 3px; }
+.alert-meta { font-size: 10.5px; color: var(--muted); font-family: var(--mono); }
+/* ── MANAGEMENT ACTIONS ── */
+.mgmt-actions { padding: 12px 14px; display: flex; flex-direction: column; gap: 6px; }
+.mgmt-btn {
+  width: 100%; height: 30px; border-radius: var(--r);
+  font-size: 12px; font-weight: 500; font-family: var(--font);
+  cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 6px;
+  transition: background 100ms, color 100ms, border-color 100ms; border: 1px solid transparent;
+}
+.mgmt-ghost  { background: transparent; border-color: var(--border-mid); color: var(--fg-2); }
+.mgmt-ghost:hover { background: var(--surface-2); color: var(--fg); }
+.mgmt-warn   { background: transparent; border-color: rgba(245,158,11,.5); color: var(--warn); }
+.mgmt-warn:hover { background: var(--warn-subtle); }
+.mgmt-danger { background: transparent; border-color: rgba(239,68,68,.5); color: var(--danger); }
+.mgmt-danger:hover { background: var(--danger-subtle); }
+/* ── RELIABILITY CHART ── */
+.rel-row { display: flex; align-items: center; gap: 8px; padding: 5px 14px; }
+.rel-week { font-size: 10px; font-family: var(--mono); color: var(--muted); width: 40px; flex-shrink: 0; font-variant-numeric: tabular-nums; }
+.rel-track { flex: 1; height: 6px; background: var(--border); border-radius: 3px; overflow: hidden; }
+.rel-fill  { height: 100%; border-radius: 3px; transition: width 400ms ease; }
+.rel-pct   { font-size: 10.5px; font-family: var(--mono); color: var(--fg-2); width: 32px; text-align: right; font-variant-numeric: tabular-nums; flex-shrink: 0; }
+/* ── BUTTONS ── */
+.btn {
+  height: 27px; padding: 0 11px; border-radius: var(--r);
+  font-size: 12px; font-weight: 500; font-family: var(--font); cursor: pointer;
+  transition: background 100ms, color 100ms, border-color 100ms;
+  display: inline-flex; align-items: center; gap: 5px; white-space: nowrap; border: 1px solid transparent;
+}
+.btn-ghost   { background: transparent; border-color: var(--border-mid); color: var(--fg-2); }
+.btn-ghost:hover { background: var(--surface-2); color: var(--fg); }
+.btn-primary { background: var(--accent); border-color: var(--accent); color: var(--accent-on); }
+.btn-primary:hover { background: var(--accent-hover); border-color: var(--accent-hover); }
+.btn-danger  { background: transparent; border-color: rgba(239,68,68,.5); color: var(--danger); }
+.btn-danger:hover { background: var(--danger-subtle); }
+/* ── MODAL ── */
+.modal-overlay {
+  position: fixed; inset: 0; background: rgba(0,0,0,.6); z-index: 100;
+  display: none; align-items: center; justify-content: center;
+}
+.modal-overlay.open { display: flex; }
+.modal {
+  background: var(--surface); border: 1px solid var(--border-mid);
+  border-radius: 10px; width: 400px; overflow: hidden;
+  box-shadow: 0 24px 48px rgba(0,0,0,.4);
+}
+.modal-head { padding: 16px 18px 12px; border-bottom: 1px solid var(--border); display: flex; align-items: center; gap: 8px; }
+.modal-title { font-size: 13px; font-weight: 600; color: var(--fg); flex: 1; }
+.modal-close { width: 24px; height: 24px; border: none; background: transparent; color: var(--muted); cursor: pointer; font-size: 18px; line-height: 1; display: flex; align-items: center; justify-content: center; border-radius: 4px; }
+.modal-close:hover { background: var(--surface-2); color: var(--fg); }
+.modal-body { padding: 16px 18px; }
+.modal-field { margin-bottom: 12px; }
+.modal-label { font-size: 11px; font-weight: 600; color: var(--fg-2); margin-bottom: 5px; display: block; }
+.modal-input, .modal-select, .modal-textarea {
+  width: 100%; background: var(--bg); border: 1px solid var(--border);
+  border-radius: var(--r); color: var(--fg); font-family: var(--font);
+  font-size: 12.5px; transition: border-color 120ms;
+}
+.modal-input, .modal-select { height: 30px; padding: 0 9px; }
+.modal-textarea { padding: 8px 9px; resize: vertical; min-height: 60px; line-height: 1.5; }
+.modal-input:focus, .modal-select:focus, .modal-textarea:focus { outline: none; border-color: var(--accent); }
+.modal-foot { padding: 12px 18px 16px; display: flex; justify-content: flex-end; gap: 6px; }
+</style>
+</head>
+<body>
+<div class="shell">
+
+<!-- ── SIDEBAR ── -->
+<aside class="sidebar">
+  <div class="sidebar-pub">
+    <span class="pub-name">Union Media</a>
+    <span class="pub-meta">unionmedia.co.uk · Editorial Ops</a>
+  </div>
+      <nav class="sidebar-nav">
+    <div class="nav-section">Overview</div>
+    <a href="dashboard.html" class="nav-item">
+      <svg class="nav-icon" viewBox="0 0 15 15" fill="none"><rect x="1.5" y="1.5" width="5" height="5" rx="1" fill="currentColor"/><rect x="8.5" y="1.5" width="5" height="5" rx="1" fill="currentColor"/><rect x="1.5" y="8.5" width="5" height="5" rx="1" fill="currentColor"/><rect x="8.5" y="8.5" width="5" height="5" rx="1" fill="currentColor"/></svg>
+      Dashboard
+    </a>
+    <div class="nav-section">Editorial</div>
+    <a href="pipeline-dashboard.html" class="nav-item">
+      <svg class="nav-icon" viewBox="0 0 15 15" fill="none"><rect x="1.5" y="2.5" width="12" height="1.5" rx=".5" fill="currentColor"/><rect x="1.5" y="6.5" width="12" height="1.5" rx=".5" fill="currentColor"/><rect x="1.5" y="10.5" width="12" height="1.5" rx=".5" fill="currentColor"/></svg>
+      Pipeline
+    </a>
+    <a href="pipeline-board.html" class="nav-item">
+      <svg class="nav-icon" viewBox="0 0 15 15" fill="none"><rect x="1" y="1.5" width="4" height="12" rx="1" fill="currentColor"/><rect x="6" y="1.5" width="4" height="8.5" rx="1" fill="currentColor"/><rect x="11" y="1.5" width="3" height="5.5" rx="1" fill="currentColor"/></svg>
+      Board
+    </a>
+    <a href="#" class="nav-item">
+      <svg class="nav-icon" viewBox="0 0 15 15" fill="none"><rect x="1.5" y="2.5" width="12" height="11" rx="1.5" stroke="currentColor" stroke-width="1.3"/><path d="M1.5 6h12" stroke="currentColor" stroke-width="1.3"/><path d="M5 1.5V4M10 1.5V4" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/></svg>
+      Calendar
+      <span class="nav-badge">18</span>
+    </a>
+    <a href="article-dossier.html" class="nav-item">
+      <svg class="nav-icon" viewBox="0 0 15 15" fill="none"><path d="M3.5 1.5h5.5l3 3v9h-8.5v-12z" stroke="currentColor" stroke-width="1.3" stroke-linejoin="round"/><path d="M9 1.5v3.5h3" stroke="currentColor" stroke-width="1.3"/><path d="M5 7.5h5M5 9.5h3" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/></svg>
+      Article Dossier
+    </a>
+    <div class="nav-section">Management</div>
+    <a href="approvals.html" class="nav-item">
+      <svg class="nav-icon" viewBox="0 0 15 15" fill="none"><path d="M2 7.5L6 11.5L13 3.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      Approvals
+      <span class="nav-badge urgent">4</span>
+    </a>
+    <a href="#" class="nav-item">
+      <svg class="nav-icon" viewBox="0 0 15 15" fill="none"><circle cx="5" cy="5.5" r="2" stroke="currentColor" stroke-width="1.3"/><circle cx="10.5" cy="5.5" r="2" stroke="currentColor" stroke-width="1.3"/><path d="M1 13c0-2 1.79-3.5 4-3.5h5c2.21 0 4 1.5 4 3.5" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/></svg>
+      Team
+    </a>
+    <div class="nav-section">Discovery</div>
+    <a href="discovery.html" class="nav-item">
+      <svg class="nav-icon" viewBox="0 0 15 15" fill="none"><circle cx="6.5" cy="6.5" r="4" stroke="currentColor" stroke-width="1.3"/><path d="M11 11l2.5 2.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
+      Discovery Overview
+      <span class="nav-badge urgent">3</span>
+    </a>
+    <a href="candidate-inbox.html" class="nav-item">
+      <svg class="nav-icon" viewBox="0 0 15 15" fill="none"><path d="M1.5 4.5h12v8.5h-12z" stroke="currentColor" stroke-width="1.3" stroke-linejoin="round"/><path d="M1.5 4.5l6 4 6-4" stroke="currentColor" stroke-width="1.3" stroke-linejoin="round"/></svg>
+      Candidate Inbox
+      <span class="nav-badge">89</span>
+    </a>
+    <a href="ops-rr-queue.html" class="nav-item">
+      <svg class="nav-icon" viewBox="0 0 15 15" fill="none"><path d="M7.5 1.5v5M7.5 9.5v.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/><circle cx="7.5" cy="7.5" r="6" stroke="currentColor" stroke-width="1.3"/></svg>
+      OPS-RR Queue
+      <span class="nav-badge urgent">7</span>
+    </a>
+    <a href="sweep-run-detail.html" class="nav-item">
+      <svg class="nav-icon" viewBox="0 0 15 15" fill="none"><circle cx="7.5" cy="7.5" r="6" stroke="currentColor" stroke-width="1.3"/><path d="M7.5 4.5v3l2 2" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/></svg>
+      Sweep Run Detail
+    </a>
+    <div class="nav-section">System</div>
+    <a href="discovery-config.html" class="nav-item">
+      <svg class="nav-icon" viewBox="0 0 15 15" fill="none"><circle cx="7.5" cy="7.5" r="3" stroke="currentColor" stroke-width="1.3"/><path d="M7.5 1v1.5M7.5 12.5V14M1 7.5h1.5M12.5 7.5H14M2.9 2.9l1.1 1.1M11 11l1.1 1.1M11 2.9L9.9 4M4 11l-1.1 1.1" stroke="currentColor" stroke-width="1.2" stroke-linecap="round"/></svg>
+      Discovery Config
+    </a>
+    <a href="source-monitor.html" class="nav-item active">
+      <svg class="nav-icon" viewBox="0 0 15 15" fill="none"><path d="M1.5 10.5l4-4 3 3 5-6" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"/><circle cx="13" cy="4.5" r="1" fill="currentColor"/></svg>
+      Source Health Monitor
+    </a>
+    <a href="discovery-2.html" class="nav-item">
+      <svg class="nav-icon" viewBox="0 0 15 15" fill="none"><path d="M2.5 5.5h10M2.5 8.5h8M2.5 11.5h5" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/><rect x="1.5" y="1.5" width="12" height="12" rx="1.5" stroke="currentColor" stroke-width="1.3"/></svg>
+      Discovery Audit Log
+    </a>
+    <a href="design-system.html" class="nav-item">
+      <svg class="nav-icon" viewBox="0 0 15 15" fill="none"><circle cx="4" cy="4" r="1.5" fill="currentColor"/><circle cx="11" cy="4" r="1.5" fill="currentColor"/><circle cx="4" cy="11" r="1.5" fill="currentColor"/><circle cx="11" cy="11" r="1.5" fill="currentColor"/><circle cx="7.5" cy="7.5" r="1.5" fill="currentColor"/></svg>
+      Design System
+    </a>
+    <a href="#" class="nav-item">
+      <svg class="nav-icon" viewBox="0 0 15 15" fill="none"><circle cx="7.5" cy="7.5" r="5.5" stroke="currentColor" stroke-width="1.3"/><circle cx="7.5" cy="7.5" r="2" stroke="currentColor" stroke-width="1.3"/></svg>
+      Settings
+    </a>
+  </nav>
+  <div class="sidebar-user">
+    <div class="avatar-sm">DM</div>
+    <div style="min-width:0">
+      <span class="user-name">D. Mackenzie</a>
+      <span class="user-role">Senior Editor</a>
+    </div>
+  </div>
+</aside>
+
+<!-- ── TOPBAR ── -->
+<header class="topbar">
+  <a href="discovery.html" class="topbar-back">
+    <svg width="12" height="12" viewBox="0 0 12 12" fill="none"><path d="M7.5 2L3.5 6l4 4" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/></svg>
+    Discovery
+  </a>
+  <span class="topbar-sep">/</a>
+  <span class="topbar-crumb">Ranger Recon</a>
+  <span class="topbar-sep">/</a>
+  <span class="topbar-crumb active">Source Health Monitor</a>
+  <span class="topbar-spacer"></a>
+  <button class="theme-toggle" onclick="toggleTheme()">
+    <svg width="12" height="12" viewBox="0 0 12 12" fill="none"><circle cx="6" cy="6" r="2.5" stroke="currentColor" stroke-width="1.2"/><path d="M6 1v1M6 10v1M1 6h1M10 6h1M2.64 2.64l.71.71M8.65 8.65l.71.71M2.64 9.36l.71-.71M8.65 3.35l.71-.71" stroke="currentColor" stroke-width="1.2" stroke-linecap="round"/></svg>
+    <span id="theme-label">Light mode</a>
+  </button>
+  <button class="icon-btn" title="Notifications">
+    <svg width="14" height="14" viewBox="0 0 14 14" fill="none"><path d="M7 1.5a4.5 4.5 0 00-4.5 4.5v2l-1 1.5h11L11.5 8V6A4.5 4.5 0 007 1.5z" stroke="currentColor" stroke-width="1.3"/><path d="M5.5 11.5a1.5 1.5 0 003 0" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/></svg>
+  </button>
+  <div class="topbar-avatar">DM</div>
+</header>
+
+<!-- ── MAIN ── -->
+<main class="main">
+
+<!-- SOURCE HEADER -->
+<div class="src-header">
+  <div class="src-header-top">
+    <div class="src-url-block">
+      <span class="src-url">northsea.com/news</a>
+      <span class="src-sub">North Sea Energy Observer · press.northsea.com/feed/rss</a>
+    </div>
+    <div class="src-badges">
+      <span class="badge-degraded">Degraded</a>
+      <span class="layer-badge">L2 Institutional</a>
+      <span class="stream-badge">Energy &amp; Industry</a>
+    </div>
+    <div class="src-actions">
+      <button class="btn btn-ghost" onclick="openModal('meta')">Update Metadata</button>
+      <button class="btn btn-ghost" onclick="openModal('pause')">Pause Source</button>
+      <button class="btn btn-danger" onclick="openModal('escl')">Escalate OPS-RR</button>
+    </div>
+  </div>
+  <div class="src-meta-row">
+    <div class="meta-item"><span class="meta-label">Monitored since</span><span class="meta-val">2024-09-12</span></div>
+    <div class="meta-item"><span class="meta-label">Source ID</span><span class="meta-val" style="font-family:var(--mono);font-size:11px;">SRC-0047</span></div>
+    <div class="meta-item"><span class="meta-label">Crawl method</span><span class="meta-val">RSS + HTML fallback</span></div>
+    <div class="meta-item"><span class="meta-label">Last checked</span><span class="meta-val">28 May 2026 · 06:04:18</span></div>
+    <div class="meta-item"><span class="meta-label">Open alerts</span><span class="meta-val danger">2 open</span></div>
+    <div class="meta-item"><span class="meta-label">Added by</span><span class="meta-val">H. Osei</span></div>
+  </div>
+</div>
+
+<!-- SNAPSHOT RIBBON -->
+<div class="snapshot-ribbon">
+  <div class="snap-tile">
+    <div class="snap-val warn">Degraded</div>
+    <div class="snap-label">Current status</div>
+    <div class="snap-sub">Since 2026-05-25</div>
+  </div>
+  <div class="snap-tile">
+    <div class="snap-val danger">503 / Parse fail</div>
+    <div class="snap-label">Last sweep outcome</div>
+    <div class="snap-sub">28 May · 06:04</div>
+  </div>
+  <div class="snap-tile">
+    <div class="snap-val">3.2 <span class="unit">/ sweep</span></div>
+    <div class="snap-label">Avg candidates</div>
+    <div class="snap-sub">12-week rolling</div>
+  </div>
+  <div class="snap-tile">
+    <div class="snap-val warn">71%</div>
+    <div class="snap-label">Parse reliability</div>
+    <div class="snap-sub">↓ from 88% (8w ago)</div>
+  </div>
+  <div class="snap-tile">
+    <div class="snap-val danger">7</div>
+    <div class="snap-label">Failure streak</div>
+    <div class="snap-sub">Consecutive sweeps</div>
+  </div>
+</div>
+
+<!-- BODY -->
+<div class="body-cols">
+
+  <!-- SCROLL COL: LEFT -->
+  <div class="scroll-col">
+
+    <!-- TREND METRICS -->
+    <div>
+      <div class="sec-head"><span class="sec-label">Trend metrics — last 8 weeks</span><span class="sec-meta">w/e 28 May 2026</span></div>
+      <div class="trend-grid">
+        <!-- Avg items per sweep -->
+        <div class="trend-card">
+          <div class="trend-title">Avg candidates / sweep</div>
+          <div class="trend-bars" id="items-bars"></div>
+          <div class="trend-summary">
+            <span class="trend-current">3.2</a>
+            <span class="trend-delta down">↓ 2.1 vs 8w</a>
+          </div>
+        </div>
+        <!-- Parse reliability -->
+        <div class="trend-card">
+          <div class="trend-title">Parse reliability %</div>
+          <div style="padding-top:4px;">
+            <div id="rel-bars"></div>
+          </div>
+          <div class="trend-summary">
+            <span class="trend-current">71%</a>
+            <span class="trend-delta down">↓ 17pp vs 8w</a>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- RUN HISTORY TABLE -->
+    <div>
+      <div class="sec-head">
+        <span class="sec-label">Run history — last 14 sweeps</a>
+        <a href="sweep-run-detail.html" class="sec-link">View latest run detail →</a>
+      </div>
+      <div class="card">
+        <table class="run-table">
+          <thead>
+            <tr>
+              <th>Run ID</th>
+              <th>Date / Slot</th>
+              <th>Outcome</th>
+              <th>HTTP</th>
+              <th style="text-align:right">Cands</th>
+              <th style="text-align:right">Parse issues</th>
+              <th></th>
+            </tr>
+          </thead>
+          <tbody id="run-history-body"></tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- URL TRACE HISTORY -->
+    <div>
+      <div class="sec-head"><span class="sec-label">Primary URL trace history</span><span class="sec-meta">Resolved primary across sweeps</span></div>
+      <div class="card">
+        <table class="trace-table">
+          <thead>
+            <tr>
+              <th>Resolved primary URL</th>
+              <th>First seen</th>
+              <th>Last seen</th>
+              <th>Sweeps</th>
+              <th>Change</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><span class="trace-url">https://press.northsea.com/news/feed/rss</span></td>
+              <td><span class="trace-date">2026-03-14</span></td>
+              <td><span class="trace-date">2026-05-28</span></td>
+              <td class="num-cell">18</td>
+              <td><span class="trace-delta stable">Current</span></td>
+            </tr>
+            <tr>
+              <td><span class="trace-url">https://northsea.com/feed/rss</span></td>
+              <td><span class="trace-date">2026-01-08</span></td>
+              <td><span class="trace-date">2026-03-13</span></td>
+              <td class="num-cell">14</td>
+              <td><span class="trace-delta changed">Redirected</span></td>
+            </tr>
+            <tr>
+              <td><span class="trace-url">https://northsea.com/industry/news.rss</span></td>
+              <td><span class="trace-date">2025-11-22</span></td>
+              <td><span class="trace-date">2026-01-07</span></td>
+              <td class="num-cell">9</td>
+              <td><span class="trace-delta changed">Redirected</span></td>
+            </tr>
+            <tr>
+              <td><span class="trace-url">https://www.northsea.com/press/index.xml</span></td>
+              <td><span class="trace-date">2024-09-12</span></td>
+              <td><span class="trace-date">2025-11-21</span></td>
+              <td class="num-cell">32</td>
+              <td><span class="trace-delta changed">Deprecated</span></td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+  </div><!-- /scroll-col -->
+
+  <!-- RIGHT PANEL -->
+  <div class="right-col">
+
+    <!-- MANAGEMENT ACTIONS -->
+    <div class="panel">
+      <div class="panel-header"><span class="panel-title">Source management</span></div>
+      <div class="mgmt-actions">
+        <button class="mgmt-btn mgmt-ghost" onclick="openModal('meta')">
+          <svg width="13" height="13" viewBox="0 0 13 13" fill="none"><path d="M1.5 9.5l2-2L10 1l1 1-6.5 6.5L1.5 9.5z" stroke="currentColor" stroke-width="1.2" stroke-linejoin="round"/><path d="M1 12h11" stroke="currentColor" stroke-width="1.2" stroke-linecap="round"/></svg>
+          Update metadata
+        </button>
+        <button class="mgmt-btn mgmt-ghost" onclick="openModal('compare')">
+          <svg width="13" height="13" viewBox="0 0 13 13" fill="none"><path d="M2 6.5h9M7.5 3L11 6.5 7.5 10" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          Compare prior period
+        </button>
+        <button class="mgmt-btn mgmt-warn" onclick="openModal('pause')">
+          <svg width="13" height="13" viewBox="0 0 13 13" fill="none"><rect x="3" y="2.5" width="2.5" height="8" rx=".5" fill="currentColor"/><rect x="7.5" y="2.5" width="2.5" height="8" rx=".5" fill="currentColor"/></svg>
+          Pause source
+        </button>
+        <button class="mgmt-btn mgmt-danger" onclick="openModal('escl')">
+          <svg width="13" height="13" viewBox="0 0 13 13" fill="none"><path d="M6.5 2v5M6.5 9.5v1" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/><circle cx="6.5" cy="6.5" r="5.5" stroke="currentColor" stroke-width="1.2"/></svg>
+          Escalate to OPS-RR
+        </button>
+        <button class="mgmt-btn mgmt-danger" onclick="openModal('remove')" style="opacity:.6">
+          <svg width="13" height="13" viewBox="0 0 13 13" fill="none"><path d="M2 3.5h9M5 3.5V2h3v1.5M5.5 6v4M7.5 6v4M3.5 3.5l.5 7h5l.5-7" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          Remove source
+        </button>
+      </div>
+    </div>
+
+    <!-- OPEN ALERTS -->
+    <div class="panel">
+      <div class="panel-header">
+        <span class="panel-title">Open OPS-RR alerts</a>
+        <span class="panel-count warn">2</a>
+      </div>
+      <div class="alert-row" onclick="window.location='#'">
+        <div class="alert-top">
+          <a href="ops-rr-queue.html" style="font-family:var(--mono);font-size:12px;color:var(--accent);text-decoration:none">OPS-RR-0142</a>
+          <span class="alert-status as-inv">Investigating</a>
+          <span class="alert-sev sev-p1">P1</a>
+        </div>
+        <div class="alert-desc">Persistent 503 responses from northsea.com/news feed — failure streak at 7 consecutive sweeps, no candidates surfaced since 25 May.</div>
+        <div class="alert-meta">Raised 2026-05-25 · Assigned: H. Osei</div>
+      </div>
+      <div class="alert-row" onclick="window.location='#'">
+        <div class="alert-top">
+          <a href="ops-rr-queue.html" style="font-family:var(--mono);font-size:12px;color:var(--accent);text-decoration:none">OPS-RR-0138</a>
+          <span class="alert-status as-open">Open</a>
+          <span class="alert-sev sev-p2">P2</a>
+        </div>
+        <div class="alert-desc">RSS feed schema drift — item.guid field absent in 40% of entries since 2026-05-20, causing incomplete candidate records.</div>
+        <div class="alert-meta">Raised 2026-05-21 · Unassigned</div>
+      </div>
+    </div>
+
+    <!-- RESOLVED ALERTS -->
+    <div class="panel">
+      <div class="panel-header">
+        <span class="panel-title">Resolved alerts</a>
+        <span class="panel-count">4 resolved</a>
+      </div>
+      <div class="alert-row">
+        <div class="alert-top">
+          <a href="ops-rr-queue.html" style="font-family:var(--mono);font-size:12px;color:var(--accent);text-decoration:none">OPS-RR-0119</a>
+          <span class="alert-status as-res">Resolved</a>
+          <span class="alert-sev sev-p2">P2</a>
+        </div>
+        <div class="alert-desc">Primary URL redirect from index.xml to press/ subdomain — updated source config.</div>
+        <div class="alert-meta">Resolved 2026-01-09 · D. Mackenzie</div>
+      </div>
+      <div class="alert-row">
+        <div class="alert-top">
+          <a href="ops-rr-queue.html" style="font-family:var(--mono);font-size:12px;color:var(--accent);text-decoration:none">OPS-RR-0097</a>
+          <span class="alert-status as-res">Resolved</a>
+          <span class="alert-sev sev-p3">P3</a>
+        </div>
+        <div class="alert-desc">Rate limit on HTML fallback scraper — reduced crawl frequency to 2/day.</div>
+        <div class="alert-meta">Resolved 2025-12-03 · H. Osei</div>
+      </div>
+      <div class="alert-row">
+        <div class="alert-top">
+          <a href="ops-rr-queue.html" style="font-family:var(--mono);font-size:12px;color:var(--accent);text-decoration:none">OPS-RR-0088</a>
+          <span class="alert-status as-res">Resolved</a>
+          <span class="alert-sev sev-p2">P2</a>
+        </div>
+        <div class="alert-desc">SSL certificate mismatch causing connection refusal for 6 sweeps.</div>
+        <div class="alert-meta">Resolved 2025-11-28 · M. Patel</div>
+      </div>
+      <div class="alert-row">
+        <div class="alert-top">
+          <a href="ops-rr-queue.html" style="font-family:var(--mono);font-size:12px;color:var(--accent);text-decoration:none">OPS-RR-0071</a>
+          <span class="alert-status as-res">Resolved</a>
+          <span class="alert-sev sev-p1">P1</a>
+        </div>
+        <div class="alert-desc">Site unreachable for 4 consecutive sweeps — ISP routing issue resolved upstream.</div>
+        <div class="alert-meta">Resolved 2025-10-14 · System auto-close</div>
+      </div>
+    </div>
+
+    <!-- SOURCE CONTEXT -->
+    <div class="panel" style="border-bottom:none">
+      <div class="panel-header"><span class="panel-title">Source context</span></div>
+      <div style="padding:10px 14px 14px; display:flex; flex-direction:column; gap:8px;">
+        <div style="font-size:11.5px; color:var(--fg-2); line-height:1.5;">North Sea Energy Observer is the L2 institutional press monitor for North Sea decommissioning, licensing, and operator announcements. It surfaces an average of 3.2 candidates per sweep when healthy, with a 6–12 hour exclusivity window before national pick-up.</div>
+        <div style="font-size:11px; color:var(--muted); font-family:var(--mono); border-top:1px solid var(--border); padding-top:8px;">
+          <div>Stream: Energy &amp; Industry</div>
+          <div>Exclusivity window: 6–12h</div>
+          <div>Signal-only eligible: No</div>
+          <div>Duplicate-check scope: Gather + WP</div>
+        </div>
+      </div>
+    </div>
+
+  </div><!-- /right-col -->
+
+</div><!-- /body-cols -->
+</main>
+</div>
+
+<!-- ── MODALS ── -->
+
+<!-- Escalate -->
+<div class="modal-overlay" id="modal-escl">
+  <div class="modal">
+    <div class="modal-head">
+      <span class="modal-title">Escalate to OPS-RR</a>
+      <button class="modal-close" onclick="closeModal('escl')">×</button>
+    </div>
+    <div class="modal-body">
+      <div class="modal-field">
+        <label class="modal-label">Source</label>
+        <input class="modal-input" value="northsea.com/news (SRC-0047)" readonly>
+      </div>
+      <div class="modal-field">
+        <label class="modal-label">Severity</label>
+        <select class="modal-select">
+          <option>P1 — Immediate operational impact</option>
+          <option>P2 — Significant degradation</option>
+          <option>P3 — Low-priority observation</option>
+        </select>
+      </div>
+      <div class="modal-field">
+        <label class="modal-label">Issue description</label>
+        <textarea class="modal-textarea" rows="4" placeholder="Describe the operational issue and any steps already taken…"></textarea>
+      </div>
+    </div>
+    <div class="modal-foot">
+      <button class="btn btn-ghost" onclick="closeModal('escl')">Cancel</button>
+      <button class="btn btn-danger" onclick="confirmEscl()">Raise OPS-RR Item</button>
+    </div>
+  </div>
+</div>
+
+<!-- Pause -->
+<div class="modal-overlay" id="modal-pause">
+  <div class="modal">
+    <div class="modal-head">
+      <span class="modal-title">Pause source</a>
+      <button class="modal-close" onclick="closeModal('pause')">×</button>
+    </div>
+    <div class="modal-body">
+      <div style="font-size:12.5px; color:var(--fg-2); line-height:1.55; margin-bottom:14px;">Pausing northsea.com/news will stop it from being included in future Ranger Recon sweeps. Existing candidates remain in the inbox.</div>
+      <div class="modal-field">
+        <label class="modal-label">Pause duration</label>
+        <select class="modal-select">
+          <option>24 hours</option>
+          <option>72 hours</option>
+          <option>7 days</option>
+          <option>Until manually resumed</option>
+        </select>
+      </div>
+      <div class="modal-field">
+        <label class="modal-label">Reason (for audit log)</label>
+        <textarea class="modal-textarea" rows="2" placeholder="Brief operational reason…"></textarea>
+      </div>
+    </div>
+    <div class="modal-foot">
+      <button class="btn btn-ghost" onclick="closeModal('pause')">Cancel</button>
+      <button class="btn" style="background:var(--warn);border-color:var(--warn);color:#000;font-weight:600;" onclick="closeModal('pause')">Confirm Pause</button>
+    </div>
+  </div>
+</div>
+
+<!-- Update Metadata -->
+<div class="modal-overlay" id="modal-meta">
+  <div class="modal">
+    <div class="modal-head">
+      <span class="modal-title">Update source metadata</a>
+      <button class="modal-close" onclick="closeModal('meta')">×</button>
+    </div>
+    <div class="modal-body">
+      <div class="modal-field">
+        <label class="modal-label">Feed URL</label>
+        <input class="modal-input" value="https://press.northsea.com/news/feed/rss">
+      </div>
+      <div class="modal-field">
+        <label class="modal-label">Layer assignment</label>
+        <select class="modal-select"><option selected>L2 — Institutional Press</option><option>L1 — Corporate Newsroom</option><option>L3 — National Cross-reference</option><option>L4 — Signal-only Pointer</option></select>
+      </div>
+      <div class="modal-field">
+        <label class="modal-label">Stream</label>
+        <select class="modal-select"><option selected>Energy &amp; Industry</option><option>Politics &amp; Governance</option><option>Finance &amp; Legal</option><option>Health &amp; Public Services</option></select>
+      </div>
+      <div class="modal-field">
+        <label class="modal-label">Exclusivity window (hours)</label>
+        <input class="modal-input" value="9" type="number" min="0" max="48">
+      </div>
+    </div>
+    <div class="modal-foot">
+      <button class="btn btn-ghost" onclick="closeModal('meta')">Cancel</button>
+      <button class="btn btn-primary" onclick="closeModal('meta')">Save changes</button>
+    </div>
+  </div>
+</div>
+
+<!-- Remove -->
+<div class="modal-overlay" id="modal-remove">
+  <div class="modal">
+    <div class="modal-head">
+      <span class="modal-title">Remove source</a>
+      <button class="modal-close" onclick="closeModal('remove')">×</button>
+    </div>
+    <div class="modal-body">
+      <div style="font-size:12.5px; color:var(--fg-2); line-height:1.55; margin-bottom:14px;">This will permanently remove <strong style="color:var(--fg)">northsea.com/news</strong> from the discovery network. All historical run data will be retained but no future sweeps will include this source.</div>
+      <div class="modal-field">
+        <label class="modal-label">Type <code style="font-family:var(--mono);background:var(--bg);padding:1px 4px;border-radius:3px;font-size:11px;">SRC-0047</code> to confirm</label>
+        <input class="modal-input" id="remove-confirm" placeholder="SRC-0047">
+      </div>
+    </div>
+    <div class="modal-foot">
+      <button class="btn btn-ghost" onclick="closeModal('remove')">Cancel</button>
+      <button class="btn btn-danger" onclick="closeModal('remove')">Remove source</button>
+    </div>
+  </div>
+</div>
+
+<script>
+/* ── Theme ── */
+function toggleTheme() {
+  const html = document.documentElement;
+  const dark = html.getAttribute('data-theme') === 'dark';
+  html.setAttribute('data-theme', dark ? 'light' : 'dark');
+  document.getElementById('theme-label').textContent = dark ? 'Dark mode' : 'Light mode';
+}
+
+/* ── Trend bars — items per sweep ── */
+const itemsPerWeek = [5.4, 4.8, 5.1, 4.2, 4.7, 3.9, 3.4, 3.2];
+const weeks = ['W21','W22','W23','W24','W25','W26','W27','W28'];
+const maxVal = Math.max(...itemsPerWeek);
+const barsCont = document.getElementById('items-bars');
+itemsPerWeek.forEach((v, i) => {
+  const pct = Math.round((v / maxVal) * 100);
+  const col = v < 3.5 ? '#ef4444' : v < 4.5 ? '#f59e0b' : '#22c55e';
+  barsCont.innerHTML += `
+    <div class="trend-bar-wrap">
+      <div class="trend-bar" style="height:${pct}%;background:${col};opacity:.7;" title="${v} cands/sweep"></div>
+      <span class="trend-week">${weeks[i]}</a>
+    </div>`;
+});
+
+/* ── Reliability trend bars ── */
+const relPcts = [88, 85, 83, 80, 79, 76, 73, 71];
+const relCont = document.getElementById('rel-bars');
+relPcts.forEach((p, i) => {
+  const col = p < 75 ? '#ef4444' : p < 85 ? '#f59e0b' : '#22c55e';
+  relCont.innerHTML += `
+    <div class="rel-row">
+      <span class="rel-week">${weeks[i]}</a>
+      <div class="rel-track"><div class="rel-fill" style="width:${p}%;background:${col};opacity:.7;"></div></div>
+      <span class="rel-pct">${p}%</a>
+    </div>`;
+});
+
+/* ── Run history ── */
+const runs = [
+  { id:'RR-2841', date:'28 May · AM', outcome:'oc-fail',  label:'Parse failure',      http:'503', http_cls:'http-5xx', cands:0,  parse:14, danger:true },
+  { id:'RR-2840', date:'27 May · PM', outcome:'oc-fail',  label:'Not reached',        http:'503', http_cls:'http-5xx', cands:0,  parse:0,  danger:true },
+  { id:'RR-2839', date:'27 May · AM', outcome:'oc-fail',  label:'Parse failure',      http:'503', http_cls:'http-5xx', cands:0,  parse:11, danger:true },
+  { id:'RR-2838', date:'26 May · PM', outcome:'oc-fail',  label:'Parse failure',      http:'503', http_cls:'http-5xx', cands:0,  parse:9,  danger:true },
+  { id:'RR-2837', date:'26 May · AM', outcome:'oc-fail',  label:'Not reached',        http:'503', http_cls:'http-5xx', cands:0,  parse:0,  danger:true },
+  { id:'RR-2836', date:'25 May · PM', outcome:'oc-parse', label:'Parse failure',      http:'200', http_cls:'http-ok',  cands:1,  parse:7,  danger:false },
+  { id:'RR-2835', date:'25 May · AM', outcome:'oc-parse', label:'Reached / partial',  http:'200', http_cls:'http-ok',  cands:2,  parse:5,  danger:false },
+  { id:'RR-2834', date:'24 May · PM', outcome:'oc-ok',    label:'Reached / items',    http:'200', http_cls:'http-ok',  cands:4,  parse:2,  danger:false },
+  { id:'RR-2833', date:'24 May · AM', outcome:'oc-ok',    label:'Reached / items',    http:'200', http_cls:'http-ok',  cands:3,  parse:1,  danger:false },
+  { id:'RR-2832', date:'23 May · PM', outcome:'oc-ok',    label:'Reached / items',    http:'200', http_cls:'http-ok',  cands:5,  parse:0,  danger:false },
+  { id:'RR-2831', date:'23 May · AM', outcome:'oc-ok',    label:'Reached / items',    http:'200', http_cls:'http-ok',  cands:3,  parse:0,  danger:false },
+  { id:'RR-2830', date:'22 May · PM', outcome:'oc-items0',label:'Reached / no items', http:'200', http_cls:'http-ok',  cands:0,  parse:0,  danger:false },
+  { id:'RR-2829', date:'22 May · AM', outcome:'oc-ok',    label:'Reached / items',    http:'200', http_cls:'http-ok',  cands:4,  parse:0,  danger:false },
+  { id:'RR-2828', date:'21 May · PM', outcome:'oc-ok',    label:'Reached / items',    http:'200', http_cls:'http-ok',  cands:6,  parse:0,  danger:false },
+];
+const tbody = document.getElementById('run-history-body');
+runs.forEach(r => {
+  tbody.innerHTML += `<tr>
+    <td><a href="sweep-run-detail.html" class="run-id">${r.id}</a></td>
+    <td><span class="run-date">${r.date}</span></td>
+    <td><span class="outcome-chip ${r.outcome}">${r.label}</span></td>
+    <td><span class="http-code ${r.http_cls}">${r.http}</span></td>
+    <td class="num-cell${r.cands===0&&r.danger?' danger':''}">${r.cands}</td>
+    <td class="num-cell${r.parse>5?' warn':''}">${r.parse > 0 ? r.parse : '—'}</td>
+    <td><a href="sweep-run-detail.html" class="action-link">Detail →</a></td>
+  </tr>`;
+});
+
+/* ── Modals ── */
+function openModal(id) {
+  document.getElementById('modal-' + id).classList.add('open');
+}
+function closeModal(id) {
+  document.getElementById('modal-' + id).classList.remove('open');
+}
+function confirmEscl() {
+  closeModal('escl');
+}
+document.querySelectorAll('.modal-overlay').forEach(el => {
+  el.addEventListener('click', e => { if (e.target === el) el.classList.remove('open'); });
+});
+</script>
+</body>
+</html>
