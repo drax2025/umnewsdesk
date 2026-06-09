@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { ChevronLeft } from "lucide-react";
+import { ChevronLeft, Pencil } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { cn } from "@/lib/utils";
 
@@ -126,6 +126,13 @@ export default async function ArticleDossierPage({
             ) : null}
           </div>
           <div className="flex flex-shrink-0 items-center gap-1.5">
+            <Link
+              href={`/articles/${a.id}/edit`}
+              className="flex h-7 items-center gap-1.5 rounded-md border border-border bg-background px-2.5 text-[11.5px] font-medium text-fg-2 hover:bg-secondary"
+            >
+              <Pencil className="h-3.5 w-3.5" />
+              Open in editor
+            </Link>
             <span
               className={cn(
                 "inline-flex items-center gap-1 rounded-full border px-2.5 py-1 text-[11px] font-medium",

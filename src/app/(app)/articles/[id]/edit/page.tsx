@@ -1,0 +1,264 @@
+import Link from "next/link";
+import { notFound } from "next/navigation";
+import { ArrowLeft, FileText, Send, History } from "lucide-react";
+import { createClient } from "@/lib/supabase/server";
+import { cn } from "@/lib/utils";
+import { DraftEditor } from "@/components/forms/draft-editor";
+import { submitForReview } from "@/lib/actions/article-write";
+
+export const dynamic = "force-dynamic";
+
+type ArticleRow = {
+  id: string;
+  headline: string;
+  standfirst: string | null;
+  body: string | null;
+  state: string;
+  slug: string | null;
+  sectors: string[];
+  geo_tier: string | null;
+  updated_at: string;
+};
+
+type RevisionRow = {
+  id: string;
+  revision_no: number;
+  summary: string | null;
+  headline: string;
+  created_at: string;
+};
+
+const STATE_PILL: Record<string, string> = {
+  pitched: "border-state-pitched/35 bg-state-pitched/10 text-state-pitched",
+  commissioned: "border-state-comm/35 bg-state-comm/10 text-state-comm",
+  filed: "border-state-filed/35 bg-state-filed/10 text-state-filed",
+  subbed: "border-state-sub/35 bg-state-sub/10 text-state-sub",
+  legal: "border-state-legal/35 bg-state-legal/10 text-state-legal",
+  scheduled: "border-state-sched/35 bg-state-sched/10 text-state-sched",
+  live: "border-state-live/35 bg-state-live/10 text-state-live",
+  rejected: "border-destructive/30 bg-destructive/10 text-destructive",
+  killed: "border-um-muted/30 bg-um-muted/10 text-um-muted",
+};
+
+const STATE_LABEL: Record<string, string> = {
+  pitched: "Pitched",
+  commissioned: "Commissioned",
+  filed: "Filed",
+  subbed: "Sub-edit",
+  legal: "Legal",
+  scheduled: "Scheduled",
+  live: "Live",
+  rejected: "Rejected",
+  killed: "Killed",
+};
+
+// Once an article enters the review pipeline it's read-only here —
+// further changes flow through approvals or sub-edit, not free writes.
+const WRITER_STATES = new Set(["commissioned", "filed"]);
+const READONLY_STATES = new Set(["subbed", "legal", "scheduled", "live", "rejected", "killed"]);
+
+function fmtAge(iso: string): string {
+  const mins = Math.floor((Date.now() - new Date(iso).getTime()) / 60_000);
+  if (mins < 1) return "just now";
+  if (mins < 60) return `${mins}m ago`;
+  const hrs = Math.floor(mins / 60);
+  if (hrs < 24) return `${hrs}h ago`;
+  const days = Math.floor(hrs / 24);
+  return `${days}d ago`;
+}
+
+function fmtAbs(iso: string): string {
+  return new Date(iso).toLocaleString("en-GB", {
+    day: "2-digit",
+    month: "short",
+    hour: "2-digit",
+    minute: "2-digit",
+    hour12: false,
+  });
+}
+
+export default async function ArticleEditPage({
+  params,
+}: {
+  params: Promise<{ id: string }>;
+}) {
+  const { id } = await params;
+  const supabase = await createClient();
+
+  const { data: article } = await supabase
+    .from("articles")
+    .select(
+      "id, headline, standfirst, body, state, slug, sectors, geo_tier, updated_at",
+    )
+    .eq("id", id)
+    .single<ArticleRow>();
+
+  if (!article) notFound();
+
+  const { data: revs } = await supabase
+    .from("article_revisions")
+    .select("id, revision_no, summary, headline, created_at")
+    .eq("article_id", id)
+    .order("revision_no", { ascending: false })
+    .limit(20);
+
+  const revisions: RevisionRow[] = revs ?? [];
+  const readOnly = READONLY_STATES.has(article.state);
+  const canSubmit = article.state === "commissioned";
+
+  return (
+    <div className="flex h-full flex-col">
+      {/* Header */}
+      <div className="flex flex-shrink-0 items-center gap-3 border-b border-border bg-card px-5 py-3">
+        <Link
+          href={`/articles/${id}`}
+          className="flex items-center gap-1 text-[11.5px] font-medium text-fg-2 hover:text-foreground"
+        >
+          <ArrowLeft className="h-3.5 w-3.5" />
+          Dossier
+        </Link>
+        <span className="text-um-muted">·</span>
+        <FileText className="h-4 w-4 text-primary" />
+        <span className="text-[13px] font-semibold text-foreground">
+          Write surface
+        </span>
+        <span
+          className={cn(
+            "rounded-sm border px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wider",
+            STATE_PILL[article.state],
+          )}
+        >
+          {STATE_LABEL[article.state] ?? article.state}
+        </span>
+        {!WRITER_STATES.has(article.state) && !READONLY_STATES.has(article.state) ? (
+          <span className="text-[10.5px] italic text-um-muted">
+            (locked while in {STATE_LABEL[article.state]})
+          </span>
+        ) : null}
+        <span className="ml-auto font-mono text-[10.5px] text-um-muted">
+          Updated {fmtAge(article.updated_at)}
+        </span>
+      </div>
+
+      {/* Body */}
+      <div className="flex-1 overflow-y-auto px-5 py-5">
+        <div className="mx-auto grid max-w-[1400px] gap-5 xl:grid-cols-[1fr_320px]">
+          {/* Editor column */}
+          <div className="flex flex-col gap-4">
+            <DraftEditor
+              id={article.id}
+              initialHeadline={article.headline}
+              initialStandfirst={article.standfirst ?? ""}
+              initialBody={article.body ?? ""}
+              readOnly={readOnly}
+            />
+
+            {/* Submit-for-review */}
+            {canSubmit ? (
+              <div className="rounded-md border border-primary/30 bg-primary/8 px-4 py-3">
+                <div className="mb-1 flex items-center gap-2">
+                  <Send className="h-3.5 w-3.5 text-primary" />
+                  <span className="text-[12.5px] font-semibold text-foreground">
+                    File this story
+                  </span>
+                </div>
+                <p className="mb-3 text-[11.5px] leading-[1.5] text-fg-2">
+                  Submitting moves the article from{" "}
+                  <span className="font-medium">Commissioned</span> to{" "}
+                  <span className="font-medium">Filed</span> and places it in the
+                  approvals queue. Make sure your latest draft is saved first.
+                </p>
+                <form action={submitForReview}>
+                  <input type="hidden" name="id" value={article.id} />
+                  <button
+                    type="submit"
+                    className="flex h-7 items-center gap-1.5 rounded-sm border border-primary bg-primary px-3 text-[11.5px] font-medium text-primary-foreground hover:opacity-90"
+                  >
+                    <Send className="h-3 w-3" />
+                    File for sub-edit
+                  </button>
+                </form>
+              </div>
+            ) : article.state === "filed" ? (
+              <div className="rounded-md border border-state-filed/30 bg-state-filed/8 px-4 py-3 text-[11.5px] text-fg-2">
+                <span className="font-semibold text-foreground">Filed.</span>{" "}
+                Waiting for sub-editor pickup. Continue tightening copy here — it
+                stays writeable until the sub-editor advances it.
+              </div>
+            ) : readOnly ? (
+              <div className="rounded-md border border-um-muted/25 bg-um-muted/8 px-4 py-3 text-[11.5px] text-fg-2">
+                <span className="font-semibold text-foreground">Locked.</span>{" "}
+                The article has advanced past the writer-edit gate. Use the{" "}
+                <Link
+                  href={`/approvals?id=${article.id}`}
+                  className="font-medium text-primary hover:underline"
+                >
+                  approvals
+                </Link>{" "}
+                surface to record decisions.
+              </div>
+            ) : null}
+          </div>
+
+          {/* Side rail: revision history */}
+          <aside className="flex flex-col gap-3">
+            <div className="rounded-md border border-border bg-card">
+              <div className="flex items-center gap-2 border-b border-border px-3 py-2">
+                <History className="h-3.5 w-3.5 text-um-muted" />
+                <span className="text-[11px] font-semibold uppercase tracking-[0.06em] text-foreground">
+                  Revisions
+                </span>
+                <span className="ml-auto font-mono text-[10.5px] text-um-muted">
+                  {revisions.length}
+                </span>
+              </div>
+              {revisions.length === 0 ? (
+                <div className="px-3 py-6 text-center text-[11px] italic text-um-muted">
+                  No revisions yet. Save the draft to start the history.
+                </div>
+              ) : (
+                <ul>
+                  {revisions.map((r) => (
+                    <li
+                      key={r.id}
+                      className="border-b border-border px-3 py-2 last:border-b-0"
+                    >
+                      <div className="mb-0.5 flex items-center gap-2">
+                        <span className="font-mono text-[10.5px] font-semibold tabular-nums text-foreground">
+                          rev {r.revision_no}
+                        </span>
+                        <span
+                          className="ml-auto font-mono text-[10px] text-um-muted"
+                          title={fmtAbs(r.created_at)}
+                        >
+                          {fmtAge(r.created_at)}
+                        </span>
+                      </div>
+                      <div className="line-clamp-1 text-[11px] text-fg-2">
+                        {r.summary || (
+                          <span className="italic text-um-muted">
+                            (no change note)
+                          </span>
+                        )}
+                      </div>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </div>
+            <div className="rounded-md border border-border bg-card px-3 py-3 text-[10.5px] leading-[1.5] text-um-muted">
+              <p className="mb-1.5 font-semibold uppercase tracking-[0.06em] text-fg-2">
+                How saves work
+              </p>
+              <p>
+                The editor autosaves 6 seconds after you stop typing. Each save
+                appends an immutable revision row. Use the change-note field to
+                annotate what you changed and why.
+              </p>
+            </div>
+          </aside>
+        </div>
+      </div>
+    </div>
+  );
+}

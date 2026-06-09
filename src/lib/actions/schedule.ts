@@ -38,6 +38,14 @@ export async function scheduleArticle(formData: FormData) {
 
   const supabase = await createClient();
 
+  // Gate: article must have cleared legal before it can be scheduled.
+  const { data: art } = await supabase
+    .from("articles")
+    .select("legal_cleared_at")
+    .eq("id", articleId)
+    .single();
+  if (!art || !art.legal_cleared_at) return;
+
   const { data: lastEntry } = await supabase
     .from("schedule_entries")
     .select("code")
