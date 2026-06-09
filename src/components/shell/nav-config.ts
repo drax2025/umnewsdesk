@@ -17,6 +17,7 @@ import {
   ScrollText,
   Grid2x2,
   Settings,
+  TestTube2,
 } from "lucide-react";
 
 export type NavItem = {
@@ -68,6 +69,7 @@ export const NAV_SECTIONS: NavSection[] = [
       { label: "Discovery Config", href: "/system/discovery-config", icon: Cog },
       { label: "Source Health Monitor", href: "/system/source-health", icon: Activity },
       { label: "Discovery Audit Log", href: "/system/audit-log", icon: ScrollText },
+      { label: "Test Ingest", href: "/system/test-ingest", icon: TestTube2 },
       { label: "Design System", href: "/system/design", icon: Grid2x2 },
       { label: "Settings", href: "/system/settings", icon: Settings },
     ],
