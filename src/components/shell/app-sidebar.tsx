@@ -1,0 +1,95 @@
+"use client";
+
+import Link from "next/link";
+import { usePathname } from "next/navigation";
+import { NAV_SECTIONS } from "./nav-config";
+import { cn } from "@/lib/utils";
+
+type Props = {
+  user: {
+    fullName: string;
+    role: string;
+    initials: string;
+  };
+};
+
+export function AppSidebar({ user }: Props) {
+  const pathname = usePathname();
+
+  return (
+    <aside className="flex h-screen w-[216px] flex-col overflow-y-auto border-r border-border bg-card row-span-2">
+      {/* Publication */}
+      <div className="border-b border-border px-4 pt-3.5 pb-3">
+        <span className="block text-[13px] font-semibold tracking-[-0.015em]">
+          Union Media
+        </span>
+        <span className="mt-0.5 block font-mono text-[11px] text-um-muted">
+          unionmedia.co.uk · Editorial Ops
+        </span>
+      </div>
+
+      {/* Nav */}
+      <nav className="flex-1 py-2">
+        {NAV_SECTIONS.map((section) => (
+          <div key={section.label}>
+            <div className="px-4 pt-3.5 pb-1 text-[10px] font-semibold uppercase tracking-[0.07em] text-um-muted">
+              {section.label}
+            </div>
+            {section.items.map((item) => {
+              const Icon = item.icon;
+              const active =
+                item.href === "/"
+                  ? pathname === "/"
+                  : pathname.startsWith(item.href);
+              return (
+                <Link
+                  key={item.href}
+                  href={item.href}
+                  className={cn(
+                    "relative flex items-center gap-2.5 px-4 py-1.5 text-[13px] transition-colors",
+                    active
+                      ? "bg-accent text-foreground before:absolute before:left-0 before:top-1 before:bottom-1 before:w-[2px] before:rounded-r-sm before:bg-primary"
+                      : "text-fg-2 hover:bg-secondary hover:text-foreground",
+                  )}
+                >
+                  <Icon
+                    className={cn(
+                      "h-[15px] w-[15px] flex-shrink-0",
+                      active ? "opacity-100" : "opacity-65",
+                    )}
+                  />
+                  <span className="flex-1">{item.label}</span>
+                  {item.badge ? (
+                    <span
+                      className={cn(
+                        "rounded-full px-1.5 py-0.5 font-mono text-[10px] font-semibold",
+                        item.badge.urgent
+                          ? "bg-destructive/15 text-destructive"
+                          : "bg-secondary text-fg-2",
+                      )}
+                    >
+                      {item.badge.value}
+                    </span>
+                  ) : null}
+                </Link>
+              );
+            })}
+          </div>
+        ))}
+      </nav>
+
+      {/* User */}
+      <div className="flex items-center gap-2.5 border-t border-border px-4 py-3">
+        <div className="flex h-[26px] w-[26px] flex-shrink-0 items-center justify-center rounded-full border border-border-mid bg-accent font-mono text-[10px] font-bold text-primary">
+          {user.initials}
+        </div>
+        <div className="min-w-0">
+          <span className="block truncate text-[12px] font-medium">
+            {user.fullName}
+          </span>
+          <span className="block text-[11px] text-um-muted">{user.role}</span>
+        </div>
+      </div>
+    </aside>
+  );
+}
