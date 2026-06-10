@@ -1,19 +1,19 @@
 "use server";
 
-import { spawn } from "node:child_process";
+import Anthropic from "@anthropic-ai/sdk";
 import { createClient } from "@/lib/supabase/server";
 
 /**
- * "Draft from source" — shells out to the Claude CLI in print mode to
- * generate a commission brief from the candidate the commission was
- * created from. Prompt goes in via stdin so we don't have to worry
- * about shell-quoting the source body.
+ * "Draft from source" — calls the Anthropic API to generate a structured
+ * commission brief from the candidate the commission was created from.
  *
- * Runtime note: this requires the `claude` binary to be on PATH and
- * already authenticated where the Next.js server process runs. That
- * means local dev or a self-hosted node, NOT Vercel's serverless
- * runtime. Swap to the Anthropic SDK if/when we need that.
+ * Runs in the Node runtime (declared on the route) using a single
+ * messages.create call against the latest Claude Opus. Requires the
+ * ANTHROPIC_API_KEY env var on the deployment.
  */
+
+const MODEL = "claude-opus-4-7";
+const MAX_TOKENS = 1024;
 
 export type BriefDraftResult =
   | { ok: true; draft: string }
@@ -73,15 +73,33 @@ export async function draftBriefFromSource(formData: FormData): Promise<BriefDra
     (artRes.data ?? null) as ArticleContext | null,
   );
 
+  const apiKey = process.env.ANTHROPIC_API_KEY;
+  if (!apiKey) {
+    return { ok: false, error: "ANTHROPIC_API_KEY is not configured on the server" };
+  }
+
   try {
-    const text = await runClaude(prompt);
-    const draft = text.trim();
+    const client = new Anthropic({ apiKey });
+    const message = await client.messages.create({
+      model: MODEL,
+      max_tokens: MAX_TOKENS,
+      system:
+        "You are the commissioning editor at Union Media, a UK editorial newsroom. You write tight, actionable commission briefs that reporters can act on without further clarification.",
+      messages: [{ role: "user", content: prompt }],
+    });
+
+    const draft = message.content
+      .filter((block): block is Anthropic.TextBlock => block.type === "text")
+      .map((block) => block.text)
+      .join("\n")
+      .trim();
+
     if (!draft) return { ok: false, error: "Claude returned empty output" };
     return { ok: true, draft };
   } catch (e) {
     return {
       ok: false,
-      error: e instanceof Error ? e.message : "Claude CLI failed",
+      error: e instanceof Error ? e.message : "Anthropic API call failed",
     };
   }
 }
@@ -93,7 +111,7 @@ function buildPrompt(cand: CandidateContext, article: ArticleContext | null): st
   const tags = cand.tags?.join(", ") || "—";
 
   return [
-    "You are the commissioning editor at Union Media. Write a tight commission brief for a reporter based on the source material below.",
+    "Write a tight commission brief for a reporter based on the source material below.",
     "",
     "Return ONLY the brief itself — no preamble, no markdown headings, no closing remarks. Use this exact structure with these labels:",
     "",
@@ -129,42 +147,3 @@ function buildPrompt(cand: CandidateContext, article: ArticleContext | null): st
     .join("\n");
 }
 
-function runClaude(prompt: string): Promise<string> {
-  return new Promise((resolve, reject) => {
-    let child;
-    try {
-      child = spawn("claude", ["-p"], { stdio: ["pipe", "pipe", "pipe"] });
-    } catch (e) {
-      reject(e);
-      return;
-    }
-
-    let out = "";
-    let err = "";
-    const timer = setTimeout(() => {
-      child.kill("SIGTERM");
-      reject(new Error("Claude CLI timed out after 90s"));
-    }, 90_000);
-
-    child.stdout.on("data", (d: Buffer) => {
-      out += d.toString();
-    });
-    child.stderr.on("data", (d: Buffer) => {
-      err += d.toString();
-    });
-    child.on("error", (e) => {
-      clearTimeout(timer);
-      reject(e);
-    });
-    child.on("close", (code) => {
-      clearTimeout(timer);
-      if (code !== 0) {
-        reject(new Error(err.trim() || `Claude CLI exited with code ${code}`));
-        return;
-      }
-      resolve(out);
-    });
-
-    child.stdin.end(prompt);
-  });
-}
