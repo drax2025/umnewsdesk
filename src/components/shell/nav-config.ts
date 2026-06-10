@@ -8,6 +8,7 @@ import {
   FileText,
   CheckSquare,
   Users,
+  Building2,
   Search,
   Inbox,
   AlertTriangle,
@@ -52,6 +53,7 @@ export const NAV_SECTIONS: NavSection[] = [
     items: [
       { label: "Approvals", href: "/approvals", icon: CheckSquare },
       { label: "Team", href: "/team", icon: Users },
+      { label: "Press Agencies", href: "/team/agencies", icon: Building2 },
     ],
   },
   {

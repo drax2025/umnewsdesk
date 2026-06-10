@@ -19,6 +19,10 @@
  */
 
 import { NextResponse } from "next/server";
+import {
+  extractFromAttachments,
+  type PostmarkAttachmentInput,
+} from "@/lib/ingest/attachment-extract";
 import { checkDedup } from "@/lib/ingest/dedup";
 import { parseEmbargo } from "@/lib/ingest/embargo";
 import { nextCandidateCode } from "@/lib/ingest/codes";
@@ -28,12 +32,6 @@ import { createServiceClient } from "@/lib/supabase/service";
 export const dynamic = "force-dynamic";
 
 type PostmarkHeader = { Name: string; Value: string };
-type PostmarkAttachment = {
-  Name?: string;
-  ContentType?: string;
-  ContentLength?: number;
-  ContentID?: string;
-};
 type PostmarkInbound = {
   MessageID?: string;
   From?: string;
@@ -45,7 +43,7 @@ type PostmarkInbound = {
   HtmlBody?: string;
   StrippedTextReply?: string;
   Headers?: PostmarkHeader[];
-  Attachments?: PostmarkAttachment[];
+  Attachments?: PostmarkAttachmentInput[];
   Date?: string;
 };
 
@@ -141,8 +139,15 @@ export async function POST(req: Request) {
     );
   }
 
-  const bodyText =
+  const inlineBody =
     safeTrim(body.TextBody, 100_000) ?? stripHtml(body.HtmlBody ?? "");
+
+  // Try the first PDF/.docx attachment if the inline body is thin.
+  // PR agencies often send the courtesy note inline + the actual release as an
+  // attachment, so without this scoring would see no real content.
+  const extracted = await extractFromAttachments(body.Attachments, inlineBody);
+  const bodyText = extracted?.text ?? inlineBody;
+
   const haystack = `${subject}\n\n${bodyText ?? ""}`;
   const embargo = parseEmbargo(haystack);
 
@@ -224,6 +229,13 @@ export async function POST(req: Request) {
         trust_tier: agency?.trust_tier ?? null,
         embargo_matched_text: embargo.matched_text,
         attachment_count: body.Attachments?.length ?? 0,
+        extracted_attachment: extracted
+          ? {
+              name: extracted.name,
+              source: extracted.source,
+              char_count: extracted.char_count,
+            }
+          : null,
       },
     })
     .select("id, code")
