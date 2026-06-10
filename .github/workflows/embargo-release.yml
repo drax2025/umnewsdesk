@@ -1,0 +1,49 @@
+# Embargo release cron.
+#
+# Vercel Hobby caps cron jobs at one run per day, so the real every-15-min
+# trigger lives here. Vercel still has a daily run in vercel.json as a
+# redundant safety net.
+#
+# Auth: posts Authorization: Bearer $CRON_SECRET — the route validates with
+# a constant-time compare against the env var of the same name on Vercel.
+#
+# Idempotent: if there's nothing to release, the route returns
+# { released_count: 0 } in a few ms and we move on.
+
+name: Embargo release
+
+on:
+  schedule:
+    # GitHub Actions cron is UTC. 15-min granularity is the minimum supported.
+    - cron: "*/15 * * * *"
+  workflow_dispatch: {}
+
+concurrency:
+  group: embargo-release
+  cancel-in-progress: false
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    timeout-minutes: 2
+    steps:
+      - name: Trigger embargo release
+        env:
+          CRON_SECRET: ${{ secrets.CRON_SECRET }}
+          CRON_URL: ${{ vars.CRON_URL || 'https://umnewsdesk.vercel.app/api/cron/embargo-release' }}
+        run: |
+          if [ -z "$CRON_SECRET" ]; then
+            echo "::error::CRON_SECRET secret is not set on this repository."
+            exit 1
+          fi
+          response=$(curl -sS -o /tmp/body -w "%{http_code}" \
+            -X POST \
+            -H "Authorization: Bearer $CRON_SECRET" \
+            "$CRON_URL")
+          echo "HTTP $response"
+          cat /tmp/body
+          echo
+          if [ "$response" != "200" ]; then
+            echo "::error::Non-200 response from embargo-release endpoint"
+            exit 1
+          fi
