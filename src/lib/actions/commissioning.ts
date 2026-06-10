@@ -26,6 +26,30 @@ function revalidateAll() {
   for (const p of REVALIDATE_PATHS) revalidatePath(p);
 }
 
+/**
+ * Seed brief text the editor sees the moment a candidate is commissioned.
+ * Just the source URL + whatever blurb the feed gave us — enough that the
+ * assignee has the link in one place without forcing the editor to retype
+ * anything. "Draft from source" extends this via Claude on demand.
+ */
+function starterBrief(cand: {
+  working_headline: string;
+  summary: string | null;
+  primary_url: string | null;
+  author: string | null;
+  published_at: string | null;
+}): string {
+  const lines: string[] = [];
+  if (cand.primary_url) lines.push(`Source: ${cand.primary_url}`);
+  if (cand.author) lines.push(`Byline: ${cand.author}`);
+  if (cand.published_at) {
+    lines.push(`Published: ${new Date(cand.published_at).toISOString().slice(0, 10)}`);
+  }
+  if (lines.length > 0) lines.push("");
+  lines.push(cand.summary?.trim() || cand.working_headline);
+  return lines.join("\n");
+}
+
 function nextCode(prefix: string, last: string | null): string {
   const year = new Date().getFullYear();
   if (!last) return `${prefix}-${year}-001`;
@@ -42,7 +66,7 @@ export async function commissionFromCandidate(formData: FormData) {
 
   const { data: cand } = await supabase
     .from("candidates")
-    .select("id, working_headline, source_id, layer")
+    .select("id, working_headline, source_id, layer, summary, primary_url, author, published_at")
     .eq("id", candidateId)
     .single();
   if (!cand) return;
@@ -89,7 +113,7 @@ export async function commissionFromCandidate(formData: FormData) {
       code,
       article_id: article.id,
       candidate_id: candidateId,
-      brief: "",
+      brief: starterBrief(cand),
       status: "briefed",
       commissioned_by: userId,
     })

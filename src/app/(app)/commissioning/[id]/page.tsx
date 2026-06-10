@@ -6,8 +6,8 @@ import { cn } from "@/lib/utils";
 import {
   assignCommission,
   setCommissionStatus,
-  updateCommissionBrief,
 } from "@/lib/actions/commissioning";
+import { BriefEditor } from "@/components/forms/brief-editor";
 
 export const dynamic = "force-dynamic";
 
@@ -181,40 +181,12 @@ export default async function CommissionDetailPage({
           ) : null}
 
           <Card title="Brief & deadline">
-            <form action={updateCommissionBrief} className="flex flex-col gap-3">
-              <input type="hidden" name="id" value={c.id} />
-              <div>
-                <label className="mb-1 block text-[10.5px] font-semibold uppercase tracking-[0.06em] text-um-muted">
-                  Brief
-                </label>
-                <textarea
-                  name="brief"
-                  defaultValue={c.brief}
-                  rows={6}
-                  placeholder="Word count, angle, key sources, deadline expectations…"
-                  className="w-full rounded-sm border border-border bg-background px-3 py-2 text-[12.5px] leading-[1.5] text-foreground focus:border-primary focus:outline-none"
-                />
-              </div>
-              <div className="flex items-end gap-3">
-                <div className="flex-1">
-                  <label className="mb-1 block text-[10.5px] font-semibold uppercase tracking-[0.06em] text-um-muted">
-                    Deadline
-                  </label>
-                  <input
-                    type="datetime-local"
-                    name="deadline_at"
-                    defaultValue={toLocalInput(c.deadline_at)}
-                    className="h-8 w-full rounded-sm border border-border bg-background px-2 text-[12px] text-foreground focus:border-primary focus:outline-none"
-                  />
-                </div>
-                <button
-                  type="submit"
-                  className="h-8 rounded-sm border border-primary/40 bg-primary/10 px-3 text-[11.5px] font-medium text-primary hover:bg-primary/15"
-                >
-                  Save brief
-                </button>
-              </div>
-            </form>
+            <BriefEditor
+              commissionId={c.id}
+              initialBrief={c.brief}
+              initialDeadlineLocal={toLocalInput(c.deadline_at)}
+              hasSourceCandidate={Boolean(c.candidate_id)}
+            />
           </Card>
 
           {candidate ? (
