@@ -513,7 +513,7 @@ function SourceDialog({
         // Click on backdrop closes — children stop propagation.
         if (e.target === ref.current) ref.current?.close();
       }}
-      className="w-[460px] max-w-[92vw] rounded-lg border border-border bg-card p-0 text-foreground shadow-2xl backdrop:bg-foreground/40 backdrop:backdrop-blur-sm"
+      className="fixed inset-0 m-auto h-fit w-[460px] max-w-[92vw] rounded-lg border border-border bg-card p-0 text-foreground shadow-2xl backdrop:bg-foreground/40 backdrop:backdrop-blur-sm"
     >
       <div
         className="flex items-center justify-between border-b border-border px-4 py-3"
