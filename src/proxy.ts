@@ -11,7 +11,8 @@ export const config = {
      * Run on all paths except:
      * - _next/static, _next/image, favicon, public assets
      * - /api/ingest/* (bearer-token auth, called by n8n with no cookie)
+     * - /api/cron/*   (Vercel cron — CRON_SECRET via Authorization header)
      */
-    "/((?!_next/static|_next/image|favicon.ico|api/ingest|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)",
+    "/((?!_next/static|_next/image|favicon.ico|api/ingest|api/cron|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)",
   ],
 };

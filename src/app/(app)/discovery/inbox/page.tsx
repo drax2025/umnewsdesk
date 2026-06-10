@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { Clock, Mail } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { cn } from "@/lib/utils";
 import { AutoSubmitSelect } from "@/components/forms/auto-submit-select";
@@ -20,6 +21,7 @@ type CandidateRow = {
   primary_url: string | null;
   image_url: string | null;
   layer: "l1" | "l2" | "l3" | "l4";
+  kind: "rss" | "email" | "pdf" | "web" | "generic" | null;
   dedup_state: "clear" | "duplicate" | "held" | "needs_review" | "pointer";
   verification_state: "verified" | "pending" | "unverified";
   triage_state:
@@ -33,6 +35,8 @@ type CandidateRow = {
   risk: "low" | "med" | "high";
   score: number | null;
   score_breakdown: ScoreBreakdown | null;
+  embargo_until: string | null;
+  embargo_confidence: "high" | "med" | "low" | "none" | null;
   surfaced_at: string;
   source_id: string | null;
   stream_id: string | null;
@@ -125,7 +129,7 @@ export default async function CandidateInboxPage({
     supabase
       .from("candidates")
       .select(
-        "id, code, working_headline, primary_url, image_url, layer, dedup_state, verification_state, triage_state, risk, score, score_breakdown, surfaced_at, source_id, stream_id, sweep_run_id",
+        "id, code, working_headline, primary_url, image_url, layer, kind, dedup_state, verification_state, triage_state, risk, score, score_breakdown, embargo_until, embargo_confidence, surfaced_at, source_id, stream_id, sweep_run_id",
       )
       .order("surfaced_at", { ascending: false })
       .limit(200),
@@ -357,20 +361,35 @@ export default async function CandidateInboxPage({
                           {c.code}
                         </td>
                         <td className="max-w-[440px] px-3 py-2.5">
-                          {c.primary_url ? (
-                            <a
-                              href={c.primary_url}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              className="block truncate text-[12.5px] font-medium text-foreground hover:text-primary"
-                            >
-                              {c.working_headline}
-                            </a>
-                          ) : (
-                            <span className="block truncate text-[12.5px] font-medium text-foreground">
-                              {c.working_headline}
-                            </span>
-                          )}
+                          <div className="flex items-start gap-1.5">
+                            {c.kind === "email" ? (
+                              <Mail
+                                className="mt-[3px] h-3 w-3 flex-shrink-0 text-um-muted"
+                                aria-label="From press mailbox"
+                              />
+                            ) : null}
+                            <div className="min-w-0 flex-1">
+                              {c.primary_url ? (
+                                <a
+                                  href={c.primary_url}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  className="block truncate text-[12.5px] font-medium text-foreground hover:text-primary"
+                                >
+                                  {c.working_headline}
+                                </a>
+                              ) : (
+                                <span className="block truncate text-[12.5px] font-medium text-foreground">
+                                  {c.working_headline}
+                                </span>
+                              )}
+                              <EmbargoChip
+                                until={c.embargo_until}
+                                confidence={c.embargo_confidence}
+                                triageState={c.triage_state}
+                              />
+                            </div>
+                          </div>
                         </td>
                         <td className="px-3 py-2.5">
                           <Thumb url={c.image_url} alt={c.working_headline} />
@@ -735,6 +754,58 @@ function OpsEscalateMenu({ id }: { id: string }) {
         </form>
       </div>
     </details>
+  );
+}
+
+function EmbargoChip({
+  until,
+  confidence,
+  triageState,
+}: {
+  until: string | null;
+  confidence: CandidateRow["embargo_confidence"];
+  triageState: CandidateRow["triage_state"];
+}) {
+  if (!until) return null;
+  const t = new Date(until);
+  const now = Date.now();
+  const future = t.getTime() > now;
+  // Past + already released → no chip.
+  if (!future && triageState !== "held_source") return null;
+
+  const tone = future
+    ? confidence === "high"
+      ? "border-state-legal/40 bg-state-legal/10 text-state-legal"
+      : confidence === "med"
+        ? "border-warn/40 bg-warn/10 text-warn"
+        : "border-destructive/40 bg-destructive/10 text-destructive"
+    : "border-warn/40 bg-warn/10 text-warn"; // past but still held → review needed
+
+  const time = t.toLocaleTimeString("en-GB", {
+    hour12: false,
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+  const date = t.toLocaleDateString("en-GB", {
+    day: "numeric",
+    month: "short",
+  });
+  const label = future ? `${time} ${date}` : `Embargo passed — review`;
+  const tooltip = future
+    ? `Embargoed until ${t.toLocaleString("en-GB")} (confidence: ${confidence ?? "—"})`
+    : `Embargo expired at ${t.toLocaleString("en-GB")} — cron will release on next run`;
+
+  return (
+    <span
+      title={tooltip}
+      className={cn(
+        "mt-1 inline-flex items-center gap-1 rounded-sm border px-1.5 py-0.5 font-mono text-[10px] font-medium tabular-nums",
+        tone,
+      )}
+    >
+      <Clock className="h-2.5 w-2.5" />
+      {label}
+    </span>
   );
 }
 
