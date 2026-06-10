@@ -2,6 +2,7 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { cn } from "@/lib/utils";
+import { triggerManualSweep } from "@/lib/actions/sweeps";
 
 export const dynamic = "force-dynamic";
 
@@ -146,8 +147,16 @@ export default async function SweepRunDetailPage({
 
   if (allRuns.length === 0) {
     return (
-      <div className="flex h-full items-center justify-center text-[13px] text-um-muted">
-        No sweep runs recorded yet.
+      <div className="flex h-full flex-col items-center justify-center gap-4 text-[13px] text-um-muted">
+        <p>No sweep runs recorded yet.</p>
+        <form action={triggerManualSweep}>
+          <button
+            type="submit"
+            className="rounded-md border border-state-comm/35 bg-state-comm/10 px-3 py-1.5 text-[12px] font-semibold text-state-comm hover:bg-state-comm/15"
+          >
+            Trigger manual sweep
+          </button>
+        </form>
       </div>
     );
   }
@@ -232,10 +241,19 @@ export default async function SweepRunDetailPage({
     <div className="flex h-full overflow-hidden">
       {/* Run picker */}
       <aside className="hidden w-[200px] flex-shrink-0 flex-col border-r border-border bg-card md:flex">
-        <div className="flex flex-shrink-0 items-center border-b border-border px-4 py-2.5">
+        <div className="flex flex-shrink-0 items-center justify-between border-b border-border px-4 py-2.5">
           <span className="text-[10.5px] font-semibold uppercase tracking-[0.07em] text-um-muted">
             All Sweeps
           </span>
+          <form action={triggerManualSweep}>
+            <button
+              type="submit"
+              title="Open a new manual sweep"
+              className="rounded-sm border border-state-comm/35 bg-state-comm/10 px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-[0.06em] text-state-comm hover:bg-state-comm/15"
+            >
+              + New
+            </button>
+          </form>
         </div>
         <ul className="flex-1 overflow-y-auto">
           {allRuns.map((r) => {
