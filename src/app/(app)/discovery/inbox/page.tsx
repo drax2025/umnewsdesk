@@ -8,6 +8,8 @@ import {
   setCandidateTriage,
 } from "@/lib/actions/inbox";
 import { commissionFromCandidate } from "@/lib/actions/commissioning";
+import { ScoreButton } from "@/components/forms/score-button";
+import type { ScoreBreakdown } from "@/lib/actions/score";
 
 export const dynamic = "force-dynamic";
 
@@ -30,6 +32,7 @@ type CandidateRow = {
     | "escalated";
   risk: "low" | "med" | "high";
   score: number | null;
+  score_breakdown: ScoreBreakdown | null;
   surfaced_at: string;
   source_id: string | null;
   stream_id: string | null;
@@ -122,7 +125,7 @@ export default async function CandidateInboxPage({
     supabase
       .from("candidates")
       .select(
-        "id, code, working_headline, primary_url, image_url, layer, dedup_state, verification_state, triage_state, risk, score, surfaced_at, source_id, stream_id, sweep_run_id",
+        "id, code, working_headline, primary_url, image_url, layer, dedup_state, verification_state, triage_state, risk, score, score_breakdown, surfaced_at, source_id, stream_id, sweep_run_id",
       )
       .order("surfaced_at", { ascending: false })
       .limit(200),
@@ -187,6 +190,8 @@ export default async function CandidateInboxPage({
   const accepted = cands.filter((c) => c.triage_state === "sent_to_f1").length;
   const acceptanceRate = triaged ? (accepted / triaged) * 100 : 0;
   const dedupRate = cands.length ? (heldDup / cands.length) * 100 : 0;
+
+  const unscoredCount = cands.filter((c) => c.score === null).length;
 
   const readyScores = cands.filter((c) => c.triage_state === "ready" && c.score !== null);
   const avgScore =
@@ -293,6 +298,10 @@ export default async function CandidateInboxPage({
             { value: "unverified", label: "Unverified" },
           ]}
         />
+
+        <div className="mx-2 h-5 w-px bg-border" />
+
+        <ScoreButton unscoredCount={unscoredCount} />
 
         <form action="/discovery/inbox" className="ml-auto flex items-center gap-2">
           {activeState !== "all" ? <input type="hidden" name="state" value={activeState} /> : null}
@@ -408,8 +417,8 @@ export default async function CandidateInboxPage({
                             {TRIAGE_LABEL[c.triage_state] ?? c.triage_state}
                           </span>
                         </td>
-                        <td className="whitespace-nowrap px-3 py-2.5 text-right font-mono text-[11.5px] tabular-nums text-fg-2">
-                          {c.score !== null ? Number(c.score).toFixed(2) : "—"}
+                        <td className="whitespace-nowrap px-3 py-2.5 text-right">
+                          <ScorePill score={c.score} breakdown={c.score_breakdown} />
                         </td>
                         <td className="whitespace-nowrap px-3 py-2.5 text-right">
                           <TriageActions id={c.id} state={c.triage_state} />
@@ -492,7 +501,7 @@ export default async function CandidateInboxPage({
               v={oldestReady ? relTime(oldestReady) : "—"}
               tone={oldestReady ? "warn" : undefined}
             />
-            <StatRow k="Avg score (ready)" v={avgScore ? avgScore.toFixed(2) : "—"} />
+            <StatRow k="Avg score (ready)" v={avgScore ? `${avgScore.toFixed(1)}/22` : "—"} />
             <StatRow
               k="Last sweep"
               v={
@@ -757,6 +766,57 @@ function Thumb({ url, alt }: { url: string | null; alt: string }) {
       referrerPolicy="no-referrer"
       className="h-9 w-12 rounded-sm border border-border bg-background object-cover"
     />
+  );
+}
+
+function ScorePill({
+  score,
+  breakdown,
+}: {
+  score: number | null;
+  breakdown: ScoreBreakdown | null;
+}) {
+  if (score === null) {
+    return (
+      <span className="font-mono text-[11px] text-um-muted" title="Not yet scored">
+        —
+      </span>
+    );
+  }
+  const n = Math.round(Number(score));
+  const tone =
+    n >= 17
+      ? "border-success/40 bg-success/10 text-success"
+      : n >= 13
+        ? "border-primary/40 bg-primary/10 text-primary"
+        : n >= 8
+          ? "border-warn/40 bg-warn/10 text-warn"
+          : "border-border bg-secondary text-um-muted";
+  const tooltip = breakdown
+    ? [
+        `Scottish ${breakdown.scottish_relevance}/5`,
+        `Sector ${breakdown.sector_relevance}/4`,
+        `Recency ${breakdown.recency}/4`,
+        `Multi-source ${breakdown.multi_source}/3`,
+        `Audience ${breakdown.audience_impact}/3`,
+        `Angle ${breakdown.editorial_angle}/2`,
+        `PR quality ${breakdown.press_release_quality}/1`,
+        breakdown.rationale ? `\n${breakdown.rationale}` : "",
+      ]
+        .filter(Boolean)
+        .join(" · ")
+    : `Score ${n}/22`;
+  return (
+    <span
+      title={tooltip}
+      className={cn(
+        "inline-flex items-center rounded-full border px-2 py-0.5 font-mono text-[11px] font-semibold tabular-nums",
+        tone,
+      )}
+    >
+      {n}
+      <span className="ml-0.5 text-um-muted/80">/22</span>
+    </span>
   );
 }
 
