@@ -5,6 +5,7 @@ import {
   SignalOnlyCell,
   StatusCell,
 } from "@/components/forms/source-config-cells";
+import { NewSourceButton, SourceRowActions } from "@/components/forms/source-crud";
 
 export const dynamic = "force-dynamic";
 
@@ -19,18 +20,26 @@ type SourceRow = {
   exclusivity_window_hours: number;
   signal_only_eligible: boolean;
   monitored_since: string;
+  stream_id: string | null;
 };
+
+type StreamRow = { id: string; name: string };
 
 export default async function DiscoveryConfigPage() {
   const supabase = await createClient();
-  const { data: srcs } = await supabase
-    .from("discovery_sources")
-    .select(
-      "id, code, name, feed_url, crawl_method, layer, status, exclusivity_window_hours, signal_only_eligible, monitored_since",
-    )
-    .order("code", { ascending: true });
+  const [{ data: srcs }, { data: strms }] = await Promise.all([
+    supabase
+      .from("discovery_sources")
+      .select(
+        "id, code, name, feed_url, crawl_method, layer, status, exclusivity_window_hours, signal_only_eligible, monitored_since, stream_id",
+      )
+      .order("code", { ascending: true }),
+    supabase.from("discovery_streams").select("id, name").order("name", { ascending: true }),
+  ]);
 
   const sources: SourceRow[] = srcs ?? [];
+  const streams: StreamRow[] = strms ?? [];
+  const streamMap = new Map(streams.map((s) => [s.id, s.name]));
 
   return (
     <div className="flex h-full flex-col">
@@ -44,11 +53,14 @@ export default async function DiscoveryConfigPage() {
 
       <div className="flex-1 overflow-y-auto px-5 py-5">
         <div className="mb-5 rounded-md border border-border bg-card p-4">
-          <h2 className="mb-1 text-[13px] font-semibold text-foreground">Source registry</h2>
+          <div className="mb-1 flex items-start justify-between gap-4">
+            <h2 className="text-[13px] font-semibold text-foreground">Source registry</h2>
+            <NewSourceButton streams={streams} />
+          </div>
           <p className="text-[12px] leading-[1.5] text-um-muted">
-            Status, exclusivity window, and signal-only eligibility edit in place — changes save
-            immediately. Crawl method, parser overrides, and versioned snapshots wire up in the
-            next slice.
+            Status, exclusivity window, and signal-only eligibility edit in place —
+            changes save immediately. Name, feed URL, crawl method, and layer open
+            the edit drawer via the row actions.
           </p>
         </div>
 
@@ -58,6 +70,7 @@ export default async function DiscoveryConfigPage() {
               <tr className="border-b border-border bg-secondary/40">
                 <Th>Code</Th>
                 <Th>Name</Th>
+                <Th>Stream</Th>
                 <Th>Feed URL</Th>
                 <Th>Method</Th>
                 <Th>Layer</Th>
@@ -65,6 +78,7 @@ export default async function DiscoveryConfigPage() {
                 <Th className="text-right">Excl. window</Th>
                 <Th>Signal-only</Th>
                 <Th>Monitored since</Th>
+                <Th className="text-right">Actions</Th>
               </tr>
             </thead>
             <tbody>
@@ -77,6 +91,15 @@ export default async function DiscoveryConfigPage() {
                     {s.code}
                   </td>
                   <td className="px-3 py-2.5 text-[12.5px] text-foreground">{s.name}</td>
+                  <td className="whitespace-nowrap px-3 py-2.5 text-[11.5px] text-fg-2">
+                    {s.stream_id ? (
+                      streamMap.get(s.stream_id) ?? (
+                        <span className="text-um-muted">—</span>
+                      )
+                    ) : (
+                      <span className="text-um-muted">Unassigned</span>
+                    )}
+                  </td>
                   <td className="max-w-[280px] truncate px-3 py-2.5 font-mono text-[11px] text-um-muted">
                     {s.feed_url}
                   </td>
@@ -103,6 +126,20 @@ export default async function DiscoveryConfigPage() {
                       month: "short",
                       year: "2-digit",
                     })}
+                  </td>
+                  <td className="px-3 py-2.5 text-right">
+                    <SourceRowActions
+                      source={{
+                        id: s.id,
+                        code: s.code,
+                        name: s.name,
+                        feed_url: s.feed_url,
+                        crawl_method: s.crawl_method,
+                        layer: s.layer,
+                        stream_id: s.stream_id,
+                      }}
+                      streams={streams}
+                    />
                   </td>
                 </tr>
               ))}
