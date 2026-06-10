@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { Clock, Mail } from "lucide-react";
+import { Clock, Mail, Paperclip } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { cn } from "@/lib/utils";
 import { AutoSubmitSelect } from "@/components/forms/auto-submit-select";
@@ -37,6 +37,7 @@ type CandidateRow = {
   score_breakdown: ScoreBreakdown | null;
   embargo_until: string | null;
   embargo_confidence: "high" | "med" | "low" | "none" | null;
+  attachment_urls: string[] | null;
   surfaced_at: string;
   source_id: string | null;
   stream_id: string | null;
@@ -129,7 +130,7 @@ export default async function CandidateInboxPage({
     supabase
       .from("candidates")
       .select(
-        "id, code, working_headline, primary_url, image_url, layer, kind, dedup_state, verification_state, triage_state, risk, score, score_breakdown, embargo_until, embargo_confidence, surfaced_at, source_id, stream_id, sweep_run_id",
+        "id, code, working_headline, primary_url, image_url, layer, kind, dedup_state, verification_state, triage_state, risk, score, score_breakdown, embargo_until, embargo_confidence, attachment_urls, surfaced_at, source_id, stream_id, sweep_run_id",
       )
       .order("surfaced_at", { ascending: false })
       .limit(200),
@@ -383,11 +384,14 @@ export default async function CandidateInboxPage({
                                   {c.working_headline}
                                 </span>
                               )}
-                              <EmbargoChip
-                                until={c.embargo_until}
-                                confidence={c.embargo_confidence}
-                                triageState={c.triage_state}
-                              />
+                              <div className="mt-1 flex flex-wrap items-center gap-1">
+                                <EmbargoChip
+                                  until={c.embargo_until}
+                                  confidence={c.embargo_confidence}
+                                  triageState={c.triage_state}
+                                />
+                                <AttachmentChip names={c.attachment_urls} />
+                              </div>
                             </div>
                           </div>
                         </td>
@@ -799,12 +803,28 @@ function EmbargoChip({
     <span
       title={tooltip}
       className={cn(
-        "mt-1 inline-flex items-center gap-1 rounded-sm border px-1.5 py-0.5 font-mono text-[10px] font-medium tabular-nums",
+        "inline-flex items-center gap-1 rounded-sm border px-1.5 py-0.5 font-mono text-[10px] font-medium tabular-nums",
         tone,
       )}
     >
       <Clock className="h-2.5 w-2.5" />
       {label}
+    </span>
+  );
+}
+
+function AttachmentChip({ names }: { names: string[] | null }) {
+  if (!names || names.length === 0) return null;
+  const n = names.length;
+  const preview = names.slice(0, 5).join("\n");
+  const more = n > 5 ? `\n…and ${n - 5} more` : "";
+  return (
+    <span
+      title={`${n} attachment${n === 1 ? "" : "s"}:\n${preview}${more}`}
+      className="inline-flex items-center gap-1 rounded-sm border border-border bg-secondary px-1.5 py-0.5 font-mono text-[10px] font-medium tabular-nums text-fg-2"
+    >
+      <Paperclip className="h-2.5 w-2.5" />
+      {n}
     </span>
   );
 }

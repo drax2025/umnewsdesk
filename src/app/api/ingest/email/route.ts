@@ -27,6 +27,10 @@ import { checkDedup } from "@/lib/ingest/dedup";
 import { parseEmbargo } from "@/lib/ingest/embargo";
 import { nextCandidateCode } from "@/lib/ingest/codes";
 import { normalizeHeadline, safeIso, safeTrim } from "@/lib/ingest/normalize";
+import {
+  recoverOriginalSender,
+  type RecoveredSender,
+} from "@/lib/ingest/forwarded-sender";
 import { createServiceClient } from "@/lib/supabase/service";
 
 export const dynamic = "force-dynamic";
@@ -113,15 +117,42 @@ export async function POST(req: Request) {
     }
   }
 
-  // Sender → agency → source. Unknown agencies fall back to PRESS_MAILBOX so
-  // every email candidate has a non-null source_id (inbox source filter stays sane).
-  const { data: agency } = fromDomain
-    ? await supabase
+  const inlineBody =
+    safeTrim(body.TextBody, 100_000) ?? stripHtml(body.HtmlBody ?? "");
+
+  // Try the first PDF/.docx attachment if the inline body is thin.
+  // PR agencies often send the courtesy note inline + the actual release as an
+  // attachment, so without this scoring would see no real content.
+  const extracted = await extractFromAttachments(body.Attachments, inlineBody);
+  const bodyText = extracted?.text ?? inlineBody;
+
+  // Sender → agency → source. Two-pass match: envelope From first, then
+  // (if no agency) try Reply-To / Resent-From / forwarded body markers so
+  // a manually-forwarded press release from a known agency still attributes
+  // correctly instead of falling through to PRESS_MAILBOX unverified.
+  const envelopeAgency = fromDomain
+    ? (
+        await supabase
+          .from("press_agencies")
+          .select("id, name, source_id, trust_tier")
+          .contains("email_domains", [fromDomain])
+          .maybeSingle()
+      ).data
+    : null;
+
+  let recovered: RecoveredSender | null = null;
+  let agency = envelopeAgency;
+  if (!agency) {
+    recovered = recoverOriginalSender(body.Headers, bodyText, fromEmail);
+    if (recovered?.domain) {
+      const { data: recoveredAgency } = await supabase
         .from("press_agencies")
         .select("id, name, source_id, trust_tier")
-        .contains("email_domains", [fromDomain])
-        .maybeSingle()
-    : { data: null };
+        .contains("email_domains", [recovered.domain])
+        .maybeSingle();
+      if (recoveredAgency) agency = recoveredAgency;
+    }
+  }
 
   let sourceId: string | null = agency?.source_id ?? null;
   if (!sourceId) {
@@ -138,15 +169,6 @@ export async function POST(req: Request) {
       { status: 500 },
     );
   }
-
-  const inlineBody =
-    safeTrim(body.TextBody, 100_000) ?? stripHtml(body.HtmlBody ?? "");
-
-  // Try the first PDF/.docx attachment if the inline body is thin.
-  // PR agencies often send the courtesy note inline + the actual release as an
-  // attachment, so without this scoring would see no real content.
-  const extracted = await extractFromAttachments(body.Attachments, inlineBody);
-  const bodyText = extracted?.text ?? inlineBody;
 
   const haystack = `${subject}\n\n${bodyText ?? ""}`;
   const embargo = parseEmbargo(haystack);
@@ -188,10 +210,14 @@ export async function POST(req: Request) {
         .slice(0, 20)
     : [];
 
-  const prContact = {
-    name: safeTrim(body.FromName ?? body.FromFull?.Name, 200),
-    email: fromEmail,
-  };
+  // When we recovered a sender from a forward, the PR contact is the recovered
+  // address (the real PR person), not the forwarder.
+  const prContact = recovered
+    ? { name: null, email: recovered.email }
+    : {
+        name: safeTrim(body.FromName ?? body.FromFull?.Name, 200),
+        email: fromEmail,
+      };
 
   const code = await nextCandidateCode(supabase);
   const now = new Date().toISOString();
@@ -226,6 +252,14 @@ export async function POST(req: Request) {
         subject,
         agency_id: agency?.id ?? null,
         agency_name: agency?.name ?? null,
+        agency_match: recovered ? "recovered" : envelopeAgency ? "envelope" : null,
+        recovered_sender: recovered
+          ? {
+              email: recovered.email,
+              domain: recovered.domain,
+              source: recovered.source,
+            }
+          : null,
         trust_tier: agency?.trust_tier ?? null,
         embargo_matched_text: embargo.matched_text,
         attachment_count: body.Attachments?.length ?? 0,
