@@ -30,7 +30,7 @@ jobs:
       - name: Trigger embargo release
         env:
           CRON_SECRET: ${{ secrets.CRON_SECRET }}
-          CRON_URL: ${{ vars.CRON_URL || 'https://umnewsdesk.vercel.app/api/cron/embargo-release' }}
+          CRON_URL: ${{ vars.CRON_URL || 'https://desk.unionmedia.news/api/cron/embargo-release' }}
         run: |
           if [ -z "$CRON_SECRET" ]; then
             echo "::error::CRON_SECRET secret is not set on this repository."
