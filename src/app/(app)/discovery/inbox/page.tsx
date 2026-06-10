@@ -16,6 +16,7 @@ type CandidateRow = {
   code: string;
   working_headline: string;
   primary_url: string | null;
+  image_url: string | null;
   layer: "l1" | "l2" | "l3" | "l4";
   dedup_state: "clear" | "duplicate" | "held" | "needs_review" | "pointer";
   verification_state: "verified" | "pending" | "unverified";
@@ -121,7 +122,7 @@ export default async function CandidateInboxPage({
     supabase
       .from("candidates")
       .select(
-        "id, code, working_headline, primary_url, layer, dedup_state, verification_state, triage_state, risk, score, surfaced_at, source_id, stream_id, sweep_run_id",
+        "id, code, working_headline, primary_url, image_url, layer, dedup_state, verification_state, triage_state, risk, score, surfaced_at, source_id, stream_id, sweep_run_id",
       )
       .order("surfaced_at", { ascending: false })
       .limit(200),
@@ -322,6 +323,7 @@ export default async function CandidateInboxPage({
                   <tr>
                     <Th>ID</Th>
                     <Th>Working Headline</Th>
+                    <Th className="w-[56px]">Image</Th>
                     <Th>Source</Th>
                     <Th>Surfaced</Th>
                     <Th>Layer</Th>
@@ -342,7 +344,7 @@ export default async function CandidateInboxPage({
                         key={c.id}
                         className="border-b border-border transition-colors hover:bg-secondary"
                       >
-                        <td className="px-3 py-2.5 font-mono text-[11px] font-semibold tabular-nums text-foreground">
+                        <td className="whitespace-nowrap px-3 py-2.5 font-mono text-[11px] font-semibold tabular-nums text-foreground">
                           {c.code}
                         </td>
                         <td className="max-w-[440px] px-3 py-2.5">
@@ -360,6 +362,9 @@ export default async function CandidateInboxPage({
                               {c.working_headline}
                             </span>
                           )}
+                        </td>
+                        <td className="px-3 py-2.5">
+                          <Thumb url={c.image_url} alt={c.working_headline} />
                         </td>
                         <td className="px-3 py-2.5 text-[11.5px] text-fg-2">
                           {source?.name ?? "—"}
@@ -721,6 +726,37 @@ function OpsEscalateMenu({ id }: { id: string }) {
         </form>
       </div>
     </details>
+  );
+}
+
+function Thumb({ url, alt }: { url: string | null; alt: string }) {
+  if (!url) {
+    return (
+      <div className="flex h-9 w-12 items-center justify-center rounded-sm border border-border bg-background text-um-muted">
+        <svg
+          viewBox="0 0 24 24"
+          aria-hidden
+          className="h-3.5 w-3.5"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="1.5"
+        >
+          <rect x="3" y="5" width="18" height="14" rx="1.5" />
+          <circle cx="9" cy="11" r="1.5" />
+          <path d="m3 17 5-5 4 4 3-3 6 6" />
+        </svg>
+      </div>
+    );
+  }
+  return (
+    // eslint-disable-next-line @next/next/no-img-element
+    <img
+      src={url}
+      alt={alt}
+      loading="lazy"
+      referrerPolicy="no-referrer"
+      className="h-9 w-12 rounded-sm border border-border bg-background object-cover"
+    />
   );
 }
 

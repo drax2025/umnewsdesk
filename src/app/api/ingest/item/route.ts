@@ -4,6 +4,7 @@ import { nextCandidateCode } from "@/lib/ingest/codes";
 import { checkDedup } from "@/lib/ingest/dedup";
 import {
   canonicalizeUrl,
+  extractImageUrl,
   normalizeHeadline,
   safeIso,
   safeTrim,
@@ -133,6 +134,8 @@ export async function POST(req: Request) {
     ? body.item.raw
     : null;
 
+  const imageUrl = safeTrim(body.item.image_url, 2000) ?? extractImageUrl(raw);
+
   const { data: inserted, error } = await supabase
     .from("candidates")
     .insert({
@@ -148,6 +151,7 @@ export async function POST(req: Request) {
       summary: safeTrim(body.item.summary, 2000),
       body_text: safeTrim(body.item.body_text, 100_000),
       author: safeTrim(body.item.author, 200),
+      image_url: imageUrl,
       tags,
       raw,
       fetched_at: fetchedAt,

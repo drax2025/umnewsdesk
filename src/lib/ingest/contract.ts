@@ -47,6 +47,7 @@ export type NormalizedItem = {
   summary?: string | null;
   body_text?: string | null;     // full extracted text (PDFs, articles, emails)
   author?: string | null;
+  image_url?: string | null;     // featured image; runner normalises enclosure / media:content / og:image
   tags?: string[];
   raw?: Record<string, unknown>; // original payload, stored as jsonb for audit
 };

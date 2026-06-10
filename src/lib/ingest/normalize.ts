@@ -62,3 +62,64 @@ export function safeIso(v: unknown): string | null {
   const d = new Date(v);
   return Number.isNaN(d.getTime()) ? null : d.toISOString();
 }
+
+/**
+ * Best-effort featured-image extraction from an RSS-ish raw envelope.
+ *
+ * Most runners deliver an `image_url` directly. For ones that don't,
+ * walk the common paths seen in the wild (RSS enclosure, media:content,
+ * og:image, generic `image`) so existing n8n workflows benefit without
+ * a contract update. Returns null if nothing usable is found.
+ */
+const IMAGE_KEYS = [
+  "image_url",
+  "imageUrl",
+  "image",
+  "thumbnail",
+  "og_image",
+  "ogImage",
+] as const;
+
+export function extractImageUrl(raw: unknown): string | null {
+  if (!raw || typeof raw !== "object") return null;
+  const r = raw as Record<string, unknown>;
+
+  for (const k of IMAGE_KEYS) {
+    const v = r[k];
+    if (typeof v === "string" && v.startsWith("http")) return v;
+    if (v && typeof v === "object") {
+      const url = (v as Record<string, unknown>).url;
+      if (typeof url === "string" && url.startsWith("http")) return url;
+    }
+  }
+
+  // RSS <enclosure url="…" type="image/…"/>
+  const enc = r.enclosure;
+  if (enc && typeof enc === "object") {
+    const url = (enc as Record<string, unknown>).url;
+    const type = (enc as Record<string, unknown>).type;
+    if (
+      typeof url === "string" &&
+      url.startsWith("http") &&
+      (typeof type !== "string" || type.startsWith("image/"))
+    ) {
+      return url;
+    }
+  }
+
+  // <media:content url="…" medium="image"/>
+  const media = (r["media:content"] ?? r.media_content) as unknown;
+  if (media && typeof media === "object") {
+    const url = (media as Record<string, unknown>).url;
+    const medium = (media as Record<string, unknown>).medium;
+    if (
+      typeof url === "string" &&
+      url.startsWith("http") &&
+      (typeof medium !== "string" || medium === "image")
+    ) {
+      return url;
+    }
+  }
+
+  return null;
+}
