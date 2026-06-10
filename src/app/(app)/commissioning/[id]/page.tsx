@@ -8,6 +8,7 @@ import {
   setCommissionStatus,
 } from "@/lib/actions/commissioning";
 import { BriefEditor } from "@/components/forms/brief-editor";
+import type { FramingBrief } from "@/lib/prompts/registry";
 
 export const dynamic = "force-dynamic";
 
@@ -17,6 +18,7 @@ type CommissionRow = {
   article_id: string;
   candidate_id: string | null;
   brief: string;
+  framing_brief: FramingBrief | null;
   assignee_id: string | null;
   deadline_at: string | null;
   status: "briefed" | "accepted" | "declined" | "in_progress" | "filed";
@@ -80,7 +82,7 @@ export default async function CommissionDetailPage({
   const { data: commission } = await supabase
     .from("commissions")
     .select(
-      "id, code, article_id, candidate_id, brief, assignee_id, deadline_at, status, commissioned_by, commissioned_at, updated_at, accepted_at, declined_reason",
+      "id, code, article_id, candidate_id, brief, framing_brief, assignee_id, deadline_at, status, commissioned_by, commissioned_at, updated_at, accepted_at, declined_reason",
     )
     .eq("id", id)
     .single();
@@ -185,6 +187,7 @@ export default async function CommissionDetailPage({
               commissionId={c.id}
               initialBrief={c.brief}
               initialDeadlineLocal={toLocalInput(c.deadline_at)}
+              initialFraming={c.framing_brief}
               hasSourceCandidate={Boolean(c.candidate_id)}
             />
           </Card>

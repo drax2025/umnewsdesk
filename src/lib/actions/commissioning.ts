@@ -159,6 +159,7 @@ export async function updateCommissionBrief(formData: FormData) {
   const id = String(formData.get("id") ?? "");
   const brief = String(formData.get("brief") ?? "");
   const deadlineRaw = String(formData.get("deadline_at") ?? "").trim();
+  const framingRaw = String(formData.get("framing_brief") ?? "").trim();
   if (!id) return;
 
   const patch: Record<string, unknown> = { brief };
@@ -167,6 +168,20 @@ export async function updateCommissionBrief(formData: FormData) {
     if (!Number.isNaN(dt.getTime())) patch.deadline_at = dt.toISOString();
   } else {
     patch.deadline_at = null;
+  }
+
+  // framing_brief is serialised JSON from the client. Empty string means
+  // "clear it"; absent field means "leave as-is". Bad JSON is silently
+  // skipped to keep the brief save resilient when the framing panel is
+  // mid-edit.
+  if (framingRaw === "") {
+    patch.framing_brief = null;
+  } else if (framingRaw) {
+    try {
+      patch.framing_brief = JSON.parse(framingRaw);
+    } catch {
+      // leave framing_brief untouched
+    }
   }
 
   const supabase = await createClient();

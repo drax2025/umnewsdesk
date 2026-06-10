@@ -2,42 +2,70 @@
 
 import Anthropic from "@anthropic-ai/sdk";
 import { createClient } from "@/lib/supabase/server";
+import {
+  DEFAULT_PROMPT_KEY,
+  getPrompt,
+  type BriefContext,
+  type FramingBrief,
+  type PromptTemplate,
+} from "@/lib/prompts/registry";
 
 /**
- * "Draft from source" — calls the Anthropic API to generate a structured
- * commission brief from the candidate the commission was created from.
+ * "Draft from source" — dispatches to a prompt from the library, calls
+ * Anthropic, and returns a shape that depends on the prompt's kind.
  *
- * Runs in the Node runtime (declared on the route) using a single
- * messages.create call against the latest Claude Opus. Requires the
- * ANTHROPIC_API_KEY env var on the deployment.
+ *   commissioning  → { kind: "commissioning", text }    → goes in textarea
+ *   framing        → { kind: "framing", framing }       → goes in the
+ *                                                          structured panel
+ *
+ * The route runs in the Node runtime and needs ANTHROPIC_API_KEY set.
  */
 
 const MODEL = "claude-opus-4-7";
 const MAX_TOKENS = 1024;
 
 export type BriefDraftResult =
-  | { ok: true; draft: string }
+  | { ok: true; kind: "commissioning"; text: string }
+  | { ok: true; kind: "framing"; framing: FramingBrief }
   | { ok: false; error: string };
 
-type CandidateContext = {
-  working_headline: string;
-  summary: string | null;
-  body_text: string | null;
-  primary_url: string | null;
-  author: string | null;
-  published_at: string | null;
-  tags: string[] | null;
-};
+const CATEGORY_WHITELIST = new Set([
+  "AI",
+  "Cyber",
+  "Fintech",
+  "Biotech",
+  "Space",
+  "Robotics",
+  "Games",
+  "IT",
+  "Science",
+  "HealthTech",
+  "EdTech",
+  "CleanTech",
+  "Quantum",
+  "Semiconductor",
+  "GovTech",
+  "Data",
+]);
 
-type ArticleContext = {
-  headline: string;
-  sectors: string[] | null;
-  geo_tier: string | null;
-};
+const GEO_TIERS = new Set(["scottish_origin", "uk_origin", "global_origin"]);
+
+const PRIMARY_FRAMES = new Set([
+  "Scottish Context",
+  "Wider Sector Picture",
+  "Technical or Scientific Depth",
+  "Policy and Regulation",
+  "Human Impact",
+  "Comparison or Data Point",
+]);
 
 export async function draftBriefFromSource(formData: FormData): Promise<BriefDraftResult> {
   const commissionId = String(formData.get("commission_id") ?? "");
+  const promptKey = String(formData.get("prompt_key") ?? DEFAULT_PROMPT_KEY);
   if (!commissionId) return { ok: false, error: "Missing commission id" };
+
+  const template = getPrompt(promptKey);
+  if (!template) return { ok: false, error: `Unknown prompt: ${promptKey}` };
 
   const supabase = await createClient();
 
@@ -68,10 +96,10 @@ export async function draftBriefFromSource(formData: FormData): Promise<BriefDra
 
   if (!candRes.data) return { ok: false, error: "Source candidate not found" };
 
-  const prompt = buildPrompt(
-    candRes.data as CandidateContext,
-    (artRes.data ?? null) as ArticleContext | null,
-  );
+  const ctx: BriefContext = {
+    candidate: candRes.data as BriefContext["candidate"],
+    article: (artRes.data ?? null) as BriefContext["article"],
+  };
 
   const apiKey = process.env.ANTHROPIC_API_KEY;
   if (!apiKey) {
@@ -83,19 +111,23 @@ export async function draftBriefFromSource(formData: FormData): Promise<BriefDra
     const message = await client.messages.create({
       model: MODEL,
       max_tokens: MAX_TOKENS,
-      system:
-        "You are the commissioning editor at Union Media, a UK editorial newsroom. You write tight, actionable commission briefs that reporters can act on without further clarification.",
-      messages: [{ role: "user", content: prompt }],
+      system: template.system,
+      messages: [{ role: "user", content: template.build(ctx) }],
     });
 
-    const draft = message.content
+    const text = message.content
       .filter((block): block is Anthropic.TextBlock => block.type === "text")
       .map((block) => block.text)
       .join("\n")
       .trim();
 
-    if (!draft) return { ok: false, error: "Claude returned empty output" };
-    return { ok: true, draft };
+    if (!text) return { ok: false, error: "Claude returned empty output" };
+
+    if (template.kind === "commissioning") {
+      return { ok: true, kind: "commissioning", text };
+    }
+
+    return parseFraming(text, template);
   } catch (e) {
     return {
       ok: false,
@@ -104,46 +136,43 @@ export async function draftBriefFromSource(formData: FormData): Promise<BriefDra
   }
 }
 
-function buildPrompt(cand: CandidateContext, article: ArticleContext | null): string {
-  const sectors = article?.sectors?.join(", ") || "—";
-  const geo = article?.geo_tier ?? "—";
-  const body = (cand.body_text ?? "").slice(0, 6000);
-  const tags = cand.tags?.join(", ") || "—";
+function parseFraming(text: string, template: PromptTemplate): BriefDraftResult {
+  const start = text.indexOf("{");
+  const end = text.lastIndexOf("}");
+  if (start === -1 || end === -1) {
+    return { ok: false, error: `${template.label}: model did not return JSON` };
+  }
+  let parsed: Record<string, unknown>;
+  try {
+    parsed = JSON.parse(text.slice(start, end + 1)) as Record<string, unknown>;
+  } catch {
+    return { ok: false, error: `${template.label}: invalid JSON in model output` };
+  }
 
-  return [
-    "Write a tight commission brief for a reporter based on the source material below.",
-    "",
-    "Return ONLY the brief itself — no preamble, no markdown headings, no closing remarks. Use this exact structure with these labels:",
-    "",
-    "Angle: <one sentence — the specific story we want, not a topic>",
-    "Why now: <one sentence — the news hook>",
-    "Word count: <number + range, e.g. 600–800>",
-    "Key questions:",
-    "- <question>",
-    "- <question>",
-    "- <question>",
-    "Sources to chase:",
-    "- <named person, body, or document>",
-    "- <named person, body, or document>",
-    "Risks: <one line on legal/balance/exclusivity risk, or 'none flagged'>",
-    "",
-    "Source material:",
-    "----------------",
-    `Headline: ${cand.working_headline}`,
-    article?.headline && article.headline !== cand.working_headline
-      ? `Article headline (current): ${article.headline}`
-      : "",
-    cand.author ? `Byline: ${cand.author}` : "",
-    cand.published_at ? `Published: ${cand.published_at}` : "",
-    cand.primary_url ? `URL: ${cand.primary_url}` : "",
-    `Sectors: ${sectors}`,
-    `Geo tier: ${geo}`,
-    `Tags: ${tags}`,
-    "",
-    cand.summary ? `Summary: ${cand.summary}` : "",
-    body ? `Body excerpt:\n${body}` : "",
-  ]
-    .filter(Boolean)
-    .join("\n");
+  const geoRaw = String(parsed.geographic_tier ?? "").trim();
+  const geo = GEO_TIERS.has(geoRaw) ? (geoRaw as FramingBrief["geographic_tier"]) : null;
+
+  const frameRaw = String(parsed.primary_frame ?? "").trim();
+  const primary = PRIMARY_FRAMES.has(frameRaw) ? frameRaw : null;
+
+  const tagsRaw = Array.isArray(parsed.category_tags) ? parsed.category_tags : [];
+  const category_tags = tagsRaw
+    .map((t) => String(t).trim())
+    .filter((t) => CATEGORY_WHITELIST.has(t))
+    .slice(0, 3);
+
+  const disqualified = parsed.disqualified === true;
+  const framing: FramingBrief = {
+    geographic_tier: geo,
+    category_tags,
+    primary_frame: primary,
+    scottish_anchor: parsed.scottish_anchor ? String(parsed.scottish_anchor).slice(0, 200) : null,
+    per_story_brief: String(parsed.per_story_brief ?? "").slice(0, 800),
+    disqualified,
+    disqualified_reason: disqualified
+      ? String(parsed.disqualified_reason ?? "No identifiable tech angle").slice(0, 200)
+      : null,
+  };
+
+  return { ok: true, kind: "framing", framing };
 }
-
