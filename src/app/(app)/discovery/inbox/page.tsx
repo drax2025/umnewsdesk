@@ -11,6 +11,12 @@ import {
 import { commissionFromCandidate } from "@/lib/actions/commissioning";
 import { ScoreButton } from "@/components/forms/score-button";
 import type { ScoreBreakdown } from "@/lib/actions/score";
+import { F1TriageCell } from "@/components/forms/f1-triage";
+import type {
+  DefamationTier,
+  FramingBrief,
+  ProductionOption,
+} from "@/lib/spec/f1-triage";
 
 export const dynamic = "force-dynamic";
 
@@ -43,6 +49,9 @@ type CandidateRow = {
   raw: { agency_name?: string | null } | null;
   stream_id: string | null;
   sweep_run_id: string | null;
+  production_option: ProductionOption | null;
+  defamation_tier: DefamationTier | null;
+  framing_brief: FramingBrief | null;
 };
 
 type StreamRow = { id: string; name: string; slug: string };
@@ -131,7 +140,7 @@ export default async function CandidateInboxPage({
     supabase
       .from("candidates")
       .select(
-        "id, code, working_headline, primary_url, image_url, layer, kind, dedup_state, verification_state, triage_state, risk, score, score_breakdown, embargo_until, embargo_confidence, attachment_urls, surfaced_at, source_id, stream_id, sweep_run_id, raw",
+        "id, code, working_headline, primary_url, image_url, layer, kind, dedup_state, verification_state, triage_state, risk, score, score_breakdown, embargo_until, embargo_confidence, attachment_urls, surfaced_at, source_id, stream_id, sweep_run_id, raw, production_option, defamation_tier, framing_brief",
       )
       .order("surfaced_at", { ascending: false })
       .limit(200),
@@ -346,6 +355,7 @@ export default async function CandidateInboxPage({
                     <Th>Dedup</Th>
                     <Th>Verify</Th>
                     <Th>Triage</Th>
+                    <Th>F1</Th>
                     <Th className="text-right">Score</Th>
                     <Th className="text-right">Actions</Th>
                   </tr>
@@ -440,6 +450,17 @@ export default async function CandidateInboxPage({
                           >
                             {TRIAGE_LABEL[c.triage_state] ?? c.triage_state}
                           </span>
+                        </td>
+                        <td className="px-3 py-2.5">
+                          <F1TriageCell
+                            candidateId={c.id}
+                            candidateCode={c.code}
+                            scorecard={{
+                              production_option: c.production_option,
+                              defamation_tier: c.defamation_tier,
+                              framing_brief: c.framing_brief,
+                            }}
+                          />
                         </td>
                         <td className="whitespace-nowrap px-3 py-2.5 text-right">
                           <ScorePill score={c.score} breakdown={c.score_breakdown} />
