@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { ChevronLeft, Compass, Pencil } from "lucide-react";
+import { ChevronLeft, Compass, Gavel, Pencil } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { cn } from "@/lib/utils";
 
@@ -132,6 +132,13 @@ export default async function ArticleDossierPage({
             >
               <Compass className="h-3.5 w-3.5" />
               F2 Research
+            </Link>
+            <Link
+              href={`/articles/${a.id}/review`}
+              className="flex h-7 items-center gap-1.5 rounded-md border border-border bg-background px-2.5 text-[11.5px] font-medium text-fg-2 hover:bg-secondary"
+            >
+              <Gavel className="h-3.5 w-3.5" />
+              F6 Review
             </Link>
             <Link
               href={`/articles/${a.id}/edit`}
