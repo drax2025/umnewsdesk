@@ -40,6 +40,7 @@ type CandidateRow = {
   attachment_urls: string[] | null;
   surfaced_at: string;
   source_id: string | null;
+  raw: { agency_name?: string | null } | null;
   stream_id: string | null;
   sweep_run_id: string | null;
 };
@@ -130,7 +131,7 @@ export default async function CandidateInboxPage({
     supabase
       .from("candidates")
       .select(
-        "id, code, working_headline, primary_url, image_url, layer, kind, dedup_state, verification_state, triage_state, risk, score, score_breakdown, embargo_until, embargo_confidence, attachment_urls, surfaced_at, source_id, stream_id, sweep_run_id",
+        "id, code, working_headline, primary_url, image_url, layer, kind, dedup_state, verification_state, triage_state, risk, score, score_breakdown, embargo_until, embargo_confidence, attachment_urls, surfaced_at, source_id, stream_id, sweep_run_id, raw",
       )
       .order("surfaced_at", { ascending: false })
       .limit(200),
@@ -399,7 +400,7 @@ export default async function CandidateInboxPage({
                           <Thumb url={c.image_url} alt={c.working_headline} />
                         </td>
                         <td className="px-3 py-2.5 text-[11.5px] text-fg-2">
-                          {source?.name ?? "—"}
+                          {c.raw?.agency_name ?? source?.name ?? "—"}
                         </td>
                         <td className="whitespace-nowrap px-3 py-2.5 font-mono text-[11px] tabular-nums text-um-muted">
                           {fmtTime(c.surfaced_at)}
