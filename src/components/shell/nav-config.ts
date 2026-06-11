@@ -19,6 +19,7 @@ import {
   Grid2x2,
   Settings,
   TestTube2,
+  Sparkles,
 } from "lucide-react";
 
 export type NavItem = {
@@ -46,6 +47,7 @@ export const NAV_SECTIONS: NavSection[] = [
       { label: "Commissioning", href: "/commissioning", icon: ClipboardList },
       { label: "Calendar", href: "/calendar", icon: Calendar },
       { label: "Article Dossier", href: "/articles", icon: FileText },
+      { label: "F5 Edit (preview)", href: "/design/f5-edit", icon: Sparkles },
     ],
   },
   {
