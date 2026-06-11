@@ -1,0 +1,379 @@
+"use client";
+
+import { useState, useTransition } from "react";
+import { CheckCircle2, Layers, ShieldX, ThumbsUp } from "lucide-react";
+import {
+  assemblePack,
+  setPubVerdict,
+  type PrePublishActionResult,
+} from "@/lib/actions/pre-publish";
+import {
+  PACK_HARD_CAP,
+  PUB_VERDICTS,
+  type ArticlePrePublishRow,
+  type PrePublishPackRow,
+  type PubVerdict,
+} from "@/lib/spec/f9-pre-publish";
+import { cn } from "@/lib/utils";
+
+/**
+ * F9 Pack panel.
+ *
+ *   - Top half: pack assembly. If the article has no pack_ref, expose two
+ *     mint/join controls (origin sweep ID, optional existing pack ref).
+ *   - Bottom half: Senior Editor [PUB] APPROVE / MODIFY / REJECT stamp.
+ *
+ * The [PUB] section only renders for senior_editor and only once the F9
+ * verdict is HAND TO SENIOR EDITOR and a pack_ref is bound.
+ */
+
+const labelCls =
+  "block text-[10.5px] font-semibold uppercase tracking-[0.06em] text-um-muted";
+const inputCls =
+  "h-8 w-full rounded-md border border-border bg-background px-2.5 text-[12.5px] text-foreground placeholder:text-um-muted focus:border-primary/40 focus:outline-none";
+const textareaCls =
+  "min-h-[72px] w-full rounded-md border border-border bg-background px-2.5 py-1.5 text-[12px] leading-[1.5] text-foreground placeholder:text-um-muted focus:border-primary/40 focus:outline-none";
+
+type Props = {
+  articleId: string;
+  row: ArticlePrePublishRow | null;
+  pack: PrePublishPackRow | null;
+  canStampPub: boolean;
+};
+
+export function F9PackPanel({ articleId, row, pack, canStampPub }: Props) {
+  const f9Ready = row?.verdict === "hand_to_senior_editor";
+  const hasPack = Boolean(row?.pack_ref);
+
+  return (
+    <section className="rounded-lg border border-border bg-card">
+      <header className="border-b border-border px-4 py-2.5">
+        <div className="flex items-center gap-2">
+          <Layers className="h-3.5 w-3.5 text-um-muted" />
+          <h2 className="text-[12.5px] font-semibold text-foreground">
+            Pre-Publish Pack
+          </h2>
+          {row?.pack_ref ? (
+            <span className="font-mono text-[10.5px] text-fg-2">
+              · {row.pack_ref}
+            </span>
+          ) : null}
+        </div>
+      </header>
+
+      <div className="space-y-4 px-4 py-4">
+        {hasPack ? (
+          <PackSummary row={row} pack={pack} />
+        ) : (
+          <AssembleForm
+            articleId={articleId}
+            disabled={!f9Ready}
+            reason={
+              f9Ready
+                ? null
+                : "F9 verdict must be HAND TO SENIOR EDITOR before the article can join a pack."
+            }
+          />
+        )}
+
+        {canStampPub && hasPack ? (
+          <PubVerdictForm articleId={articleId} row={row} />
+        ) : null}
+
+        {!canStampPub && hasPack ? (
+          <p className="rounded-md border border-dashed border-border bg-background/40 px-3 py-2 text-[11px] text-um-muted">
+            Senior Editor verdict is signed off in the [PUB] channel by a
+            senior_editor role.
+          </p>
+        ) : null}
+      </div>
+    </section>
+  );
+}
+
+function AssembleForm({
+  articleId,
+  disabled,
+  reason,
+}: {
+  articleId: string;
+  disabled: boolean;
+  reason: string | null;
+}) {
+  const [originSweep, setOriginSweep] = useState<string>("");
+  const [existingRef, setExistingRef] = useState<string>("");
+  const [pending, startTransition] = useTransition();
+  const [error, setError] = useState<string | null>(null);
+  const [notice, setNotice] = useState<string | null>(null);
+
+  function submit(fd: FormData) {
+    setError(null);
+    setNotice(null);
+    fd.set("article_id", articleId);
+    fd.set("origin_sweep_id", originSweep);
+    fd.set("pack_ref", existingRef);
+    startTransition(async () => {
+      const res: PrePublishActionResult = await assemblePack(fd);
+      if (!res.ok) setError(res.error);
+      else if ("pack_ref" in res) setNotice(`Pack ${res.pack_ref} assembled.`);
+      else setNotice("Pack assembled.");
+    });
+  }
+
+  return (
+    <form action={submit} className="space-y-2.5">
+      {reason ? (
+        <p className="rounded-md border border-warn/40 bg-warn/10 px-2.5 py-1.5 text-[11px] text-warn">
+          {reason}
+        </p>
+      ) : null}
+      <div className="grid grid-cols-2 gap-2.5">
+        <div>
+          <label className={labelCls} htmlFor="pp-sweep">
+            Origin sweep ID
+          </label>
+          <input
+            id="pp-sweep"
+            type="text"
+            value={originSweep}
+            onChange={(e) => setOriginSweep(e.target.value)}
+            placeholder="F-RR breadcrumb (one line)"
+            className={cn(inputCls, "mt-1 font-mono")}
+            disabled={disabled}
+            maxLength={240}
+          />
+        </div>
+        <div>
+          <label className={labelCls} htmlFor="pp-ref">
+            Join existing pack (optional)
+          </label>
+          <input
+            id="pp-ref"
+            type="text"
+            value={existingRef}
+            onChange={(e) => setExistingRef(e.target.value)}
+            placeholder="PPP-YYYY-MM-DD-NNN"
+            className={cn(inputCls, "mt-1 font-mono")}
+            disabled={disabled}
+            maxLength={64}
+          />
+        </div>
+      </div>
+
+      <div className="flex items-center justify-between">
+        <div className="text-[10.5px] text-um-muted">
+          {error ? (
+            <span className="text-destructive">{error}</span>
+          ) : notice ? (
+            <span className="text-success">{notice}</span>
+          ) : (
+            <span>
+              Leave the pack ref blank to mint a new pack. Hard cap is{" "}
+              {PACK_HARD_CAP} articles per pack.
+            </span>
+          )}
+        </div>
+        <button
+          type="submit"
+          disabled={disabled || pending}
+          className="h-7 rounded-md border border-primary/45 bg-primary/15 px-3 text-[11px] font-semibold text-primary hover:bg-primary/20 disabled:opacity-60"
+        >
+          {pending ? "Assembling…" : "Assemble pack"}
+        </button>
+      </div>
+    </form>
+  );
+}
+
+function PackSummary({
+  row,
+  pack,
+}: {
+  row: ArticlePrePublishRow | null;
+  pack: PrePublishPackRow | null;
+}) {
+  const ref = row?.pack_ref ?? null;
+  const archive = row?.pack_archive_path ?? pack?.archive_path ?? null;
+  const sweep = row?.origin_sweep_id ?? pack?.origin_sweep_id ?? null;
+  const slotCount = pack
+    ? [pack.article_1_id, pack.article_2_id, pack.article_3_id].filter(Boolean).length
+    : 1;
+  const posted = pack?.pub_channel_posted_at ?? null;
+
+  return (
+    <div className="space-y-1.5 rounded-md border border-success/30 bg-success/5 px-3 py-2.5 text-[11.5px]">
+      <div className="flex items-baseline gap-2">
+        <CheckCircle2 className="h-3.5 w-3.5 text-success" />
+        <span className="font-mono text-[12px] font-semibold text-foreground">
+          {ref}
+        </span>
+        <span className="text-[10.5px] text-um-muted">
+          · {slotCount}/{PACK_HARD_CAP} slots filled
+        </span>
+      </div>
+      {archive ? (
+        <p className="font-mono text-[10.5px] text-fg-2">archive: {archive}</p>
+      ) : null}
+      {sweep ? (
+        <p className="font-mono text-[10.5px] text-fg-2">sweep: {sweep}</p>
+      ) : null}
+      {posted ? (
+        <p className="text-[10.5px] text-um-muted">
+          [PUB] posted{" "}
+          {new Date(posted).toLocaleString("en-GB", {
+            day: "2-digit",
+            month: "short",
+            hour: "2-digit",
+            minute: "2-digit",
+          })}
+        </p>
+      ) : null}
+    </div>
+  );
+}
+
+function PubVerdictForm({
+  articleId,
+  row,
+}: {
+  articleId: string;
+  row: ArticlePrePublishRow | null;
+}) {
+  const [notes, setNotes] = useState<string>(row?.pub_verdict_notes ?? "");
+  const [pending, startTransition] = useTransition();
+  const [error, setError] = useState<string | null>(null);
+  const [notice, setNotice] = useState<string | null>(null);
+
+  function submit(verdict: PubVerdict) {
+    setError(null);
+    setNotice(null);
+    if (!notes.trim()) {
+      setError("Notes are required for the Senior Editor stamp.");
+      return;
+    }
+    const fd = new FormData();
+    fd.set("article_id", articleId);
+    fd.set("pub_verdict", verdict);
+    fd.set("pub_verdict_notes", notes);
+    startTransition(async () => {
+      const res: PrePublishActionResult = await setPubVerdict(fd);
+      if (!res.ok) setError(res.error);
+      else setNotice("Senior Editor verdict stamped.");
+    });
+  }
+
+  const current = row?.pub_verdict ?? "pending";
+
+  return (
+    <div className="space-y-2.5 border-t border-border pt-4">
+      <div className="flex items-baseline justify-between">
+        <h3 className="text-[11px] font-semibold uppercase tracking-[0.06em] text-um-muted">
+          Senior Editor verdict — [PUB]
+        </h3>
+        <span className="font-mono text-[10.5px] text-fg-2">
+          current:{" "}
+          <span className="uppercase">
+            {PUB_VERDICTS.find((v) => v.value === current)?.short}
+          </span>
+          {row?.pub_verdict_at ? (
+            <span className="ml-1 text-um-muted">
+              ·{" "}
+              {new Date(row.pub_verdict_at).toLocaleString("en-GB", {
+                day: "2-digit",
+                month: "short",
+                hour: "2-digit",
+                minute: "2-digit",
+              })}
+            </span>
+          ) : null}
+        </span>
+      </div>
+
+      <textarea
+        value={notes}
+        onChange={(e) => setNotes(e.target.value)}
+        placeholder="MODIFY: specific change requests. REJECT: reason. APPROVE: confirm pack ready to publish."
+        className={textareaCls}
+        maxLength={2400}
+      />
+
+      <div className="grid grid-cols-3 gap-1.5">
+        <VerdictButton
+          icon={ThumbsUp}
+          label="APPROVE"
+          hint="Pack publishes."
+          tone="success"
+          disabled={pending}
+          onClick={() => submit("approve")}
+        />
+        <VerdictButton
+          icon={Layers}
+          label="MODIFY"
+          hint="Specific change requests."
+          tone="warn"
+          disabled={pending}
+          onClick={() => submit("modify")}
+        />
+        <VerdictButton
+          icon={ShieldX}
+          label="REJECT"
+          hint="Article does not publish."
+          tone="destructive"
+          disabled={pending}
+          onClick={() => submit("reject")}
+        />
+      </div>
+
+      {error ? (
+        <div className="rounded-md border border-destructive/35 bg-destructive/10 px-2.5 py-1.5 text-[11.5px] text-destructive">
+          {error}
+        </div>
+      ) : null}
+      {notice && !error ? (
+        <div className="rounded-md border border-success/35 bg-success/10 px-2.5 py-1.5 text-[11.5px] text-success">
+          {notice}
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
+function VerdictButton({
+  icon: Icon,
+  label,
+  hint,
+  tone,
+  disabled,
+  onClick,
+}: {
+  icon: React.ComponentType<{ className?: string }>;
+  label: string;
+  hint: string;
+  tone: "success" | "warn" | "destructive";
+  disabled?: boolean;
+  onClick: () => void;
+}) {
+  const cls =
+    tone === "success"
+      ? "border-success/45 bg-success/10 text-success hover:bg-success/15"
+      : tone === "warn"
+        ? "border-warn/45 bg-warn/10 text-warn hover:bg-warn/15"
+        : "border-destructive/45 bg-destructive/10 text-destructive hover:bg-destructive/15";
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      disabled={disabled}
+      className={cn(
+        "flex flex-col items-start gap-0.5 rounded-md border px-2.5 py-2 text-left transition-colors disabled:opacity-50",
+        cls,
+      )}
+    >
+      <span className="flex items-center gap-1.5 text-[11.5px] font-bold tracking-[0.04em]">
+        <Icon className="h-3.5 w-3.5" />
+        {label}
+      </span>
+      <span className="text-[10px] text-um-muted">{hint}</span>
+    </button>
+  );
+}

@@ -1,0 +1,563 @@
+"use server";
+
+import { revalidatePath } from "next/cache";
+import { createClient } from "@/lib/supabase/server";
+import { createServiceClient } from "@/lib/supabase/service";
+import {
+  A_CHECK_CODES,
+  A_CHECKS,
+  PACK_HARD_CAP,
+  ROOT_CAUSE_AGENTS,
+  formatPackRef,
+  type ACheckCode,
+  type ACheckStatus,
+  type F9Verdict,
+  type PubVerdict,
+  type RootCauseAgent,
+} from "@/lib/spec/f9-pre-publish";
+
+/**
+ * F9 Pre-Publish server actions.
+ *
+ * Five write paths:
+ *
+ *   - saveCheck(fd)              — set one A-check status + detail + metric
+ *   - logFailure(fd)             — append a Failure Log row (soft_fail / fail)
+ *   - deleteFailure(fd)          — remove a Failure Log row
+ *   - setF9Verdict(fd)           — stamp the F9 verdict + rationale
+ *   - assemblePack(fd)           — assemble a new Pre-Publish Pack ref
+ *   - setPubVerdict(fd)          — Senior Editor APPROVE / MODIFY / REJECT
+ *
+ * All gated on editor + senior_editor roles. Pack assembly requires the
+ * article to be in the HAND-TO-SENIOR state; senior editor verdict additionally
+ * requires the role be 'senior_editor'.
+ */
+
+export type PrePublishActionResult =
+  | { ok: true }
+  | { ok: true; pack_ref: string }
+  | { ok: false; error: string };
+
+const STATUS_SET = new Set<ACheckStatus>([
+  "pending",
+  "pass",
+  "soft_fail",
+  "fail",
+  "na",
+]);
+const CODE_SET = new Set<ACheckCode>(A_CHECK_CODES);
+const VERDICT_SET = new Set<F9Verdict>([
+  "hand_to_senior_editor",
+  "return_to_f1",
+  "return_to_f2",
+  "return_to_f3",
+  "return_to_f4",
+  "return_to_f5",
+  "return_to_f6",
+]);
+const PUB_SET = new Set<PubVerdict>(["pending", "approve", "modify", "reject"]);
+const ROOT_SET = new Set<RootCauseAgent>(ROOT_CAUSE_AGENTS);
+
+/* -------------------------------------------------------------------------- */
+/*  Auth helpers                                                              */
+/* -------------------------------------------------------------------------- */
+
+async function requireEditor(): Promise<PrePublishActionResult | null> {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return { ok: false, error: "Not signed in" };
+  const { data: me } = await supabase
+    .from("profiles")
+    .select("role")
+    .eq("id", user.id)
+    .single();
+  if (me?.role !== "editor" && me?.role !== "senior_editor") {
+    return { ok: false, error: "Editors only" };
+  }
+  return null;
+}
+
+async function requireSeniorEditor(): Promise<PrePublishActionResult | null> {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return { ok: false, error: "Not signed in" };
+  const { data: me } = await supabase
+    .from("profiles")
+    .select("role")
+    .eq("id", user.id)
+    .single();
+  if (me?.role !== "senior_editor") {
+    return { ok: false, error: "Senior Editor only" };
+  }
+  return null;
+}
+
+async function currentUserId(): Promise<string | null> {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  return user?.id ?? null;
+}
+
+/* -------------------------------------------------------------------------- */
+/*  Parsers                                                                   */
+/* -------------------------------------------------------------------------- */
+
+function parseStatus(raw: unknown): ACheckStatus | null {
+  const s = String(raw ?? "").trim();
+  return STATUS_SET.has(s as ACheckStatus) ? (s as ACheckStatus) : null;
+}
+
+function parseCode(raw: unknown): ACheckCode | null {
+  const s = String(raw ?? "").trim();
+  return CODE_SET.has(s as ACheckCode) ? (s as ACheckCode) : null;
+}
+
+function parseVerdict(raw: unknown): F9Verdict | null {
+  const s = String(raw ?? "").trim();
+  return VERDICT_SET.has(s as F9Verdict) ? (s as F9Verdict) : null;
+}
+
+function parsePubVerdict(raw: unknown): PubVerdict | null {
+  const s = String(raw ?? "").trim();
+  return PUB_SET.has(s as PubVerdict) ? (s as PubVerdict) : null;
+}
+
+function parseRoot(raw: unknown): RootCauseAgent | null {
+  const s = String(raw ?? "").trim();
+  return ROOT_SET.has(s as RootCauseAgent) ? (s as RootCauseAgent) : null;
+}
+
+function trimOrNull(raw: unknown, max: number): string | null {
+  const s = String(raw ?? "").trim();
+  if (!s) return null;
+  return s.slice(0, max);
+}
+
+function parseIntOrNull(raw: unknown): number | null {
+  const n = Number.parseInt(String(raw ?? ""), 10);
+  return Number.isFinite(n) ? n : null;
+}
+
+function parseDateOrNull(raw: unknown): string | null {
+  const s = String(raw ?? "").trim();
+  if (!s) return null;
+  const d = new Date(s);
+  if (!Number.isFinite(d.getTime())) return null;
+  return d.toISOString().slice(0, 10);
+}
+
+function revalidate(articleId: string, packRef?: string | null) {
+  revalidatePath(`/articles/${articleId}/pre-publish`);
+  revalidatePath(`/articles/${articleId}`);
+  if (packRef) revalidatePath(`/pre-publish-packs/${packRef}`);
+}
+
+/* -------------------------------------------------------------------------- */
+/*  saveCheck — one A-check                                                   */
+/* -------------------------------------------------------------------------- */
+
+export async function saveCheck(
+  fd: FormData,
+): Promise<PrePublishActionResult> {
+  const gate = await requireEditor();
+  if (gate) return gate;
+
+  const article_id = String(fd.get("article_id") ?? "").trim();
+  const code = parseCode(fd.get("check"));
+  const status = parseStatus(fd.get("status"));
+  if (!article_id) return { ok: false, error: "Missing article_id" };
+  if (!code) return { ok: false, error: "Unknown check" };
+  if (!status) return { ok: false, error: "Pick a status" };
+
+  const prefix = code.toLowerCase();
+  const detail = trimOrNull(fd.get("detail"), 2400);
+
+  const payload: Record<string, unknown> = {
+    article_id,
+    [`${prefix}_status`]: status,
+    [`${prefix}_detail`]: detail,
+    updated_at: new Date().toISOString(),
+  };
+
+  // Per-check metric columns.
+  if (code === "A3") {
+    payload.a3_independent_count = parseIntOrNull(fd.get("independent_count"));
+  }
+  if (code === "A4") {
+    payload.a4_quotes_sampled = parseIntOrNull(fd.get("quotes_sampled"));
+  }
+  if (code === "A6") {
+    payload.a6_backdate = parseDateOrNull(fd.get("backdate"));
+  }
+  if (code === "A7") {
+    payload.a7_internal_count = parseIntOrNull(fd.get("internal_count"));
+    payload.a7_outbound_count = parseIntOrNull(fd.get("outbound_count"));
+  }
+  if (code === "A8") {
+    payload.a8_headline_chars = parseIntOrNull(fd.get("headline_chars"));
+  }
+
+  const admin = createServiceClient();
+  const { error } = await admin
+    .from("article_pre_publish")
+    .upsert(payload, { onConflict: "article_id" });
+  if (error) return { ok: false, error: error.message };
+
+  revalidate(article_id);
+  return { ok: true };
+}
+
+/* -------------------------------------------------------------------------- */
+/*  logFailure — append Failure Log row                                       */
+/* -------------------------------------------------------------------------- */
+
+export async function logFailure(
+  fd: FormData,
+): Promise<PrePublishActionResult> {
+  const gate = await requireEditor();
+  if (gate) return gate;
+
+  const article_id = String(fd.get("article_id") ?? "").trim();
+  const code = parseCode(fd.get("check_code"));
+  const status = parseStatus(fd.get("status"));
+  const root = parseRoot(fd.get("root_cause_agent"));
+  const description = trimOrNull(fd.get("description"), 2400);
+  const remediation = trimOrNull(fd.get("remediation"), 2400);
+
+  if (!article_id) return { ok: false, error: "Missing article_id" };
+  if (!code) return { ok: false, error: "Pick the failing check" };
+  if (status !== "soft_fail" && status !== "fail") {
+    return { ok: false, error: "Failure status must be SOFT-FAIL or FAIL" };
+  }
+  if (!description) {
+    return { ok: false, error: "Describe the failure (required)" };
+  }
+
+  const uid = await currentUserId();
+  const admin = createServiceClient();
+  const { error } = await admin.from("pre_publish_failures").insert({
+    article_id,
+    check_code: code,
+    status,
+    root_cause_agent: root,
+    description,
+    remediation,
+    created_by: uid,
+  });
+  if (error) return { ok: false, error: error.message };
+
+  revalidate(article_id);
+  return { ok: true };
+}
+
+/* -------------------------------------------------------------------------- */
+/*  deleteFailure — drop a Failure Log row                                    */
+/* -------------------------------------------------------------------------- */
+
+export async function deleteFailure(
+  fd: FormData,
+): Promise<PrePublishActionResult> {
+  const gate = await requireEditor();
+  if (gate) return gate;
+
+  const id = String(fd.get("id") ?? "").trim();
+  const article_id = String(fd.get("article_id") ?? "").trim();
+  if (!id || !article_id) return { ok: false, error: "Missing id" };
+
+  const admin = createServiceClient();
+  const { error } = await admin
+    .from("pre_publish_failures")
+    .delete()
+    .eq("id", id);
+  if (error) return { ok: false, error: error.message };
+
+  revalidate(article_id);
+  return { ok: true };
+}
+
+/* -------------------------------------------------------------------------- */
+/*  setF9Verdict — F9's own verdict (hand-to-senior or return)                */
+/* -------------------------------------------------------------------------- */
+
+export async function setF9Verdict(
+  fd: FormData,
+): Promise<PrePublishActionResult> {
+  const gate = await requireEditor();
+  if (gate) return gate;
+
+  const article_id = String(fd.get("article_id") ?? "").trim();
+  const verdict = parseVerdict(fd.get("verdict"));
+  if (!article_id) return { ok: false, error: "Missing article_id" };
+  if (!verdict) return { ok: false, error: "Pick a verdict" };
+
+  const rationale = trimOrNull(fd.get("verdict_rationale"), 2400);
+  if (!rationale) {
+    return { ok: false, error: "Rationale is required to stamp a verdict." };
+  }
+
+  // For HAND-TO-SENIOR, re-check: zero hard fails, zero pending checks.
+  if (verdict === "hand_to_senior_editor") {
+    const admin = createServiceClient();
+    const { data } = await admin
+      .from("article_pre_publish")
+      .select(
+        "a1_status, a2_status, a3_status, a4_status, a5_status, a6_status, a7_status, a8_status, a9_status, a10_status",
+      )
+      .eq("article_id", article_id)
+      .maybeSingle();
+    if (!data) {
+      return {
+        ok: false,
+        error:
+          "No A-check audit on file. Save the check rows before handing to Senior Editor.",
+      };
+    }
+    for (const code of A_CHECK_CODES) {
+      const key = `${code.toLowerCase()}_status` as keyof typeof data;
+      const st = data[key] as ACheckStatus | null;
+      const def = A_CHECKS.find((c) => c.code === code);
+      if (st === "pending") {
+        return {
+          ok: false,
+          error: `Cannot hand to Senior Editor — ${code} is still PENDING.`,
+        };
+      }
+      if (st === "fail" && def?.kind === "hard") {
+        return {
+          ok: false,
+          error: `Cannot hand to Senior Editor — ${code} (${def.label}) is a hard FAIL.`,
+        };
+      }
+    }
+  }
+
+  const uid = await currentUserId();
+  const now = new Date().toISOString();
+  const admin = createServiceClient();
+  const { error } = await admin.from("article_pre_publish").upsert(
+    {
+      article_id,
+      verdict,
+      verdict_at: now,
+      verdict_by: uid,
+      verdict_rationale: rationale,
+      updated_at: now,
+    },
+    { onConflict: "article_id" },
+  );
+  if (error) return { ok: false, error: error.message };
+
+  // Bubble article state on hand-to-senior. Otherwise leave state alone — the
+  // verdict record holds the breadcrumb back to the relevant F-agent.
+  if (verdict === "hand_to_senior_editor") {
+    await admin
+      .from("articles")
+      .update({ state: "legal" })
+      .eq("id", article_id);
+  }
+
+  revalidate(article_id);
+  return { ok: true };
+}
+
+/* -------------------------------------------------------------------------- */
+/*  assemblePack — create a Pre-Publish Pack ref                              */
+/* -------------------------------------------------------------------------- */
+
+/**
+ * Bind the article to a Pre-Publish Pack. Either pass an existing pack_ref
+ * (joining a pack that already exists with < 3 articles) or pass nothing
+ * and a new pack will be minted with a date-stamped ref.
+ *
+ * The pack table enforces the hard cap of 3 articles via article_1/2/3_id.
+ */
+export async function assemblePack(
+  fd: FormData,
+): Promise<PrePublishActionResult> {
+  const gate = await requireEditor();
+  if (gate) return gate;
+
+  const article_id = String(fd.get("article_id") ?? "").trim();
+  const originSweep = trimOrNull(fd.get("origin_sweep_id"), 240);
+  const passedRef = trimOrNull(fd.get("pack_ref"), 64);
+  if (!article_id) return { ok: false, error: "Missing article_id" };
+
+  // Pre-flight: F9 verdict must already be HAND TO SENIOR EDITOR.
+  const admin = createServiceClient();
+  const { data: pp } = await admin
+    .from("article_pre_publish")
+    .select("verdict, pack_ref")
+    .eq("article_id", article_id)
+    .maybeSingle();
+  if (!pp || pp.verdict !== "hand_to_senior_editor") {
+    return {
+      ok: false,
+      error:
+        "F9 verdict must be HAND TO SENIOR EDITOR before the article can join a pack.",
+    };
+  }
+  if (pp.pack_ref) {
+    return { ok: false, error: `Article already assigned to ${pp.pack_ref}.` };
+  }
+
+  let packRef = passedRef;
+  let archivePath: string;
+
+  if (packRef) {
+    // Joining an existing pack — find an empty slot.
+    const { data: pack } = await admin
+      .from("pre_publish_packs")
+      .select(
+        "pack_ref, article_1_id, article_2_id, article_3_id, archive_path",
+      )
+      .eq("pack_ref", packRef)
+      .maybeSingle();
+    if (!pack) return { ok: false, error: `Pack ${packRef} does not exist.` };
+
+    const slot = !pack.article_1_id
+      ? "article_1_id"
+      : !pack.article_2_id
+        ? "article_2_id"
+        : !pack.article_3_id
+          ? "article_3_id"
+          : null;
+    if (!slot) {
+      return {
+        ok: false,
+        error: `Pack ${packRef} already holds the hard cap of ${PACK_HARD_CAP}.`,
+      };
+    }
+    const { error: upErr } = await admin
+      .from("pre_publish_packs")
+      .update({
+        [slot]: article_id,
+        updated_at: new Date().toISOString(),
+      })
+      .eq("pack_ref", packRef);
+    if (upErr) return { ok: false, error: upErr.message };
+    archivePath = pack.archive_path ?? `workspace/pre_publish_packs/${packRef}.md`;
+  } else {
+    // Minting a new pack — derive the next NNN for today.
+    const today = new Date();
+    const dateStr = today.toISOString().slice(0, 10);
+    const { data: todaysPacks } = await admin
+      .from("pre_publish_packs")
+      .select("pack_ref")
+      .like("pack_ref", `PPP-${dateStr}-%`)
+      .order("pack_ref", { ascending: false })
+      .limit(1);
+    const last = todaysPacks?.[0]?.pack_ref ?? null;
+    const lastSeq = last ? Number.parseInt(last.split("-").pop() ?? "0", 10) : 0;
+    packRef = formatPackRef(today, (Number.isFinite(lastSeq) ? lastSeq : 0) + 1);
+    archivePath = `workspace/pre_publish_packs/${packRef}.md`;
+
+    const uid = await currentUserId();
+    const { error: insErr } = await admin.from("pre_publish_packs").insert({
+      pack_ref: packRef,
+      article_1_id: article_id,
+      origin_sweep_id: originSweep,
+      archive_path: archivePath,
+      rendered_at: new Date().toISOString(),
+      rendered_by: uid,
+    });
+    if (insErr) return { ok: false, error: insErr.message };
+  }
+
+  const { error: ppErr } = await admin
+    .from("article_pre_publish")
+    .upsert(
+      {
+        article_id,
+        pack_ref: packRef,
+        origin_sweep_id: originSweep,
+        pack_archive_path: archivePath,
+        updated_at: new Date().toISOString(),
+      },
+      { onConflict: "article_id" },
+    );
+  if (ppErr) return { ok: false, error: ppErr.message };
+
+  revalidate(article_id, packRef);
+  return { ok: true, pack_ref: packRef };
+}
+
+/* -------------------------------------------------------------------------- */
+/*  setPubVerdict — Senior Editor APPROVE / MODIFY / REJECT                   */
+/* -------------------------------------------------------------------------- */
+
+export async function setPubVerdict(
+  fd: FormData,
+): Promise<PrePublishActionResult> {
+  const gate = await requireSeniorEditor();
+  if (gate) return gate;
+
+  const article_id = String(fd.get("article_id") ?? "").trim();
+  const verdict = parsePubVerdict(fd.get("pub_verdict"));
+  const notes = trimOrNull(fd.get("pub_verdict_notes"), 2400);
+  if (!article_id) return { ok: false, error: "Missing article_id" };
+  if (!verdict || verdict === "pending") {
+    return { ok: false, error: "Pick APPROVE / MODIFY / REJECT" };
+  }
+  if (!notes) {
+    return { ok: false, error: "Senior-Editor notes are required." };
+  }
+
+  const uid = await currentUserId();
+  const now = new Date().toISOString();
+  const admin = createServiceClient();
+
+  // Article-level stamp.
+  const { data: row, error: upErr } = await admin
+    .from("article_pre_publish")
+    .upsert(
+      {
+        article_id,
+        pub_verdict: verdict,
+        pub_verdict_at: now,
+        pub_verdict_by: uid,
+        pub_verdict_notes: notes,
+        updated_at: now,
+      },
+      { onConflict: "article_id" },
+    )
+    .select("pack_ref")
+    .maybeSingle();
+  if (upErr) return { ok: false, error: upErr.message };
+
+  // Pack-level mirror (if the article is in a pack).
+  if (row?.pack_ref) {
+    await admin
+      .from("pre_publish_packs")
+      .update({
+        pub_verdict: verdict,
+        pub_verdict_at: now,
+        pub_verdict_by: uid,
+        pub_verdict_notes: notes,
+        updated_at: now,
+      })
+      .eq("pack_ref", row.pack_ref);
+  }
+
+  // Bubble article state.
+  if (verdict === "approve") {
+    await admin
+      .from("articles")
+      .update({ state: "scheduled" })
+      .eq("id", article_id);
+  } else if (verdict === "reject") {
+    await admin
+      .from("articles")
+      .update({ state: "rejected" })
+      .eq("id", article_id);
+  }
+  // MODIFY leaves state at 'legal' so it routes back through the agent loop.
+
+  revalidate(article_id, row?.pack_ref ?? null);
+  return { ok: true };
+}
