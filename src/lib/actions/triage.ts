@@ -107,6 +107,9 @@ export async function saveTriageScorecard(
   const id = String(fd.get("candidate_id") ?? "").trim();
   if (!id) return { ok: false, error: "Missing candidate_id" };
 
+  const productionOption = parseOption(fd.get("production_option"));
+  const defamationTier = parseTier(fd.get("defamation_tier"));
+
   const brief: FramingBrief = {
     ...EMPTY_FRAMING_BRIEF,
     geographic_tier: parseGeo(fd.get("geographic_tier")),
@@ -123,18 +126,50 @@ export async function saveTriageScorecard(
     brief.scottish_anchor !== null ||
     brief.per_story_brief !== null;
 
+  // Auto-promote to triage_state='ready' when the two mandatory triage
+  // decisions (production option + defamation tier) are both set. Filling
+  // the scorecard IS the act of saying "this candidate is ready for
+  // commission" — without this, editors had to click '↺ Ready' on the row
+  // after closing the modal before the Commission button would appear.
+  //
+  // We only promote from states where the candidate is still mid-triage
+  // (held_dedup, held_source, needs_review). We never demote from `ready`
+  // either — partial saves leave whatever state the row was in untouched.
+  // `sent_to_f1`, `escalated`, `pointer` stay as-is because they're
+  // terminal-from-triage.
   const admin = createServiceClient();
+
+  const updatePayload: Record<string, unknown> = {
+    production_option: productionOption,
+    defamation_tier: defamationTier,
+    framing_brief: briefHasAnyField ? brief : null,
+  };
+
+  if (productionOption !== null && defamationTier !== null) {
+    const { data: existing } = await admin
+      .from("candidates")
+      .select("triage_state")
+      .eq("id", id)
+      .maybeSingle<{ triage_state: string | null }>();
+
+    const promotable = new Set([
+      "held_dedup",
+      "held_source",
+      "needs_review",
+    ]);
+    if (existing?.triage_state && promotable.has(existing.triage_state)) {
+      updatePayload.triage_state = "ready";
+    }
+  }
+
   const { error } = await admin
     .from("candidates")
-    .update({
-      production_option: parseOption(fd.get("production_option")),
-      defamation_tier: parseTier(fd.get("defamation_tier")),
-      framing_brief: briefHasAnyField ? brief : null,
-    })
+    .update(updatePayload)
     .eq("id", id);
 
   if (error) return { ok: false, error: error.message };
 
   revalidatePath("/discovery/inbox");
+  revalidatePath("/discovery");
   return { ok: true };
 }
