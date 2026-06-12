@@ -218,16 +218,27 @@ async function pushToWordPress(payload: {
   excerpt: string | null;
   status: "publish" | "future" | "draft";
   post_date: string | null;
+  /**
+   * Section G — per-title overrides. When `title_*` values are present they
+   * supersede the WORDPRESS_* env vars, so each publication silo publishes
+   * to its own WordPress install. Env vars stay as a fallback for the
+   * default title during phase-1 rollout.
+   */
+  title_wp_base_url?: string | null;
+  title_wp_username?: string | null;
+  title_wp_app_password?: string | null;
+  title_wp_default_category_id?: number | null;
 }): Promise<WPPushResult> {
-  const base = process.env.WORDPRESS_URL;
-  const user = process.env.WORDPRESS_USER;
-  const pass = process.env.WORDPRESS_APP_PASSWORD;
+  const base = payload.title_wp_base_url ?? process.env.WORDPRESS_URL;
+  const user = payload.title_wp_username ?? process.env.WORDPRESS_USER;
+  const pass =
+    payload.title_wp_app_password ?? process.env.WORDPRESS_APP_PASSWORD;
 
   if (!base || !user || !pass) {
     return {
       ok: false,
       error:
-        "WordPress not configured (WORDPRESS_URL / WORDPRESS_USER / WORDPRESS_APP_PASSWORD).",
+        "WordPress not configured for this title (set wp_base_url / wp_username / wp_app_password in /system/titles, or WORDPRESS_* env vars as fallback).",
     };
   }
 
@@ -240,6 +251,9 @@ async function pushToWordPress(payload: {
   if (payload.slug) body.slug = payload.slug;
   if (payload.excerpt) body.excerpt = payload.excerpt;
   if (payload.post_date) body.date = payload.post_date;
+  if (payload.title_wp_default_category_id) {
+    body.categories = [payload.title_wp_default_category_id];
+  }
 
   let res: Response;
   try {
@@ -371,15 +385,44 @@ export async function publishArticle(
   if (target === "manual") {
     externalUrl = manualUrl;
   } else if (target === "wordpress" || target === "draft_only") {
+    // Section G — per-title WP credentials override the env-var defaults.
+    const { data: titleRow } = await admin
+      .from("titles")
+      .select(
+        "wp_base_url, wp_username, wp_app_password, wp_default_status, wp_default_category_id",
+      )
+      .eq("id", article.title_id)
+      .maybeSingle<{
+        wp_base_url: string | null;
+        wp_username: string | null;
+        wp_app_password: string | null;
+        wp_default_status: string | null;
+        wp_default_category_id: number | null;
+      }>();
+
+    // Per-title default status only applies for live publish, not the
+    // explicit draft_only verb.
+    const effectiveStatus: "publish" | "draft" | "future" =
+      target === "draft_only"
+        ? "draft"
+        : titleRow?.wp_default_status === "draft" ||
+            titleRow?.wp_default_status === "future"
+          ? (titleRow.wp_default_status as "draft" | "future")
+          : "publish";
+
     const res = await pushToWordPress({
       title: article.headline,
       slug: slugOverride ?? article.slug,
       content: article.body ?? "",
       excerpt: article.standfirst,
-      status: target === "draft_only" ? "draft" : "publish",
+      status: effectiveStatus,
       post_date: article.backdate
         ? new Date(`${article.backdate}T07:00:00Z`).toISOString()
         : null,
+      title_wp_base_url: titleRow?.wp_base_url ?? null,
+      title_wp_username: titleRow?.wp_username ?? null,
+      title_wp_app_password: titleRow?.wp_app_password ?? null,
+      title_wp_default_category_id: titleRow?.wp_default_category_id ?? null,
     });
     if (res.ok) {
       externalId = res.external_id;

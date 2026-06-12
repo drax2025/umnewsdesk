@@ -25,6 +25,7 @@ import {
   Sparkles,
   Library,
   ListTodo,
+  Newspaper,
 } from "lucide-react";
 
 export type NavItem = {
@@ -80,6 +81,7 @@ export const NAV_SECTIONS: NavSection[] = [
   {
     label: "System",
     items: [
+      { label: "Titles (Section G)", href: "/system/titles", icon: Newspaper },
       { label: "Discovery Config", href: "/system/discovery-config", icon: Cog },
       { label: "Source Health Monitor", href: "/system/source-health", icon: Activity },
       { label: "Discovery Audit Log", href: "/system/audit-log", icon: ScrollText },
