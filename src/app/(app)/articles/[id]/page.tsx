@@ -10,7 +10,10 @@ import {
   Pencil,
 } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
+import { createServiceClient } from "@/lib/supabase/service";
 import { cn } from "@/lib/utils";
+import type { ArticleCorrectionRow } from "@/lib/spec/stage13-corrections";
+import { CorrectionsPanel } from "@/components/forms/stage13-corrections-panel";
 
 export const dynamic = "force-dynamic";
 
@@ -98,6 +101,33 @@ export default async function ArticleDossierPage({
 
   if (!article) notFound();
   const a: ArticleDetail = article;
+
+  // Role for Stage 13 corrections gating.
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  const { data: meRow } = user
+    ? await supabase
+        .from("profiles")
+        .select("role")
+        .eq("id", user.id)
+        .single<{ role: string | null }>()
+    : { data: null };
+  const isEditor =
+    meRow?.role === "editor" || meRow?.role === "senior_editor";
+  const isSenior = meRow?.role === "senior_editor";
+
+  // Stage 13 — corrections register rows, newest sequence first.
+  const admin = createServiceClient();
+  const { data: correctionsRaw } = await admin
+    .from("article_corrections")
+    .select(
+      "id, article_id, title_id, kind, status, description, source, public_notice, fields_changed, filed_by, filed_at, approved_by, approved_at, withdrawn_by, withdrawn_at, withdrawn_reason, sequence, updated_at",
+    )
+    .eq("article_id", id)
+    .order("sequence", { ascending: false })
+    .returns<ArticleCorrectionRow[]>();
+  const corrections: ArticleCorrectionRow[] = correctionsRaw ?? [];
 
   const currentIdx = TIMELINE.findIndex((s) => s.state === a.state);
   const isTerminal = a.state === "rejected" || a.state === "killed";
@@ -276,6 +306,17 @@ export default async function ArticleDossierPage({
               </p>
             )}
           </Section>
+
+          {a.state === "live" || a.published_at || corrections.length > 0 ? (
+            <Section title="Corrections register · Stage 13">
+              <CorrectionsPanel
+                articleId={a.id}
+                rows={corrections}
+                canEdit={isEditor}
+                canSenior={isSenior}
+              />
+            </Section>
+          ) : null}
 
           <Section title="Activity Log">
             <ul className="space-y-3">

@@ -26,6 +26,7 @@ import {
   Library,
   ListTodo,
   Newspaper,
+  FileWarning,
 } from "lucide-react";
 
 export type NavItem = {
@@ -64,6 +65,7 @@ export const NAV_SECTIONS: NavSection[] = [
       { label: "Approvals", href: "/approvals", icon: CheckSquare },
       { label: "Pre-Publish [PUB]", href: "/approvals/pre-publish", icon: Package },
       { label: "D-Reject Queue", href: "/queues/reject", icon: ShieldAlert },
+      { label: "Corrections (Stage 13)", href: "/corrections", icon: FileWarning },
       { label: "D0 Escalation [ESC]", href: "/queues/escalation", icon: Siren },
       { label: "Team", href: "/team", icon: Users },
       { label: "Press Agencies", href: "/team/agencies", icon: Building2 },
