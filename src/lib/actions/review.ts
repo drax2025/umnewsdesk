@@ -25,7 +25,9 @@ import { logFailureEventInternal } from "@/lib/actions/failure-log";
  * and zero pending gates.
  */
 
-export type ReviewActionResult = { ok: true } | { ok: false; error: string };
+export type ReviewActionResult =
+  | { ok: true; diag?: Record<string, unknown> }
+  | { ok: false; error: string };
 
 const STATUS_SET = new Set<HGateStatus>([
   "pending",
@@ -215,16 +217,17 @@ export async function stampTier1Defaults(
     .eq("article_id", article_id)
     .maybeSingle();
 
-  console.log("[stampTier1Defaults]", {
+  const diag = {
     article_id,
     upsert_http_status: upsertHttp,
     upsert_returned: upsertData,
     read_back: readBack,
     read_err: readErr?.message ?? null,
-  });
+  };
+  console.log("[stampTier1Defaults]", diag);
 
   revalidate(article_id);
-  return { ok: true };
+  return { ok: true, diag };
 }
 
 /* -------------------------------------------------------------------------- */
