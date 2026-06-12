@@ -28,6 +28,7 @@ export const dynamic = "force-dynamic";
 
 type ArticleRow = {
   id: string;
+  title_id: string;
   headline: string;
   standfirst: string | null;
   state: string;
@@ -36,6 +37,13 @@ type ArticleRow = {
 };
 
 type ProfileRow = { role: string | null };
+
+type TitleWpRow = {
+  name: string;
+  wp_base_url: string | null;
+  wp_username: string | null;
+  wp_app_password: string | null;
+};
 
 export default async function F8PostPublishPage({
   params,
@@ -47,7 +55,7 @@ export default async function F8PostPublishPage({
 
   const { data: article } = await supabase
     .from("articles")
-    .select("id, headline, standfirst, state, slug, backdate")
+    .select("id, title_id, headline, standfirst, state, slug, backdate")
     .eq("id", id)
     .maybeSingle<ArticleRow>();
   if (!article) notFound();
@@ -68,29 +76,46 @@ export default async function F8PostPublishPage({
   const isSenior = role === "senior_editor";
   const isEditor = role === "editor" || role === "senior_editor";
 
-  const [{ data: sweepRow }, { data: publishLog }] = await Promise.all([
-    supabase
-      .from("article_artefact_sweep")
-      .select(
-        "article_id, results, completed_at, completed_by, updated_at",
-      )
-      .eq("article_id", id)
-      .maybeSingle<ArticleArtefactSweepRow>(),
-    supabase
-      .from("article_publish_log")
-      .select(
-        "id, article_id, target, status, external_id, external_url, error, payload, attempted_at, completed_at, created_by",
-      )
-      .eq("article_id", id)
-      .order("attempted_at", { ascending: false })
-      .returns<ArticlePublishLogRow[]>(),
-  ]);
+  const [{ data: sweepRow }, { data: publishLog }, { data: titleWp }] =
+    await Promise.all([
+      supabase
+        .from("article_artefact_sweep")
+        .select(
+          "article_id, results, completed_at, completed_by, updated_at",
+        )
+        .eq("article_id", id)
+        .maybeSingle<ArticleArtefactSweepRow>(),
+      supabase
+        .from("article_publish_log")
+        .select(
+          "id, article_id, target, status, external_id, external_url, error, payload, attempted_at, completed_at, created_by",
+        )
+        .eq("article_id", id)
+        .order("attempted_at", { ascending: false })
+        .returns<ArticlePublishLogRow[]>(),
+      supabase
+        .from("titles")
+        .select("name, wp_base_url, wp_username, wp_app_password")
+        .eq("id", article.title_id)
+        .maybeSingle<TitleWpRow>(),
+    ]);
 
-  const wordpressConfigured = Boolean(
+  // Per-title creds take precedence over env vars (publishArticle does the
+  // same fallback). The banner used to only check env vars, which lied to
+  // editors who'd correctly set up Section G credentials on the title row.
+  const titleWpConfigured = Boolean(
+    titleWp?.wp_base_url && titleWp?.wp_username && titleWp?.wp_app_password,
+  );
+  const envWpConfigured = Boolean(
     process.env.WORDPRESS_URL &&
       process.env.WORDPRESS_USER &&
       process.env.WORDPRESS_APP_PASSWORD,
   );
+  const wordpressCredSource: "title" | "env" | "none" = titleWpConfigured
+    ? "title"
+    : envWpConfigured
+      ? "env"
+      : "none";
 
   return (
     <div className="flex h-full flex-col">
@@ -161,7 +186,8 @@ export default async function F8PostPublishPage({
             backdate={article.backdate}
             sweepRow={sweepRow ?? null}
             publishLog={publishLog ?? []}
-            wordpressConfigured={wordpressConfigured}
+            wordpressCredSource={wordpressCredSource}
+            titleName={titleWp?.name ?? null}
             readOnly={!isSenior}
           />
         </div>

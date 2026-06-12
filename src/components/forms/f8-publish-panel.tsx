@@ -3,6 +3,7 @@
 import { useState, useTransition } from "react";
 import {
   AlertTriangle,
+  CheckCircle2,
   ExternalLink,
   Loader2,
   Radio,
@@ -32,7 +33,17 @@ type Props = {
   backdate: string | null;
   sweepRow: ArticleArtefactSweepRow | null;
   publishLog: ArticlePublishLogRow[];
-  wordpressConfigured: boolean;
+  /**
+   * Where the WP credentials F8 will use are coming from:
+   *   - "title": filled in on this title's Section G row (per-title config).
+   *              publishArticle reads these first.
+   *   - "env":   only the legacy WORDPRESS_* env vars are set. Fine for the
+   *              default title; nothing else.
+   *   - "none":  neither — push will fail; editor must use Manual.
+   */
+  wordpressCredSource: "title" | "env" | "none";
+  /** Display name of this article's title, for the banner. */
+  titleName: string | null;
   readOnly?: boolean;
 };
 
@@ -43,9 +54,11 @@ export function PublishPanel({
   backdate,
   sweepRow,
   publishLog,
-  wordpressConfigured,
+  wordpressCredSource,
+  titleName,
   readOnly = false,
 }: Props) {
+  const wordpressConfigured = wordpressCredSource !== "none";
   const summary = summariseSweep(sweepRow);
   const lastPublished = latestPublishedLog(publishLog);
   const isLive = articleState === "live";
@@ -71,14 +84,30 @@ export function PublishPanel({
         </div>
       ) : null}
 
-      {!wordpressConfigured ? (
+      {wordpressCredSource === "title" ? (
+        <div className="border-b border-border bg-success/5 px-3 py-2 text-[10.5px] text-success">
+          <CheckCircle2 className="mr-1 inline-block h-3 w-3" />
+          WordPress configured via{" "}
+          <span className="font-semibold">{titleName ?? "this title"}</span>{" "}
+          (per-title Section G credentials).
+        </div>
+      ) : wordpressCredSource === "env" ? (
         <div className="border-b border-border bg-warn/5 px-3 py-2 text-[10.5px] text-warn">
           <AlertTriangle className="mr-1 inline-block h-3 w-3" />
-          WordPress env vars not set (WORDPRESS_URL / WORDPRESS_USER /
-          WORDPRESS_APP_PASSWORD). WP push will fail — use Manual to record an
-          external URL.
+          Falling back to legacy WORDPRESS_* env vars — this title has no
+          per-title WP credentials in Section G. Fine for a single-title
+          deployment, but set wp_base_url / wp_username / wp_app_password in
+          /system/titles before adding more titles.
         </div>
-      ) : null}
+      ) : (
+        <div className="border-b border-border bg-warn/5 px-3 py-2 text-[10.5px] text-warn">
+          <AlertTriangle className="mr-1 inline-block h-3 w-3" />
+          No WordPress credentials available — neither this title&apos;s
+          Section G row nor the WORDPRESS_* env vars are set. WP push will
+          fail; use Manual to record an external URL, or fill in credentials
+          at /system/titles.
+        </div>
+      )}
 
       {isLive && lastPublished ? (
         <LivePanel
