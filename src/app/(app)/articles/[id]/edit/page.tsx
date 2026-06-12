@@ -6,7 +6,9 @@ import { cn } from "@/lib/utils";
 import { DraftEditor } from "@/components/forms/draft-editor";
 import { FramingBriefPanel } from "@/components/forms/framing-brief-panel";
 import { HeadlineOptionsEditor } from "@/components/forms/headline-options-editor";
+import { BackdatePicker } from "@/components/forms/f5-backdate-picker";
 import { submitForReview } from "@/lib/actions/article-write";
+import type { BackdateKind } from "@/lib/spec/f5-backdate";
 import {
   EMPTY_FRAMING_BRIEF,
   type FramingBrief,
@@ -30,6 +32,9 @@ type ArticleRow = {
   updated_at: string;
   headline_options: unknown | null;
   headline_selected_idx: number | null;
+  backdate: string | null;
+  backdate_kind: BackdateKind | null;
+  backdate_rationale: string | null;
 };
 
 type CommissionRow = {
@@ -39,6 +44,8 @@ type CommissionRow = {
 
 type CandidateRow = {
   framing_brief: unknown | null;
+  defamation_tier: number | null;
+  source_published_at: string | null;
 };
 
 function coerceFramingBrief(raw: unknown): FramingBrief | null {
@@ -134,7 +141,7 @@ export default async function ArticleEditPage({
   const { data: article } = await supabase
     .from("articles")
     .select(
-      "id, headline, standfirst, body, state, slug, sectors, geo_tier, updated_at, headline_options, headline_selected_idx",
+      "id, headline, standfirst, body, state, slug, sectors, geo_tier, updated_at, headline_options, headline_selected_idx, backdate, backdate_kind, backdate_rationale",
     )
     .eq("id", id)
     .single<ArticleRow>();
@@ -156,20 +163,32 @@ export default async function ArticleEditPage({
   ]);
 
   // Resolve framing brief: prefer commission, fall back to candidate.
+  // We also need the candidate row for defamation_tier + source_published_at
+  // (drives the BackdatePicker tier-lock and the friday_after suggestion).
   let framingBrief: FramingBrief | null = coerceFramingBrief(
     commission?.framing_brief,
   );
   let framingSource: "commission" | "candidate" | null = framingBrief
     ? "commission"
     : null;
-  if (!framingBrief && commission?.candidate_id) {
+  let defamationTier: 1 | 2 | 3 | null = null;
+  let eventDate: string | null = null;
+
+  if (commission?.candidate_id) {
     const { data: candidate } = await supabase
       .from("candidates")
-      .select("framing_brief")
+      .select("framing_brief, defamation_tier, source_published_at")
       .eq("id", commission.candidate_id)
       .maybeSingle<CandidateRow>();
-    framingBrief = coerceFramingBrief(candidate?.framing_brief);
-    framingSource = framingBrief ? "candidate" : null;
+    if (!framingBrief) {
+      framingBrief = coerceFramingBrief(candidate?.framing_brief);
+      framingSource = framingBrief ? "candidate" : null;
+    }
+    const t = candidate?.defamation_tier;
+    if (t === 1 || t === 2 || t === 3) defamationTier = t;
+    eventDate = candidate?.source_published_at
+      ? String(candidate.source_published_at).slice(0, 10)
+      : null;
   }
 
   const headlineOptions = normaliseHeadlineOptions(article.headline_options);
@@ -240,6 +259,18 @@ export default async function ArticleEditPage({
               initialHeadline={article.headline}
               initialStandfirst={article.standfirst ?? ""}
               initialBody={article.body ?? ""}
+              readOnly={readOnly}
+            />
+
+            {/* F5 step 2 — backdate selection. Tier 3 articles have it
+                disabled by D-rule. Editor + senior_editor only. */}
+            <BackdatePicker
+              articleId={article.id}
+              initialBackdate={article.backdate}
+              initialKind={article.backdate_kind}
+              initialRationale={article.backdate_rationale}
+              defamationTier={defamationTier}
+              eventDate={eventDate}
               readOnly={readOnly}
             />
 

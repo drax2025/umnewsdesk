@@ -6,12 +6,18 @@ import { F9CheckRow } from "@/components/forms/f9-check-row";
 import { F9FailureLog } from "@/components/forms/f9-failure-log";
 import { F9PackPanel } from "@/components/forms/f9-pack-panel";
 import { F9VerdictPanel } from "@/components/forms/f9-verdict-panel";
+import { StandingRuleSweep } from "@/components/forms/f9-standing-rule-sweep";
+import { ReasonableStepsLog } from "@/components/forms/f9-reasonable-steps";
+import { FailureLogPanel } from "@/components/forms/failure-log-panel";
 import {
   A_CHECKS,
   type ArticlePrePublishRow,
   type PrePublishFailureRow,
   type PrePublishPackRow,
 } from "@/lib/spec/f9-pre-publish";
+import type { ArticleStandingRuleSweepRow } from "@/lib/spec/f9-standing-rule";
+import type { ArticleReasonableStepsRow } from "@/lib/spec/f9-reasonable-steps";
+import type { ArticleFailureLogRow } from "@/lib/spec/failure-log";
 
 export const dynamic = "force-dynamic";
 
@@ -72,7 +78,14 @@ export default async function F9PrePublishPage({
   const canStampPub = role === "senior_editor";
 
   // The pre-publish row, failures and (optionally) the pack.
-  const [{ data: row }, { data: failures }] = await Promise.all([
+  const [
+    { data: row },
+    { data: failures },
+    { data: sweepRow },
+    { data: reasonableStepsRow },
+    { data: failureLog },
+    { data: commission },
+  ] = await Promise.all([
     supabase
       .from("article_pre_publish")
       .select("*")
@@ -84,7 +97,40 @@ export default async function F9PrePublishPage({
       .eq("article_id", id)
       .order("created_at", { ascending: false })
       .returns<PrePublishFailureRow[]>(),
+    supabase
+      .from("article_standing_rule_sweep")
+      .select("*")
+      .eq("article_id", id)
+      .maybeSingle<ArticleStandingRuleSweepRow>(),
+    supabase
+      .from("article_reasonable_steps")
+      .select("*")
+      .eq("article_id", id)
+      .maybeSingle<ArticleReasonableStepsRow>(),
+    supabase
+      .from("article_failure_log")
+      .select("*")
+      .eq("article_id", id)
+      .order("created_at", { ascending: false })
+      .returns<ArticleFailureLogRow[]>(),
+    supabase
+      .from("commissions")
+      .select("candidate_id")
+      .eq("article_id", id)
+      .maybeSingle<{ candidate_id: string | null }>(),
   ]);
+
+  // Resolve defamation tier via candidate (canonical pattern).
+  let defamationTier: 1 | 2 | 3 | null = null;
+  if (commission?.candidate_id) {
+    const { data: cand } = await supabase
+      .from("candidates")
+      .select("defamation_tier")
+      .eq("id", commission.candidate_id)
+      .maybeSingle<{ defamation_tier: number | null }>();
+    const t = cand?.defamation_tier;
+    if (t === 1 || t === 2 || t === 3) defamationTier = t;
+  }
 
   let pack: PrePublishPackRow | null = null;
   if (row?.pack_ref) {
@@ -235,10 +281,41 @@ export default async function F9PrePublishPage({
             />
           ) : null}
 
-          {/* Failure Log */}
+          {/* Pack section 10 standing-rule compliance table */}
           <SectionHeader
-            label="Failure Log"
-            hint="One row per soft-fail / hard-fail. Routed through SK-RECORD.append-failure-log-row."
+            label="Standing-Rule Compliance · pack section 10"
+            hint="B1-B7 + Section M + Section L sweep. Every row must be CHECKED-PASS / CHECKED-FAIL / N/A-with-justification before F9 returns PASS."
+          />
+          <StandingRuleSweep
+            articleId={article.id}
+            row={sweepRow ?? null}
+          />
+
+          {/* Pack section 8 reasonable-steps log (Tier 2 only) */}
+          <SectionHeader
+            label="Reasonable-steps log · pack section 8"
+            hint="D-Steps doctrine — required for every Tier 2 article. Tier 1 not applicable; Tier 3 disqualified upstream."
+          />
+          <ReasonableStepsLog
+            articleId={article.id}
+            row={reasonableStepsRow ?? null}
+            defamationTier={defamationTier}
+          />
+
+          {/* Pack section 0 — cross-agent failure log */}
+          <SectionHeader
+            label="Article Failure Log · pack section 0"
+            hint="Cross-agent chronological record (F1 / F2 / F3 / F4 / F5 / F6 / F9). Read BEFORE article content in the pack."
+          />
+          <FailureLogPanel
+            articleId={article.id}
+            rows={failureLog ?? []}
+          />
+
+          {/* F9-internal A-check failure log (pre_publish_failures) */}
+          <SectionHeader
+            label="A-check Failure Log (F9 internal)"
+            hint="One row per A1-A10 soft-fail / hard-fail. Routed through SK-RECORD.append-failure-log-row."
           />
           <F9FailureLog articleId={article.id} failures={failures ?? []} />
 

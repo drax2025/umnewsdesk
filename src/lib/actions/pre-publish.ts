@@ -15,6 +15,12 @@ import {
   type PubVerdict,
   type RootCauseAgent,
 } from "@/lib/spec/f9-pre-publish";
+import {
+  STANDING_RULES,
+  type StandingRuleCode,
+  type StandingRuleStatus,
+} from "@/lib/spec/f9-standing-rule";
+import { DEFENCES, type DefamationDefence } from "@/lib/spec/f9-reasonable-steps";
 
 /**
  * F9 Pre-Publish server actions.
@@ -57,6 +63,16 @@ const VERDICT_SET = new Set<F9Verdict>([
 ]);
 const PUB_SET = new Set<PubVerdict>(["pending", "approve", "modify", "reject"]);
 const ROOT_SET = new Set<RootCauseAgent>(ROOT_CAUSE_AGENTS);
+const RULE_CODE_SET = new Set<StandingRuleCode>(
+  STANDING_RULES.map((r) => r.code),
+);
+const RULE_STATUS_SET = new Set<StandingRuleStatus>([
+  "pending",
+  "checked_pass",
+  "checked_fail",
+  "na",
+]);
+const DEFENCE_SET = new Set<DefamationDefence>(DEFENCES.map((d) => d.value));
 
 /* -------------------------------------------------------------------------- */
 /*  Auth helpers                                                              */
@@ -559,5 +575,147 @@ export async function setPubVerdict(
   // MODIFY leaves state at 'legal' so it routes back through the agent loop.
 
   revalidate(article_id, row?.pack_ref ?? null);
+  return { ok: true };
+}
+
+/* -------------------------------------------------------------------------- */
+/*  saveStandingRule — one row of pack section 10                             */
+/* -------------------------------------------------------------------------- */
+
+function parseRuleCode(raw: unknown): StandingRuleCode | null {
+  const s = String(raw ?? "").trim();
+  return RULE_CODE_SET.has(s as StandingRuleCode)
+    ? (s as StandingRuleCode)
+    : null;
+}
+
+function parseRuleStatus(raw: unknown): StandingRuleStatus | null {
+  const s = String(raw ?? "").trim();
+  return RULE_STATUS_SET.has(s as StandingRuleStatus)
+    ? (s as StandingRuleStatus)
+    : null;
+}
+
+/**
+ * Save one standing-rule row. Spec rule: checked_fail and na must carry a
+ * justification — if you're going to call it a fail or N/A, say why.
+ */
+export async function saveStandingRule(
+  fd: FormData,
+): Promise<PrePublishActionResult> {
+  const gate = await requireEditor();
+  if (gate) return gate;
+
+  const article_id = String(fd.get("article_id") ?? "").trim();
+  const code = parseRuleCode(fd.get("code"));
+  const status = parseRuleStatus(fd.get("status"));
+  if (!article_id) return { ok: false, error: "Missing article_id" };
+  if (!code) return { ok: false, error: "Unknown standing-rule code" };
+  if (!status) return { ok: false, error: "Pick a status" };
+
+  const justification = trimOrNull(fd.get("justification"), 2400);
+
+  if (status === "checked_fail" && !justification) {
+    return {
+      ok: false,
+      error: "Checked-fail rows require a justification — record the failure.",
+    };
+  }
+  if (status === "na" && !justification) {
+    return {
+      ok: false,
+      error: "N/A rows require a justification — say why the rule does not apply.",
+    };
+  }
+
+  const def = STANDING_RULES.find((r) => r.code === code);
+
+  const payload: Record<string, unknown> = {
+    article_id,
+    [`${code}_status`]: status,
+    [`${code}_justification`]: justification,
+    updated_at: new Date().toISOString(),
+    updated_by: await currentUserId(),
+  };
+
+  if (def?.hasArtefactsSwept) {
+    payload.b2_artefacts_swept = trimOrNull(fd.get("artefacts_swept"), 2400);
+  }
+
+  const admin = createServiceClient();
+  const { error } = await admin
+    .from("article_standing_rule_sweep")
+    .upsert(payload, { onConflict: "article_id" });
+  if (error) return { ok: false, error: error.message };
+
+  revalidate(article_id);
+  return { ok: true };
+}
+
+/* -------------------------------------------------------------------------- */
+/*  saveReasonableSteps — pack section 8 (Tier 2 only)                        */
+/* -------------------------------------------------------------------------- */
+
+function parseDefence(raw: unknown): DefamationDefence | null {
+  const s = String(raw ?? "").trim();
+  return DEFENCE_SET.has(s as DefamationDefence)
+    ? (s as DefamationDefence)
+    : null;
+}
+
+/**
+ * Save the reasonable-steps log for a Tier 2 article. The form posts every
+ * field every time — partial fills are allowed (incomplete state visible in
+ * the UI summary); a Tier-2 article cannot pass F9 unless the row is complete.
+ */
+export async function saveReasonableSteps(
+  fd: FormData,
+): Promise<PrePublishActionResult> {
+  const gate = await requireEditor();
+  if (gate) return gate;
+
+  const article_id = String(fd.get("article_id") ?? "").trim();
+  if (!article_id) return { ok: false, error: "Missing article_id" };
+
+  const subjects_named = trimOrNull(fd.get("subjects_named"), 1200);
+  const public_record_response_url = trimOrNull(
+    fd.get("public_record_response_url"),
+    1200,
+  );
+  const public_record_response_date = parseDateOrNull(
+    fd.get("public_record_response_date"),
+  );
+  const defence = parseDefence(fd.get("defence"));
+  const defence_justification = trimOrNull(fd.get("defence_justification"), 2400);
+  const tier_classifier_name = trimOrNull(fd.get("tier_classifier_name"), 240);
+
+  // Allow defence to be null (mid-author), but if defence IS set, justification
+  // is mandatory. Same rule as the spec — picking a defence means defending it.
+  if (defence && !defence_justification) {
+    return {
+      ok: false,
+      error: "Picking a defence requires a one-sentence justification.",
+    };
+  }
+
+  const uid = await currentUserId();
+  const admin = createServiceClient();
+  const { error } = await admin.from("article_reasonable_steps").upsert(
+    {
+      article_id,
+      subjects_named,
+      public_record_response_url,
+      public_record_response_date,
+      defence,
+      defence_justification,
+      tier_classifier_id: tier_classifier_name ? uid : null,
+      tier_classifier_name,
+      updated_at: new Date().toISOString(),
+    },
+    { onConflict: "article_id" },
+  );
+  if (error) return { ok: false, error: error.message };
+
+  revalidate(article_id);
   return { ok: true };
 }

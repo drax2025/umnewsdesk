@@ -6,6 +6,7 @@ import { F2SourcePack } from "@/components/forms/f2-source-pack";
 import { F2QuoteLedger } from "@/components/forms/f2-quote-ledger";
 import { F2VerdictPanel } from "@/components/forms/f2-verdict-panel";
 import { F2Opportunities } from "@/components/forms/f2-opportunities";
+import { NFPFooterEditor } from "@/components/forms/nfp-footer-editor";
 import {
   GEOGRAPHIC_TIERS,
   type FramingBrief,
@@ -71,13 +72,16 @@ export default async function F2ResearchPage({
     .maybeSingle<{ candidate_id: string | null }>();
 
   let brief: FramingBrief | null = null;
+  let defamationTier: 1 | 2 | 3 | null = null;
   if (commission?.candidate_id) {
     const { data: cand } = await supabase
       .from("candidates")
-      .select("framing_brief")
+      .select("framing_brief, defamation_tier")
       .eq("id", commission.candidate_id)
-      .maybeSingle<CandidateBrief>();
+      .maybeSingle<CandidateBrief & { defamation_tier: number | null }>();
     brief = cand?.framing_brief ?? null;
+    const t = cand?.defamation_tier;
+    if (t === 1 || t === 2 || t === 3) defamationTier = t;
   }
 
   // Sources, quotes, research, opportunities — fetched in parallel
@@ -109,10 +113,10 @@ export default async function F2ResearchPage({
     supabase
       .from("article_research")
       .select(
-        "article_id, framing_feasibility, feasibility_evidence, dependency_status, primary_paywalled, nfp_footer_draft, verdict, verdict_at, verdict_rationale, updated_at",
+        "article_id, framing_feasibility, feasibility_evidence, dependency_status, primary_paywalled, nfp_footer_draft, nfp_footer_fields, verdict, verdict_at, verdict_rationale, updated_at",
       )
       .eq("article_id", id)
-      .maybeSingle<ArticleResearchRow>(),
+      .maybeSingle<ArticleResearchRow & { nfp_footer_fields: unknown | null }>(),
     supabase
       .from("article_pipeline_opportunities")
       .select("id, article_id, title, category, priority, notes, created_at")
@@ -180,6 +184,17 @@ export default async function F2ResearchPage({
           />
 
           <F2VerdictPanel articleId={article.id} research={research ?? null} />
+
+          {/* B7 / B8 / C9 / H9 / A9 — structured NFP footer (companion to
+              the free-text draft above). Audited field-by-field downstream. */}
+          <NFPFooterEditor
+            articleId={article.id}
+            initial={
+              (research as (ArticleResearchRow & { nfp_footer_fields: unknown | null }) | null)
+                ?.nfp_footer_fields ?? null
+            }
+            defamationTier={defamationTier}
+          />
 
           <F2Opportunities
             articleId={article.id}

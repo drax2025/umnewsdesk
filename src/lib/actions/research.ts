@@ -131,6 +131,7 @@ function parseBool(raw: unknown): boolean {
 function revalidate(articleId: string) {
   revalidatePath(`/articles/${articleId}/research`);
   revalidatePath(`/articles/${articleId}`);
+  revalidatePath(`/articles/${articleId}/pre-publish`);
 }
 
 /* -------------------------------------------------------------------------- */
@@ -473,6 +474,62 @@ export async function deleteOpportunity(
     .eq("article_id", article_id);
 
   if (error) return { ok: false, error: error.message };
+  revalidate(article_id);
+  return { ok: true };
+}
+
+/* -------------------------------------------------------------------------- */
+/*  Structured NFP footer (B7 / B8 / C9 / H9 / A9)                            */
+/* -------------------------------------------------------------------------- */
+
+/**
+ * Persist the structured NFP footer (companion to the free-text draft).
+ *
+ * Accepts one form field `nfp_footer_fields` carrying a JSON string of the
+ * full NFPFooterFields shape. The JSON is round-tripped through
+ * normaliseNFPFooter on the way out (read side), so we trust-but-trim here.
+ *
+ * Keeps the free-text draft untouched — paragraph notes still belong there.
+ */
+export async function saveNFPFooter(
+  fd: FormData,
+): Promise<ResearchActionResult> {
+  const gate = await requireEditor();
+  if (gate) return gate;
+
+  const article_id = String(fd.get("article_id") ?? "").trim();
+  if (!article_id) return { ok: false, error: "Missing article_id" };
+
+  const raw = String(fd.get("nfp_footer_fields") ?? "");
+  if (!raw.trim()) {
+    return { ok: false, error: "Missing nfp_footer_fields JSON payload." };
+  }
+
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(raw);
+  } catch {
+    return { ok: false, error: "nfp_footer_fields is not valid JSON." };
+  }
+  if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) {
+    return { ok: false, error: "nfp_footer_fields must be an object." };
+  }
+
+  const uid = await currentUserId();
+  const now = new Date().toISOString();
+  const admin = createServiceClient();
+  const { error } = await admin.from("article_research").upsert(
+    {
+      article_id,
+      nfp_footer_fields: parsed,
+      nfp_footer_updated_at: now,
+      nfp_footer_updated_by: uid,
+      updated_at: now,
+    },
+    { onConflict: "article_id" },
+  );
+  if (error) return { ok: false, error: error.message };
+
   revalidate(article_id);
   return { ok: true };
 }
