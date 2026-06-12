@@ -24,6 +24,7 @@ import {
   TestTube2,
   Sparkles,
   Library,
+  ListTodo,
 } from "lucide-react";
 
 export type NavItem = {
@@ -52,6 +53,7 @@ export const NAV_SECTIONS: NavSection[] = [
       { label: "Calendar", href: "/calendar", icon: Calendar },
       { label: "Article Dossier", href: "/articles", icon: FileText },
       { label: "Master Inventory (A2)", href: "/inventory", icon: Library },
+      { label: "Opportunities (A3 / K5)", href: "/opportunities", icon: ListTodo },
       { label: "F5 Edit (preview)", href: "/design/f5-edit", icon: Sparkles },
     ],
   },

@@ -438,10 +438,31 @@ export async function addOpportunity(
 
   const uid = await currentUserId();
   const admin = createServiceClient();
+
+  // Denormalise title_id from the parent article so the A3 K5 view is
+  // title-scoped without an extra join.
+  const { data: art } = await admin
+    .from("articles")
+    .select("title_id")
+    .eq("id", article_id)
+    .maybeSingle<{ title_id: string }>();
+
+  const sectionRaw = String(fd.get("section") ?? "").trim();
+  const section =
+    sectionRaw === "a_profile" ||
+    sectionRaw === "b_followup" ||
+    sectionRaw === "c_cluster_build" ||
+    sectionRaw === "d_cross_pub" ||
+    sectionRaw === "e_recurring_beat"
+      ? sectionRaw
+      : "b_followup";
+
   const { data, error } = await admin
     .from("article_pipeline_opportunities")
     .insert({
       article_id,
+      title_id: art?.title_id ?? null,
+      section,
       title,
       category: trimOrNull(fd.get("category"), 120),
       priority: parsePriority(fd.get("priority")),

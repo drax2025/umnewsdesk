@@ -9,7 +9,10 @@ import {
   XCircle,
 } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
+import { createServiceClient } from "@/lib/supabase/service";
 import { cn } from "@/lib/utils";
+import type { RejectQueueSweepRow } from "@/lib/spec/a3-opportunities";
+import { K5RejectSweepPanel } from "@/components/forms/k5-reject-sweep";
 
 export const dynamic = "force-dynamic";
 
@@ -132,6 +135,15 @@ export default async function DRejectQueuePage({
     sp.tab === "tier3" ? "tier3" : sp.tab === "all" ? "all" : "live";
 
   const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  const { data: meRow } = await supabase
+    .from("profiles")
+    .select("role")
+    .eq("id", user!.id)
+    .single<{ role: string | null }>();
+  const isSenior = meRow?.role === "senior_editor";
 
   /* ----------------------------------------------------------------------- */
   /*  Live rejects                                                           */
@@ -370,6 +382,33 @@ export default async function DRejectQueuePage({
   const tier3Count = tier3Rows.length;
   const allCount = liveCount + tier3Count;
 
+  /* ----------------------------------------------------------------------- */
+  /*  K5 reject-queue sweep history (senior-only verdict surface)            */
+  /* ----------------------------------------------------------------------- */
+
+  const articleRowIds = Array.from(
+    new Set(
+      visibleRows
+        .filter((r): r is ArticleRejectRow => r.kind === "article")
+        .map((r) => r.id),
+    ),
+  );
+  const admin = createServiceClient();
+  const { data: sweepsRaw } = articleRowIds.length
+    ? await admin
+        .from("reject_queue_sweep")
+        .select("id, article_id, verdict, notes, swept_at, swept_by, iteration")
+        .in("article_id", articleRowIds)
+        .order("iteration", { ascending: false })
+        .returns<RejectQueueSweepRow[]>()
+    : { data: [] };
+  const sweepByArticle = new Map<string, RejectQueueSweepRow[]>();
+  for (const s of sweepsRaw ?? []) {
+    const list = sweepByArticle.get(s.article_id) ?? [];
+    list.push(s);
+    sweepByArticle.set(s.article_id, list);
+  }
+
   const countFor = (key: TabKey) =>
     key === "live" ? liveCount : key === "tier3" ? tier3Count : allCount;
 
@@ -454,7 +493,18 @@ export default async function DRejectQueuePage({
           {visibleRows.length === 0 ? (
             <EmptyState tab={tab} />
           ) : (
-            visibleRows.map((row) => <RejectRowCard key={`${row.source}-${row.id}`} row={row} />)
+            visibleRows.map((row) => (
+              <RejectRowCard
+                key={`${row.source}-${row.id}`}
+                row={row}
+                sweeps={
+                  row.kind === "article"
+                    ? (sweepByArticle.get(row.id) ?? [])
+                    : []
+                }
+                canSweep={isSenior}
+              />
+            ))
           )}
         </div>
       </div>
@@ -484,7 +534,15 @@ function EmptyState({ tab }: { tab: TabKey }) {
   );
 }
 
-function RejectRowCard({ row }: { row: RejectRow }) {
+function RejectRowCard({
+  row,
+  sweeps,
+  canSweep,
+}: {
+  row: RejectRow;
+  sweeps: RejectQueueSweepRow[];
+  canSweep: boolean;
+}) {
   const meta = SOURCE_META[row.source];
   const Icon = meta.icon;
   const href =
@@ -595,6 +653,14 @@ function RejectRowCard({ row }: { row: RejectRow }) {
               </>
             ) : null}
           </div>
+
+          {row.kind === "article" && canSweep ? (
+            <K5RejectSweepPanel
+              articleId={row.id}
+              latest={sweeps[0] ?? null}
+              history={sweeps}
+            />
+          ) : null}
         </div>
       </div>
     </article>
