@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useTransition } from "react";
+import { useRouter } from "next/navigation";
 import {
   AlertTriangle,
   CheckCircle2,
@@ -52,6 +53,7 @@ export function F6VerdictPanel({
   review: ArticleReviewRow | null;
   defamationTier: 1 | 2 | 3 | null;
 }) {
+  const router = useRouter();
   const [rationale, setRationale] = useState<string>(
     review?.verdict_rationale ?? "",
   );
@@ -71,8 +73,15 @@ export function F6VerdictPanel({
     fd.set("article_id", articleId);
     startStamping(async () => {
       const res: ReviewActionResult = await stampTier1Defaults(fd);
-      if (!res.ok) setError(res.error);
-      else setNotice("Tier 1 defaults stamped across all 11 gates.");
+      if (!res.ok) {
+        setError(res.error);
+        return;
+      }
+      setNotice("Tier 1 defaults stamped across all 11 gates.");
+      // revalidatePath alone doesn't re-fetch a mounted client component's
+      // server-side props — without router.refresh() the roll-up stays stale
+      // until full page reload.
+      router.refresh();
     });
   }
 
@@ -89,8 +98,12 @@ export function F6VerdictPanel({
     fd.set("verdict_rationale", rationale);
     startTransition(async () => {
       const res: ReviewActionResult = await setReviewVerdict(fd);
-      if (!res.ok) setError(res.error);
-      else setNotice("Verdict stamped.");
+      if (!res.ok) {
+        setError(res.error);
+        return;
+      }
+      setNotice("Verdict stamped.");
+      router.refresh();
     });
   }
 

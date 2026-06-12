@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useTransition } from "react";
+import { useRouter } from "next/navigation";
 import {
   AlertTriangle,
   CheckCircle2,
@@ -82,6 +83,7 @@ export function F6GateRow({ articleId, gate, review, readOnly }: Props) {
           ? review?.h8_headline_chars ?? null
           : null;
 
+  const router = useRouter();
   const [status, setStatus] = useState<HGateStatus>(initialStatus);
   const [detail, setDetail] = useState<string>(initialDetail);
   const [metric, setMetric] = useState<string>(
@@ -104,8 +106,16 @@ export function F6GateRow({ articleId, gate, review, readOnly }: Props) {
 
     startTransition(async () => {
       const res: ReviewActionResult = await saveGate(fd);
-      if (!res.ok) setError(res.error);
-      else setSaved(true);
+      if (!res.ok) {
+        setError(res.error);
+        return;
+      }
+      setSaved(true);
+      // Force the parent server component to re-render so the verdict roll-up
+      // at the top of the page reflects this gate's new status. revalidatePath
+      // invalidates the cache but doesn't push fresh data into mounted client
+      // components.
+      router.refresh();
     });
   }
 

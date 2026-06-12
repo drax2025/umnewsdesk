@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useTransition } from "react";
+import { useRouter } from "next/navigation";
 import { Scale, ShieldX } from "lucide-react";
 import {
   saveH11Checklist,
@@ -75,6 +76,7 @@ export function F6H11Checklist({ articleId, defamationTier, review }: Props) {
     h11_q10_unsupported_sentence: review?.h11_q10_unsupported_sentence ?? null,
   };
 
+  const router = useRouter();
   const [answers, setAnswers] = useState<AnswerMap>(initial);
   const [defence, setDefence] = useState<string>(review?.h11_defence ?? "");
   const [responseUrl, setResponseUrl] = useState<string>(
@@ -131,8 +133,12 @@ export function F6H11Checklist({ articleId, defamationTier, review }: Props) {
     }
     startTransition(async () => {
       const res: ReviewActionResult = await saveH11Checklist(fd);
-      if (!res.ok) setError(res.error);
-      else setSaved(true);
+      if (!res.ok) {
+        setError(res.error);
+        return;
+      }
+      setSaved(true);
+      router.refresh();
     });
   }
 
@@ -348,6 +354,7 @@ function H11NaBanner({
   tier: 1 | 3;
   articleId: string;
 }) {
+  const router = useRouter();
   const [pending, startTransition] = useTransition();
   const [done, setDone] = useState(false);
 
@@ -360,7 +367,10 @@ function H11NaBanner({
         ? "Tier 1 article — D-Checklist N/A per spec D-Checklist."
         : "Tier 3 article — routes to Reject Queue. H11 N/A here.");
       const res = await saveH11Checklist(fd);
-      if (res.ok) setDone(true);
+      if (res.ok) {
+        setDone(true);
+        router.refresh();
+      }
     });
   }
 
