@@ -8,7 +8,10 @@ import {
   escalateCandidateToOpsRr,
   setCandidateTriage,
 } from "@/lib/actions/inbox";
-import { commissionFromCandidate } from "@/lib/actions/commissioning";
+import {
+  CommissionTitlePicker,
+  type CommissionTitleOption,
+} from "@/components/forms/commission-title-picker";
 import { ScoreButton } from "@/components/forms/score-button";
 import type { ScoreBreakdown } from "@/lib/actions/score";
 import { F1TriageCell } from "@/components/forms/f1-triage";
@@ -136,30 +139,41 @@ export default async function CandidateInboxPage({
   const q = sp.q ?? "";
 
   const supabase = await createClient();
-  const [candRes, streamsRes, sourcesRes, sweepsRes, opsRes] = await Promise.all([
-    supabase
-      .from("candidates")
-      .select(
-        "id, code, working_headline, primary_url, image_url, layer, kind, dedup_state, verification_state, triage_state, risk, score, score_breakdown, embargo_until, embargo_confidence, attachment_urls, surfaced_at, source_id, stream_id, sweep_run_id, raw, production_option, defamation_tier, framing_brief",
-      )
-      .order("surfaced_at", { ascending: false })
-      .limit(200),
-    supabase.from("discovery_streams").select("id, name, slug"),
-    supabase.from("discovery_sources").select("id, name, code"),
-    supabase.from("sweep_runs").select("id, code"),
-    supabase
-      .from("ops_rr_alerts")
-      .select("code, description, status")
-      .eq("status", "open")
-      .order("created_at", { ascending: false })
-      .limit(5),
-  ]);
+  const [candRes, streamsRes, sourcesRes, sweepsRes, opsRes, titlesRes] =
+    await Promise.all([
+      supabase
+        .from("candidates")
+        .select(
+          "id, code, working_headline, primary_url, image_url, layer, kind, dedup_state, verification_state, triage_state, risk, score, score_breakdown, embargo_until, embargo_confidence, attachment_urls, surfaced_at, source_id, stream_id, sweep_run_id, raw, production_option, defamation_tier, framing_brief",
+        )
+        .order("surfaced_at", { ascending: false })
+        .limit(200),
+      supabase.from("discovery_streams").select("id, name, slug"),
+      supabase.from("discovery_sources").select("id, name, code"),
+      supabase.from("sweep_runs").select("id, code"),
+      supabase
+        .from("ops_rr_alerts")
+        .select("code, description, status")
+        .eq("status", "open")
+        .order("created_at", { ascending: false })
+        .limit(5),
+      // Active publication silos for the per-row title picker. Inactive titles
+      // are filtered out so a deprecated brand doesn't appear in the dropdown
+      // even if a candidate has historically been commissioned into it.
+      supabase
+        .from("titles")
+        .select("id, name")
+        .eq("is_active", true)
+        .order("name", { ascending: true })
+        .returns<CommissionTitleOption[]>(),
+    ]);
 
   const cands: CandidateRow[] = candRes.data ?? [];
   const streams: StreamRow[] = streamsRes.data ?? [];
   const sources: SourceRow[] = sourcesRes.data ?? [];
   const sweeps: SweepRow[] = sweepsRes.data ?? [];
   const openOps: OpsAlertRow[] = opsRes.data ?? [];
+  const titles: CommissionTitleOption[] = titlesRes.data ?? [];
 
   const streamMap = new Map(streams.map((s) => [s.id, s]));
   const sourceMap = new Map(sources.map((s) => [s.id, s]));
@@ -471,7 +485,11 @@ export default async function CandidateInboxPage({
                           <ScorePill score={c.score} breakdown={c.score_breakdown} />
                         </td>
                         <td className="whitespace-nowrap px-3 py-2.5 text-right">
-                          <TriageActions id={c.id} state={c.triage_state} />
+                          <TriageActions
+                            id={c.id}
+                            state={c.triage_state}
+                            titles={titles}
+                          />
                         </td>
                       </tr>
                     );
@@ -664,7 +682,15 @@ function StatRow({
   );
 }
 
-function TriageActions({ id, state }: { id: string; state: CandidateRow["triage_state"] }) {
+function TriageActions({
+  id,
+  state,
+  titles,
+}: {
+  id: string;
+  state: CandidateRow["triage_state"];
+  titles: CommissionTitleOption[];
+}) {
   if (state === "sent_to_f1") {
     return <span className="text-[10.5px] text-um-muted">commissioned</span>;
   }
@@ -674,16 +700,12 @@ function TriageActions({ id, state }: { id: string; state: CandidateRow["triage_
   if (state === "ready") {
     return (
       <div className="inline-flex items-center gap-1">
-        <form action={commissionFromCandidate} className="inline-block">
-          <input type="hidden" name="candidate_id" value={id} />
-          <button
-            type="submit"
-            className="h-6 rounded-sm border border-success/40 bg-success/10 px-2 text-[10.5px] font-medium text-success transition-colors hover:bg-success/15"
-            title="Create article + commission from this candidate"
-          >
-            Commission
-          </button>
-        </form>
+        <CommissionTitlePicker
+          candidateId={id}
+          titles={titles}
+          variant="success"
+          label="Commission"
+        />
         <OpsEscalateMenu id={id} />
         <form action={dismissCandidate} className="inline-block">
           <input type="hidden" name="id" value={id} />

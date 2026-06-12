@@ -97,6 +97,7 @@ function nextCode(prefix: string, last: string | null): string {
 
 export async function commissionFromCandidate(formData: FormData) {
   const candidateId = String(formData.get("candidate_id") ?? "");
+  const titleIdRaw = String(formData.get("title_id") ?? "").trim();
   if (!candidateId) return;
 
   const supabase = await createClient();
@@ -110,14 +111,37 @@ export async function commissionFromCandidate(formData: FormData) {
     .single();
   if (!cand) return;
 
-  // Default title = first available
-  const { data: title } = await supabase
-    .from("titles")
-    .select("id")
-    .order("created_at", { ascending: true })
-    .limit(1)
-    .single();
-  if (!title) return;
+  // Title selection:
+  //   1. If the form supplied a title_id, validate it's an active title.
+  //      The CommissionTitlePicker client component populates this from the
+  //      editor's per-row choice (sticky via sessionStorage).
+  //   2. Otherwise fall back to the oldest active title — the historical
+  //      behaviour, kept so call sites that haven't adopted the picker yet
+  //      (and emergency cURL-style invocations) still work in a single-title
+  //      deployment.
+  // Inactive titles are never selected: Section G gates commissioning to
+  // active titles.
+  let titleId: string | null = null;
+  if (titleIdRaw) {
+    const { data: picked } = await supabase
+      .from("titles")
+      .select("id")
+      .eq("id", titleIdRaw)
+      .eq("is_active", true)
+      .maybeSingle<{ id: string }>();
+    titleId = picked?.id ?? null;
+  }
+  if (!titleId) {
+    const { data: fallback } = await supabase
+      .from("titles")
+      .select("id")
+      .eq("is_active", true)
+      .order("created_at", { ascending: true })
+      .limit(1)
+      .maybeSingle<{ id: string }>();
+    titleId = fallback?.id ?? null;
+  }
+  if (!titleId) return;
 
   const { data: user } = await supabase.auth.getUser();
   const userId = user.user?.id ?? null;
@@ -136,7 +160,7 @@ export async function commissionFromCandidate(formData: FormData) {
   const { data: article, error: artErr } = await supabase
     .from("articles")
     .insert({
-      title_id: title.id,
+      title_id: titleId,
       headline: cand.working_headline,
       body: articleBody,
       standfirst: deriveStandfirstFromBody(articleBody),

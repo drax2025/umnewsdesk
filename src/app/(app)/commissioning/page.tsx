@@ -2,7 +2,10 @@ import Link from "next/link";
 import { ClipboardEdit, ChevronRight } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { cn } from "@/lib/utils";
-import { commissionFromCandidate } from "@/lib/actions/commissioning";
+import {
+  CommissionTitlePicker,
+  type CommissionTitleOption,
+} from "@/components/forms/commission-title-picker";
 
 export const dynamic = "force-dynamic";
 
@@ -91,30 +94,41 @@ export default async function CommissioningPage({
 
   const supabase = await createClient();
 
-  const [commRes, artRes, profileRes, candRes, awaitingRes] = await Promise.all([
-    supabase
-      .from("commissions")
-      .select(
-        "id, code, article_id, candidate_id, brief, assignee_id, deadline_at, status, commissioned_at, accepted_at",
-      )
-      .order("commissioned_at", { ascending: false }),
-    supabase.from("articles").select("id, slug, headline, state, sectors, geo_tier"),
-    supabase.from("profiles").select("id, full_name"),
-    supabase
-      .from("candidates")
-      .select("id, code, working_headline, primary_url, layer, score, surfaced_at"),
-    supabase
-      .from("candidates")
-      .select("id, code, working_headline, primary_url, layer, score, surfaced_at")
-      .eq("triage_state", "sent_to_f1")
-      .order("surfaced_at", { ascending: false }),
-  ]);
+  const [commRes, artRes, profileRes, candRes, awaitingRes, titlesRes] =
+    await Promise.all([
+      supabase
+        .from("commissions")
+        .select(
+          "id, code, article_id, candidate_id, brief, assignee_id, deadline_at, status, commissioned_at, accepted_at",
+        )
+        .order("commissioned_at", { ascending: false }),
+      supabase.from("articles").select("id, slug, headline, state, sectors, geo_tier"),
+      supabase.from("profiles").select("id, full_name"),
+      supabase
+        .from("candidates")
+        .select("id, code, working_headline, primary_url, layer, score, surfaced_at"),
+      supabase
+        .from("candidates")
+        .select("id, code, working_headline, primary_url, layer, score, surfaced_at")
+        .eq("triage_state", "sent_to_f1")
+        .order("surfaced_at", { ascending: false }),
+      // Active titles for the awaiting-F1 Commission button picker. Same
+      // filter as /discovery/inbox so the dropdown is consistent across the
+      // two entry points.
+      supabase
+        .from("titles")
+        .select("id, name")
+        .eq("is_active", true)
+        .order("name", { ascending: true })
+        .returns<CommissionTitleOption[]>(),
+    ]);
 
   const commissions: CommissionRow[] = commRes.data ?? [];
   const articles: ArticleRow[] = artRes.data ?? [];
   const profiles: ProfileRow[] = profileRes.data ?? [];
   const allCandidates: CandidateRow[] = candRes.data ?? [];
   const awaitingF1: CandidateRow[] = awaitingRes.data ?? [];
+  const titles: CommissionTitleOption[] = titlesRes.data ?? [];
 
   const articleMap = new Map(articles.map((a) => [a.id, a]));
   const profileMap = new Map(profiles.map((p) => [p.id, p]));
@@ -346,15 +360,14 @@ export default async function CommissioningPage({
                     </p>
                     <div className="flex items-center gap-2 text-[10.5px]">
                       <span className="font-mono text-um-muted">{relTime(c.surfaced_at)}</span>
-                      <form action={commissionFromCandidate} className="ml-auto">
-                        <input type="hidden" name="candidate_id" value={c.id} />
-                        <button
-                          type="submit"
-                          className="rounded-sm border border-primary/40 bg-primary/10 px-2 py-0.5 font-medium text-primary hover:bg-primary/15"
-                        >
-                          Commission →
-                        </button>
-                      </form>
+                      <div className="ml-auto">
+                        <CommissionTitlePicker
+                          candidateId={c.id}
+                          titles={titles}
+                          variant="primary"
+                          label="Commission →"
+                        />
+                      </div>
                     </div>
                   </div>
                 </li>
