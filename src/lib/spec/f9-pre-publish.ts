@@ -393,6 +393,7 @@ export type PrePublishPackRow = {
   article_3_id: string | null;
   origin_sweep_id: string | null;
   archive_path: string | null;
+  archive_signature: string | null;
   rendered_at: string | null;
   rendered_by: string | null;
   pub_channel_posted_at: string | null;

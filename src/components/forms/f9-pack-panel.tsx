@@ -1,12 +1,20 @@
 "use client";
 
 import { useState, useTransition } from "react";
-import { CheckCircle2, Layers, ShieldX, ThumbsUp } from "lucide-react";
+import {
+  CheckCircle2,
+  FileText,
+  Layers,
+  Loader2,
+  ShieldX,
+  ThumbsUp,
+} from "lucide-react";
 import {
   assemblePack,
   setPubVerdict,
   type PrePublishActionResult,
 } from "@/lib/actions/pre-publish";
+import { renderPack, type RenderPackResult } from "@/lib/actions/pack-render";
 import {
   PACK_HARD_CAP,
   PUB_VERDICTS,
@@ -199,9 +207,11 @@ function PackSummary({
     ? [pack.article_1_id, pack.article_2_id, pack.article_3_id].filter(Boolean).length
     : 1;
   const posted = pack?.pub_channel_posted_at ?? null;
+  const renderedAt = pack?.rendered_at ?? null;
+  const signature = pack?.archive_signature ?? null;
 
   return (
-    <div className="space-y-1.5 rounded-md border border-success/30 bg-success/5 px-3 py-2.5 text-[11.5px]">
+    <div className="space-y-2 rounded-md border border-success/30 bg-success/5 px-3 py-2.5 text-[11.5px]">
       <div className="flex items-baseline gap-2">
         <CheckCircle2 className="h-3.5 w-3.5 text-success" />
         <span className="font-mono text-[12px] font-semibold text-foreground">
@@ -227,6 +237,95 @@ function PackSummary({
             minute: "2-digit",
           })}
         </p>
+      ) : null}
+
+      {ref ? (
+        <RenderPackControls
+          packRef={ref}
+          renderedAt={renderedAt}
+          signature={signature}
+        />
+      ) : null}
+    </div>
+  );
+}
+
+function RenderPackControls({
+  packRef,
+  renderedAt,
+  signature,
+}: {
+  packRef: string;
+  renderedAt: string | null;
+  signature: string | null;
+}) {
+  const [pending, startTransition] = useTransition();
+  const [error, setError] = useState<string | null>(null);
+  const [notice, setNotice] = useState<string | null>(null);
+
+  function fire() {
+    setError(null);
+    setNotice(null);
+    const fd = new FormData();
+    fd.set("pack_ref", packRef);
+    startTransition(async () => {
+      const res: RenderPackResult = await renderPack(fd);
+      if (!res.ok) setError(res.error);
+      else
+        setNotice(
+          `Rendered ${res.bytes.toLocaleString()} bytes · sig ${res.signature.slice(0, 10)}…`,
+        );
+    });
+  }
+
+  return (
+    <div className="flex flex-wrap items-center gap-2 border-t border-success/20 pt-2">
+      <button
+        type="button"
+        onClick={fire}
+        disabled={pending}
+        className="flex h-7 items-center gap-1.5 rounded-md border border-primary/40 bg-primary/10 px-2.5 text-[11px] font-medium text-primary hover:bg-primary/15 disabled:opacity-50"
+      >
+        {pending ? (
+          <Loader2 className="h-3 w-3 animate-spin" />
+        ) : (
+          <FileText className="h-3 w-3" />
+        )}
+        {renderedAt ? "Re-render pack" : "Render pack"}
+      </button>
+      <a
+        href={`/api/packs/${packRef}/markdown`}
+        className="h-7 rounded-md border border-border bg-background px-2.5 text-[11px] leading-7 text-fg-2 hover:bg-secondary"
+        target="_blank"
+        rel="noreferrer"
+      >
+        Open markdown
+      </a>
+      <div className="ml-auto text-right font-mono text-[10px] text-um-muted">
+        {renderedAt ? (
+          <div>
+            rendered{" "}
+            {new Date(renderedAt).toLocaleString("en-GB", {
+              day: "2-digit",
+              month: "short",
+              hour: "2-digit",
+              minute: "2-digit",
+            })}
+          </div>
+        ) : (
+          <div>not rendered yet</div>
+        )}
+        {signature ? <div>sig {signature.slice(0, 12)}…</div> : null}
+      </div>
+      {error ? (
+        <div className="w-full rounded-sm border border-destructive/40 bg-destructive/5 px-2 py-1 text-[11px] text-destructive">
+          {error}
+        </div>
+      ) : null}
+      {notice ? (
+        <div className="w-full rounded-sm border border-success/40 bg-success/10 px-2 py-1 text-[11px] text-success">
+          {notice}
+        </div>
       ) : null}
     </div>
   );

@@ -22,6 +22,7 @@ import {
 } from "@/lib/spec/f9-standing-rule";
 import { DEFENCES, type DefamationDefence } from "@/lib/spec/f9-reasonable-steps";
 import { logFailureEventInternal } from "@/lib/actions/failure-log";
+import { renderPack } from "@/lib/actions/pack-render";
 
 /**
  * F9 Pre-Publish server actions.
@@ -586,6 +587,19 @@ export async function setPubVerdict(
       .from("articles")
       .update({ state: "scheduled" })
       .eq("id", article_id);
+
+    // Auto-render the canonical pack archive at PUB-PASS. Best-effort —
+    // failure here must not block the verdict stamp; the editor can
+    // re-render from the F9 panel.
+    if (row?.pack_ref) {
+      try {
+        const fd2 = new FormData();
+        fd2.set("pack_ref", row.pack_ref);
+        await renderPack(fd2);
+      } catch {
+        /* swallow — render is best-effort at this point */
+      }
+    }
   } else if (verdict === "reject") {
     await admin
       .from("articles")
