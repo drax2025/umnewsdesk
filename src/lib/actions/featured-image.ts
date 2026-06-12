@@ -162,6 +162,113 @@ export async function updateFeaturedImageMeta(
 }
 
 /**
+ * Pick an image from the candidate's mirrored attachments and promote it
+ * to the article's featured image.
+ *
+ * Implementation: download the binary from candidate-attachments (server-
+ * side, service role) and re-upload into article-images under the article's
+ * own UUID prefix. This keeps article-images as the single source of truth
+ * for the WP publish path — no cross-bucket plumbing, no two URLs that
+ * could diverge if the candidate is later deleted.
+ *
+ * Source URL is validated to belong to the candidate-attachments bucket
+ * so a forged form post can't park an arbitrary remote image.
+ */
+export async function setFeaturedImageFromAttachment(
+  fd: FormData,
+): Promise<FeaturedImageActionResult> {
+  const gate = await requireEditor();
+  if (gate) return gate;
+
+  const article_id = String(fd.get("article_id") ?? "").trim();
+  const sourceUrl = String(fd.get("source_url") ?? "").trim();
+  const alt = trimOrNull(fd.get("featured_image_alt"), 500);
+  const credit = trimOrNull(fd.get("featured_image_credit"), 200);
+
+  if (!article_id) return { ok: false, error: "Missing article_id" };
+  if (!sourceUrl) return { ok: false, error: "Missing source_url" };
+
+  // Validate the source URL is our own candidate-attachments bucket.
+  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL ?? "";
+  let parsed: URL;
+  try {
+    parsed = new URL(sourceUrl);
+  } catch {
+    return { ok: false, error: "Invalid source URL" };
+  }
+  if (supabaseUrl) {
+    const expected = new URL(supabaseUrl).origin;
+    if (parsed.origin !== expected) {
+      return {
+        ok: false,
+        error: "Source URL must be from this project's Storage.",
+      };
+    }
+  }
+  if (!parsed.pathname.includes("/candidate-attachments/")) {
+    return {
+      ok: false,
+      error: "Source URL must be in the candidate-attachments bucket.",
+    };
+  }
+
+  // Fetch the bytes server-side. Public-read bucket; no auth header needed.
+  let res: Response;
+  try {
+    res = await fetch(sourceUrl);
+  } catch (e) {
+    return { ok: false, error: `Attachment fetch failed: ${(e as Error).message}` };
+  }
+  if (!res.ok) {
+    return { ok: false, error: `Attachment fetch HTTP ${res.status}` };
+  }
+  const contentType =
+    res.headers.get("content-type")?.split(";")[0]?.trim() ?? "image/jpeg";
+  const arr = await res.arrayBuffer();
+  const bytes = Buffer.from(arr);
+  if (bytes.byteLength === 0) {
+    return { ok: false, error: "Attachment was empty" };
+  }
+
+  // Derive a safe filename from the source path. Falls back to a generic
+  // name; the filename is cosmetic — the bucket + article_id prefix is the
+  // organising structure.
+  const sourceFilename =
+    parsed.pathname.split("/").pop()?.replace(/[^A-Za-z0-9._-]/g, "-") ??
+    "image.jpg";
+
+  const admin = createServiceClient();
+  const destPath = `${article_id}/${Date.now()}-${sourceFilename}`;
+  const { error: upErr } = await admin.storage
+    .from("article-images")
+    .upload(destPath, bytes, {
+      cacheControl: "3600",
+      upsert: false,
+      contentType,
+    });
+  if (upErr) {
+    return { ok: false, error: `Failed to copy attachment: ${upErr.message}` };
+  }
+  const { data: pub } = admin.storage.from("article-images").getPublicUrl(destPath);
+
+  const uid = await currentUserId();
+  const { error: rowErr } = await admin
+    .from("articles")
+    .update({
+      featured_image_url: pub.publicUrl,
+      featured_image_alt: alt,
+      featured_image_credit: credit,
+      featured_image_uploaded_at: new Date().toISOString(),
+      featured_image_uploaded_by: uid,
+    })
+    .eq("id", article_id);
+  if (rowErr) return { ok: false, error: rowErr.message };
+
+  revalidate(article_id);
+  return { ok: true };
+}
+
+/**
  * Clear the featured image. Detaches the columns first (authoritative
  * state) then best-effort deletes the storage object. We pull the object
  * path off the URL by stripping the public-object prefix; if the URL

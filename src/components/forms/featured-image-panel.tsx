@@ -1,11 +1,12 @@
 "use client";
 
 import { useRef, useState, useTransition } from "react";
-import { Image as ImageIcon, Loader2, Trash2, Upload, AlertTriangle, CheckCircle2 } from "lucide-react";
+import { Image as ImageIcon, Loader2, Trash2, Upload, AlertTriangle, CheckCircle2, Paperclip } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import {
   clearFeaturedImage,
   saveFeaturedImage,
+  setFeaturedImageFromAttachment,
   updateFeaturedImageMeta,
 } from "@/lib/actions/featured-image";
 import { cn } from "@/lib/utils";
@@ -32,6 +33,13 @@ const BUCKET = "article-images";
 const MAX_BYTES = 10 * 1024 * 1024;
 const ALLOWED_MIME = new Set(["image/jpeg", "image/png", "image/webp", "image/gif"]);
 
+export type CandidateAttachment = {
+  name: string;
+  url: string;
+  content_type: string;
+  size: number;
+};
+
 type Props = {
   articleId: string;
   initialUrl: string | null;
@@ -43,6 +51,13 @@ type Props = {
    * writer knows publish won't go out totally blank.
    */
   candidateImageUrl?: string | null;
+  /**
+   * Image attachments mirrored from the originating Postmark email at ingest
+   * time. Rendered as a clickable thumbnail row above the drop zone so the
+   * editor can promote one to the featured image without re-uploading.
+   * Empty / undefined = hide the picker entirely.
+   */
+  candidateAttachments?: CandidateAttachment[] | null;
   readOnly?: boolean;
 };
 
@@ -58,6 +73,7 @@ export function FeaturedImagePanel({
   initialAlt,
   initialCredit,
   candidateImageUrl = null,
+  candidateAttachments = null,
   readOnly = false,
 }: Props) {
   const [url, setUrl] = useState<string | null>(initialUrl);
@@ -67,7 +83,14 @@ export function FeaturedImagePanel({
   const [error, setError] = useState<string | null>(null);
   const [saved, setSaved] = useState(false);
   const [pending, startTransition] = useTransition();
+  // Which attachment thumbnail (by URL) is currently being copied — drives
+  // a per-thumb spinner so the editor can see the click landed.
+  const [pickingUrl, setPickingUrl] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const imageAttachments = (candidateAttachments ?? []).filter((a) =>
+    a.content_type.startsWith("image/"),
+  );
 
   async function handleFile(file: File) {
     setError(null);
@@ -175,6 +198,36 @@ export function FeaturedImagePanel({
     });
   }
 
+  async function onPickAttachment(attachment: CandidateAttachment) {
+    if (readOnly || uploading || pickingUrl) return;
+    setError(null);
+    setSaved(false);
+    setPickingUrl(attachment.url);
+    try {
+      const fd = new FormData();
+      fd.set("article_id", articleId);
+      fd.set("source_url", attachment.url);
+      // Carry the current alt / credit through. Editor can refine after.
+      fd.set("featured_image_alt", alt);
+      fd.set("featured_image_credit", credit);
+      const res = await setFeaturedImageFromAttachment(fd);
+      if (!res.ok) {
+        setError(res.error);
+        return;
+      }
+      // The server action wrote the row but our local `url` is the candidate-
+      // attachments URL, not the new article-images URL. Re-read by triggering
+      // a soft refresh through revalidatePath (which the action already does);
+      // but our local state needs the final URL too. Easiest: pessimistically
+      // mark the panel as "set" with the source URL — on next page render the
+      // server-fetched initialUrl will replace it with the canonical one.
+      setUrl(attachment.url);
+      setSaved(true);
+    } finally {
+      setPickingUrl(null);
+    }
+  }
+
   return (
     <section className="overflow-hidden rounded-md border border-border bg-card">
       <header className="flex items-center gap-2 border-b border-border bg-background/40 px-3 py-2">
@@ -198,6 +251,54 @@ export function FeaturedImagePanel({
           </span>
         )}
       </header>
+
+      {imageAttachments.length > 0 && !readOnly ? (
+        <div className="border-b border-border bg-secondary/30 px-3 py-2">
+          <div className="flex items-center gap-1.5 pb-1.5">
+            <Paperclip className="h-3 w-3 text-um-muted" />
+            <span className="text-[10px] font-semibold uppercase tracking-wide text-um-muted">
+              From email attachments
+            </span>
+            <span className="font-mono text-[10px] text-um-muted">
+              ({imageAttachments.length})
+            </span>
+            <span className="ml-auto font-mono text-[10px] text-um-muted">
+              Click to use
+            </span>
+          </div>
+          <div className="flex flex-wrap gap-1.5">
+            {imageAttachments.map((att) => {
+              const isPicking = pickingUrl === att.url;
+              return (
+                <button
+                  key={att.url}
+                  type="button"
+                  onClick={() => void onPickAttachment(att)}
+                  disabled={uploading || pickingUrl !== null}
+                  title={`${att.name} — ${(att.size / 1024).toFixed(0)} KB`}
+                  className={cn(
+                    "group relative h-14 w-14 overflow-hidden rounded-sm border border-border bg-background transition",
+                    "hover:border-primary focus:border-primary focus:outline-none",
+                    "disabled:cursor-wait disabled:opacity-50",
+                  )}
+                >
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img
+                    src={att.url}
+                    alt={att.name}
+                    className="h-full w-full object-cover"
+                  />
+                  {isPicking ? (
+                    <div className="absolute inset-0 flex items-center justify-center bg-background/70">
+                      <Loader2 className="h-4 w-4 animate-spin text-primary" />
+                    </div>
+                  ) : null}
+                </button>
+              );
+            })}
+          </div>
+        </div>
+      ) : null}
 
       <div className="grid gap-3 p-3 md:grid-cols-[180px_1fr]">
         {/* Preview / drop zone */}

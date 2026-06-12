@@ -23,6 +23,7 @@ import {
   extractFromAttachments,
   type PostmarkAttachmentInput,
 } from "@/lib/ingest/attachment-extract";
+import { mirrorImageAttachments } from "@/lib/ingest/mirror-attachments";
 import { checkDedup } from "@/lib/ingest/dedup";
 import { parseEmbargo } from "@/lib/ingest/embargo";
 import { nextCandidateCode } from "@/lib/ingest/codes";
@@ -299,6 +300,30 @@ export async function POST(req: Request) {
       { error: error?.message ?? "Failed to insert candidate" },
       { status: 500 },
     );
+  }
+
+  // Mirror any image attachments to Storage so the editor can pick one as
+  // the featured image on F7 / F8 without re-uploading. PDFs / DOCX are
+  // intentionally skipped — they're already text-extracted into body_text
+  // upstream, and mirroring them too would waste storage with no editorial
+  // use. Done after insert because we need the candidate UUID for the path
+  // prefix. Failures are non-fatal: an attachment that won't upload just
+  // doesn't appear in the picker; the candidate row is still in good shape.
+  try {
+    const mirrored = await mirrorImageAttachments(
+      supabase,
+      inserted.id,
+      body.Attachments,
+    );
+    if (mirrored.length > 0) {
+      await supabase
+        .from("candidates")
+        .update({ attachments: mirrored })
+        .eq("id", inserted.id);
+    }
+  } catch {
+    // Mirroring failures don't unwind the candidate. The picker simply
+    // won't have options to show; editor can still upload manually.
   }
 
   return NextResponse.json(

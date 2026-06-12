@@ -4,7 +4,7 @@ import { ArrowLeft, FileText, Send, History } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { cn } from "@/lib/utils";
 import { DraftEditor } from "@/components/forms/draft-editor";
-import { FeaturedImagePanel } from "@/components/forms/featured-image-panel";
+import { FeaturedImagePanel, type CandidateAttachment } from "@/components/forms/featured-image-panel";
 import { FramingBriefPanel } from "@/components/forms/framing-brief-panel";
 import { HeadlineOptionsEditor } from "@/components/forms/headline-options-editor";
 import { BackdatePicker } from "@/components/forms/f5-backdate-picker";
@@ -51,7 +51,31 @@ type CandidateRow = {
   defamation_tier: number | null;
   source_published_at: string | null;
   image_url: string | null;
+  attachments: unknown | null;
 };
+
+function coerceAttachments(raw: unknown): CandidateAttachment[] {
+  if (!Array.isArray(raw)) return [];
+  const out: CandidateAttachment[] = [];
+  for (const item of raw) {
+    if (!item || typeof item !== "object") continue;
+    const o = item as Record<string, unknown>;
+    if (
+      typeof o.name === "string" &&
+      typeof o.url === "string" &&
+      typeof o.content_type === "string" &&
+      typeof o.size === "number"
+    ) {
+      out.push({
+        name: o.name,
+        url: o.url,
+        content_type: o.content_type,
+        size: o.size,
+      });
+    }
+  }
+  return out;
+}
 
 function coerceFramingBrief(raw: unknown): FramingBrief | null {
   if (!raw || typeof raw !== "object") return null;
@@ -179,11 +203,12 @@ export default async function ArticleEditPage({
   let defamationTier: 1 | 2 | 3 | null = null;
   let eventDate: string | null = null;
   let candidateImageUrl: string | null = null;
+  let candidateAttachments: CandidateAttachment[] = [];
 
   if (commission?.candidate_id) {
     const { data: candidate } = await supabase
       .from("candidates")
-      .select("framing_brief, defamation_tier, source_published_at, image_url")
+      .select("framing_brief, defamation_tier, source_published_at, image_url, attachments")
       .eq("id", commission.candidate_id)
       .maybeSingle<CandidateRow>();
     if (!framingBrief) {
@@ -196,6 +221,7 @@ export default async function ArticleEditPage({
       ? String(candidate.source_published_at).slice(0, 10)
       : null;
     candidateImageUrl = candidate?.image_url ?? null;
+    candidateAttachments = coerceAttachments(candidate?.attachments);
   }
 
   const headlineOptions = normaliseHeadlineOptions(article.headline_options);
@@ -281,6 +307,7 @@ export default async function ArticleEditPage({
               initialAlt={article.featured_image_alt}
               initialCredit={article.featured_image_credit}
               candidateImageUrl={candidateImageUrl}
+              candidateAttachments={candidateAttachments}
               readOnly={readOnly}
             />
 

@@ -3,7 +3,7 @@ import { notFound } from "next/navigation";
 import { ChevronLeft, Globe2, ShieldCheck } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { ArtefactSweepPanel } from "@/components/forms/f8-artefact-sweep";
-import { FeaturedImagePanel } from "@/components/forms/featured-image-panel";
+import { FeaturedImagePanel, type CandidateAttachment } from "@/components/forms/featured-image-panel";
 import { PublishPanel } from "@/components/forms/f8-publish-panel";
 import type {
   ArticleArtefactSweepRow,
@@ -49,6 +49,29 @@ type TitleWpRow = {
   wp_app_password: string | null;
 };
 
+function coerceAttachments(raw: unknown): CandidateAttachment[] {
+  if (!Array.isArray(raw)) return [];
+  const out: CandidateAttachment[] = [];
+  for (const item of raw) {
+    if (!item || typeof item !== "object") continue;
+    const o = item as Record<string, unknown>;
+    if (
+      typeof o.name === "string" &&
+      typeof o.url === "string" &&
+      typeof o.content_type === "string" &&
+      typeof o.size === "number"
+    ) {
+      out.push({
+        name: o.name,
+        url: o.url,
+        content_type: o.content_type,
+        size: o.size,
+      });
+    }
+  }
+  return out;
+}
+
 export default async function F8PostPublishPage({
   params,
 }: {
@@ -68,9 +91,12 @@ export default async function F8PostPublishPage({
 
   // Candidate's source image — only used as the "fallback" hint in the
   // featured-image panel and at publish time if no editor upload exists.
-  // The article→commission→candidate join here mirrors what the edit page
-  // already does; ok to skip when there's no commission row.
+  // Mirrored email attachments come along for the same ride so the editor
+  // can still pick one from F8 if F5 was skipped or a better hero arrived
+  // mid-flight. The article→commission→candidate join here mirrors what
+  // the edit page already does; ok to skip when there's no commission row.
   let candidateImageUrl: string | null = null;
+  let candidateAttachments: CandidateAttachment[] = [];
   const { data: comm } = await supabase
     .from("commissions")
     .select("candidate_id")
@@ -79,10 +105,11 @@ export default async function F8PostPublishPage({
   if (comm?.candidate_id) {
     const { data: cand } = await supabase
       .from("candidates")
-      .select("image_url")
+      .select("image_url, attachments")
       .eq("id", comm.candidate_id)
-      .maybeSingle<{ image_url: string | null }>();
+      .maybeSingle<{ image_url: string | null; attachments: unknown | null }>();
     candidateImageUrl = cand?.image_url ?? null;
+    candidateAttachments = coerceAttachments(cand?.attachments);
   }
 
   // Current user's role (publish push restricted to senior_editor).
@@ -213,6 +240,7 @@ export default async function F8PostPublishPage({
             initialAlt={article.featured_image_alt}
             initialCredit={article.featured_image_credit}
             candidateImageUrl={candidateImageUrl}
+            candidateAttachments={candidateAttachments}
             readOnly={!isEditor || article.state === "live"}
           />
 
