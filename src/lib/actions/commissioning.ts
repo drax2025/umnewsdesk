@@ -50,6 +50,43 @@ function starterBrief(cand: {
   return lines.join("\n");
 }
 
+/**
+ * Derive a usable standfirst from the lede paragraph of a press release.
+ *
+ * Press releases reliably front-load the news in the first paragraph —
+ * 1–3 sentences capping under ~280 chars. We pull that lede off the
+ * extracted body so the article opens with a draft standfirst rather
+ * than a blank field. The editor edits or replaces it.
+ *
+ * Skips markdown headings (lines starting with #) and short orphan lines
+ * (titles, datelines like "EDINBURGH, 12 JUNE 2026 –") that aren't the
+ * lede sentence.
+ */
+function deriveStandfirstFromBody(body: string | null): string | null {
+  if (!body) return null;
+  const lines = body.split(/\n+/).map((l) => l.trim());
+  for (const line of lines) {
+    if (!line) continue;
+    if (line.startsWith("#")) continue; // markdown heading
+    // Skip ALL-CAPS datelines and short orphan lines (< 60 chars) — usually
+    // dateline or contact block, not the lede.
+    if (line.length < 60) continue;
+    if (/^[A-Z0-9 ,.\-–—]{20,}$/.test(line)) continue;
+    // Take the first ~2 sentences, cap at 280 chars (Twitter-ish, fits the
+    // standfirst column on most templates).
+    const sentences = line.match(/[^.!?]+[.!?]+/g) ?? [line];
+    let out = "";
+    for (const s of sentences) {
+      const next = (out ? out + " " : "") + s.trim();
+      if (next.length > 280) break;
+      out = next;
+      if (out.length >= 180) break; // two solid sentences is plenty
+    }
+    if (out.length >= 60) return out.slice(0, 280);
+  }
+  return null;
+}
+
 function nextCode(prefix: string, last: string | null): string {
   const year = new Date().getFullYear();
   if (!last) return `${prefix}-${year}-001`;
@@ -66,7 +103,9 @@ export async function commissionFromCandidate(formData: FormData) {
 
   const { data: cand } = await supabase
     .from("candidates")
-    .select("id, working_headline, source_id, layer, summary, primary_url, author, published_at")
+    .select(
+      "id, working_headline, source_id, layer, summary, primary_url, author, published_at, body_text",
+    )
     .eq("id", candidateId)
     .single();
   if (!cand) return;
@@ -83,12 +122,24 @@ export async function commissionFromCandidate(formData: FormData) {
   const { data: user } = await supabase.auth.getUser();
   const userId = user.user?.id ?? null;
 
-  // Create article in 'commissioned' state
+  // Create article in 'commissioned' state.
+  //
+  // Seed body + standfirst from the candidate's extracted text where we have
+  // it. body_text was populated at ingestion (Postmark inbound for emails,
+  // RSS body for feeds, attachment extraction for press releases delivered
+  // as PDF/DOCX). Without this the writer would open the editor to a blank
+  // page even though we already pulled the full release text on the way in.
+  // deriveStandfirstFromBody picks a usable lede from the first solid
+  // paragraph so the standfirst column isn't empty either — the editor
+  // edits or replaces it.
+  const articleBody = cand.body_text ?? null;
   const { data: article, error: artErr } = await supabase
     .from("articles")
     .insert({
       title_id: title.id,
       headline: cand.working_headline,
+      body: articleBody,
+      standfirst: deriveStandfirstFromBody(articleBody),
       state: "commissioned",
       created_by: userId,
       updated_by: userId,

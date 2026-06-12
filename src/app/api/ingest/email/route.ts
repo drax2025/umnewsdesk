@@ -26,6 +26,7 @@ import {
 import { checkDedup } from "@/lib/ingest/dedup";
 import { parseEmbargo } from "@/lib/ingest/embargo";
 import { nextCandidateCode } from "@/lib/ingest/codes";
+import { htmlToMarkdown } from "@/lib/ingest/html-to-markdown";
 import { normalizeHeadline, safeIso, safeTrim } from "@/lib/ingest/normalize";
 import {
   recoverOriginalSender,
@@ -117,8 +118,17 @@ export async function POST(req: Request) {
     }
   }
 
+  // Prefer the HTML body when it carries real structure (headings, lists,
+  // emphasis from the agency's release template). Fall back to TextBody when
+  // there's no HTML, and to a truncated raw text if even the HTML is empty.
+  // htmlToMarkdown preserves paragraph breaks and emphasis so the resulting
+  // article body opens in the editor with structure rather than one wall.
+  const htmlBodyMd = body.HtmlBody ? htmlToMarkdown(body.HtmlBody) : "";
+  const textBody = safeTrim(body.TextBody, 100_000);
   const inlineBody =
-    safeTrim(body.TextBody, 100_000) ?? stripHtml(body.HtmlBody ?? "");
+    htmlBodyMd && htmlBodyMd.length >= 240
+      ? htmlBodyMd.slice(0, 100_000)
+      : textBody ?? (htmlBodyMd ? htmlBodyMd.slice(0, 100_000) : null);
 
   // Try the first PDF/.docx attachment if the inline body is thin.
   // PR agencies often send the courtesy note inline + the actual release as an
@@ -323,25 +333,3 @@ function extractEmail(s: string | null | undefined): string | null {
   return bare ? bare[1] : null;
 }
 
-// Best-effort plain-text fallback when TextBody is missing. We don't want a
-// full DOM parser on the request path; a tag-strip + entity-decode is enough
-// for embargo regex matching and the body_text preview in the inbox.
-function stripHtml(html: string): string | null {
-  if (!html) return null;
-  const stripped = html
-    .replace(/<style[\s\S]*?<\/style>/gi, " ")
-    .replace(/<script[\s\S]*?<\/script>/gi, " ")
-    .replace(/<br\s*\/?>/gi, "\n")
-    .replace(/<\/p>/gi, "\n\n")
-    .replace(/<[^>]+>/g, " ")
-    .replace(/&nbsp;/g, " ")
-    .replace(/&amp;/g, "&")
-    .replace(/&lt;/g, "<")
-    .replace(/&gt;/g, ">")
-    .replace(/&quot;/g, '"')
-    .replace(/&#39;/g, "'")
-    .replace(/[ \t]+/g, " ")
-    .replace(/\n{3,}/g, "\n\n")
-    .trim();
-  return stripped.length ? stripped.slice(0, 100_000) : null;
-}

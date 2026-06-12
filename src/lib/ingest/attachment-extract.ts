@@ -20,6 +20,7 @@
  */
 
 import mammoth from "mammoth";
+import { htmlToMarkdown } from "@/lib/ingest/html-to-markdown";
 
 const MAX_TEXT_LEN = 100_000;
 const MAX_ATTACHMENT_BYTES = 25 * 1024 * 1024; // 25 MB hard cap
@@ -105,8 +106,25 @@ async function extractPdf(base64: string): Promise<string | null> {
 async function extractDocx(base64: string): Promise<string | null> {
   try {
     const buf = Buffer.from(base64, "base64");
-    const result = await mammoth.extractRawText({ buffer: buf });
-    return cleanExtractedText(result.value);
+    // Convert DOCX → HTML (preserves headings, bold, italic, lists,
+    // paragraphs) → markdown via turndown. The article body editor
+    // accepts markdown, so this lets the writer see structured prose
+    // instead of one wall of flat text.
+    const result = await mammoth.convertToHtml(
+      { buffer: buf },
+      {
+        styleMap: [
+          "p[style-name='Title'] => h1:fresh",
+          "p[style-name='Subtitle'] => h2:fresh",
+          "p[style-name='Heading 1'] => h1:fresh",
+          "p[style-name='Heading 2'] => h2:fresh",
+          "p[style-name='Heading 3'] => h3:fresh",
+          "p[style-name='Heading 4'] => h4:fresh",
+        ],
+      },
+    );
+    const md = htmlToMarkdown(result.value);
+    return cleanExtractedText(md);
   } catch {
     return null;
   }
