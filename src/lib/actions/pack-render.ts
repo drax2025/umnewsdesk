@@ -12,6 +12,7 @@ import {
   type PackBundle,
 } from "@/lib/render/pack-renderer";
 import type { FramingBrief } from "@/lib/spec/f1-triage";
+import type { ArticleCorrectionRow } from "@/lib/spec/stage13-corrections";
 
 /**
  * F9 Pack rendering — produces the 12-section markdown, stores it in
@@ -107,6 +108,7 @@ async function loadArticleBundle(
     { data: failureLog },
     { data: artefactSweep },
     { data: publishLog },
+    { data: corrections },
   ] = await Promise.all([
     admin
       .from("article_sources")
@@ -179,6 +181,14 @@ async function loadArticleBundle(
       .select("*")
       .eq("article_id", articleId)
       .order("attempted_at", { ascending: false }),
+    admin
+      .from("article_corrections")
+      .select(
+        "id, article_id, title_id, kind, status, description, source, public_notice, fields_changed, filed_by, filed_at, approved_by, approved_at, withdrawn_by, withdrawn_at, withdrawn_reason, sequence, updated_at",
+      )
+      .eq("article_id", articleId)
+      .order("sequence", { ascending: true })
+      .returns<ArticleCorrectionRow[]>(),
   ]);
 
   return {
@@ -203,6 +213,7 @@ async function loadArticleBundle(
     failure_log: (failureLog ?? []) as ArticleBundle["failure_log"],
     artefact_sweep: artefactSweep as ArticleBundle["artefact_sweep"],
     publish_log: (publishLog ?? []) as ArticleBundle["publish_log"],
+    corrections: (corrections ?? []) as ArticleBundle["corrections"],
   };
 }
 

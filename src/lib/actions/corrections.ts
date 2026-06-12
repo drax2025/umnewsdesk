@@ -8,6 +8,7 @@ import {
   defaultPublicNotice,
   type CorrectionKind,
 } from "@/lib/spec/stage13-corrections";
+import { republishWithApprovedCorrections } from "@/lib/actions/post-publish";
 
 /**
  * Stage 13 corrections — server actions.
@@ -338,6 +339,15 @@ export async function approveCorrection(
       .eq("id", existing.article_id);
   }
 
+  // Push the running correction trail to WordPress (best-effort — failures
+  // are logged via article_publish_log + failure log but do not unwind the
+  // approval). Senior can re-trigger from the article dossier if needed.
+  try {
+    await republishWithApprovedCorrections(existing.article_id);
+  } catch {
+    /* republish failure already captured in publish log */
+  }
+
   revalidateArticle(existing.article_id);
   return { ok: true, id };
 }
@@ -393,7 +403,8 @@ export async function withdrawCorrection(
     .eq("id", id);
   if (error) return { ok: false, error: error.message };
 
-  // If we're pulling a previously-approved correction, decrement counter.
+  // If we're pulling a previously-approved correction, decrement counter
+  // and push the revised correction trail to WordPress.
   if (wasApproved) {
     const { data: artRow } = await admin
       .from("articles")
@@ -405,6 +416,12 @@ export async function withdrawCorrection(
       .from("articles")
       .update({ corrections_count: newCount })
       .eq("id", existing.article_id);
+
+    try {
+      await republishWithApprovedCorrections(existing.article_id);
+    } catch {
+      /* republish failure already captured in publish log */
+    }
   }
 
   revalidateArticle(existing.article_id);
@@ -436,8 +453,10 @@ export async function deleteCorrection(
     }>();
   if (!existing) return { ok: false, error: "Correction not found." };
 
+  const wasApproved = existing.status === "approved";
+
   // If approved, decrement counter on the way out.
-  if (existing.status === "approved") {
+  if (wasApproved) {
     const { data: artRow } = await admin
       .from("articles")
       .select("id, corrections_count")
@@ -455,6 +474,15 @@ export async function deleteCorrection(
     .delete()
     .eq("id", id);
   if (error) return { ok: false, error: error.message };
+
+  // Re-push the trail to WP if a live correction was removed.
+  if (wasApproved) {
+    try {
+      await republishWithApprovedCorrections(existing.article_id);
+    } catch {
+      /* republish failure already captured in publish log */
+    }
+  }
 
   revalidateArticle(existing.article_id);
   return { ok: true };

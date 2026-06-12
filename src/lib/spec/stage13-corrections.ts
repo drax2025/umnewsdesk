@@ -131,6 +131,41 @@ export function renderCorrectionMarkdown(
 }
 
 /**
+ * Apply the approved correction trail to an article body for reader-facing
+ * surfaces (WordPress republish, archive renderer, public site preview).
+ *
+ * The original body is left untouched at the top. Approved corrections are
+ * appended in `sequence` order under an "Editor's notes" divider so the
+ * reader sees the running record of fixes without losing what was first
+ * published.
+ *
+ * Withdrawn and draft corrections are filtered out by the caller before
+ * passing the array here.
+ */
+export function applyApprovedCorrections(
+  originalBody: string,
+  approvedCorrections: ArticleCorrectionRow[],
+): string {
+  if (approvedCorrections.length === 0) return originalBody;
+  const sorted = [...approvedCorrections].sort(
+    (a, b) => a.sequence - b.sequence,
+  );
+  const blocks = sorted.map(renderCorrectionMarkdown).join("\n\n");
+  const divider = "\n\n---\n\n## Editor's notes\n\n";
+  return `${originalBody}${divider}${blocks}`;
+}
+
+/**
+ * True if the approved correction set includes a retraction. Used by
+ * republish to decide whether the WP post should be flipped to draft.
+ */
+export function hasApprovedRetraction(rows: ArticleCorrectionRow[]): boolean {
+  return rows.some(
+    (r) => r.kind === "retraction" && r.status === "approved",
+  );
+}
+
+/**
  * Aggregate summary used by the corrections index dashboard.
  */
 export type CorrectionsSummary = {

@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { ExternalLink, Library, Plus } from "lucide-react";
+import { ExternalLink, FileWarning, Library, Plus } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { createServiceClient } from "@/lib/supabase/service";
 import {
@@ -72,7 +72,38 @@ export default async function InventoryPage({
   const rows: MasterContentInventoryRow[] =
     (rowsRaw ?? []) as MasterContentInventoryRow[];
 
+  // Stage 13 — fetch corrections badge info for any row that traces back to
+  // an article. Uses the denormalised counter columns so this stays cheap.
+  const articleIds = Array.from(
+    new Set(rows.map((r) => r.article_id).filter((x): x is string => !!x)),
+  );
+  const { data: articleCorrectionsRaw } = articleIds.length
+    ? await admin
+        .from("articles")
+        .select("id, corrections_count, last_correction_at")
+        .in("id", articleIds)
+    : { data: [] };
+  const correctionsByArticle = new Map<
+    string,
+    { count: number; last_at: string | null }
+  >();
+  for (const a of (articleCorrectionsRaw ?? []) as Array<{
+    id: string;
+    corrections_count: number | null;
+    last_correction_at: string | null;
+  }>) {
+    if ((a.corrections_count ?? 0) > 0) {
+      correctionsByArticle.set(a.id, {
+        count: a.corrections_count ?? 0,
+        last_at: a.last_correction_at,
+      });
+    }
+  }
+
   const summary = summariseInventory(rows);
+  const correctedRowCount = rows.filter(
+    (r) => r.article_id && correctionsByArticle.has(r.article_id),
+  ).length;
 
   // Silo dropdown: union of known silos + any present in current rows.
   const seenSilos = new Set<string>(SILICON_SCOTLAND_SILOS);
@@ -102,6 +133,19 @@ export default async function InventoryPage({
                   hour: "2-digit",
                   minute: "2-digit",
                 })}
+              </>
+            ) : null}
+            {correctedRowCount > 0 ? (
+              <>
+                {" "}
+                ·{" "}
+                <Link
+                  href="/corrections"
+                  className="text-warn hover:underline"
+                >
+                  {correctedRowCount} with correction
+                  {correctedRowCount === 1 ? "" : "s"}
+                </Link>
               </>
             ) : null}
           </span>
@@ -163,6 +207,11 @@ export default async function InventoryPage({
                     title={titleById.get(r.title_id) ?? null}
                     canEdit={isEditor}
                     canDelete={isSenior}
+                    corrections={
+                      r.article_id
+                        ? correctionsByArticle.get(r.article_id) ?? null
+                        : null
+                    }
                   />
                 ))
               )}
@@ -214,11 +263,13 @@ function InventoryListRow({
   title,
   canEdit,
   canDelete,
+  corrections,
 }: {
   row: MasterContentInventoryRow;
   title: TitleRow | null;
   canEdit: boolean;
   canDelete: boolean;
+  corrections: { count: number; last_at: string | null } | null;
 }) {
   return (
     <tr className="hover:bg-background/40">
@@ -235,14 +286,36 @@ function InventoryListRow({
         <div className="mt-0.5 line-clamp-1 font-mono text-[10px] text-um-muted">
           {row.url}
         </div>
-        {row.article_id ? (
-          <Link
-            href={`/articles/${row.article_id}`}
-            className="mt-0.5 inline-block font-mono text-[10px] text-primary hover:underline"
-          >
-            → dossier
-          </Link>
-        ) : null}
+        <div className="mt-0.5 flex flex-wrap items-center gap-1.5">
+          {row.article_id ? (
+            <Link
+              href={`/articles/${row.article_id}`}
+              className="inline-block font-mono text-[10px] text-primary hover:underline"
+            >
+              → dossier
+            </Link>
+          ) : null}
+          {corrections && row.article_id ? (
+            <Link
+              href={`/corrections?title=${title?.slug ?? ""}`}
+              title={
+                corrections.last_at
+                  ? `Last correction ${new Date(corrections.last_at).toLocaleString("en-GB", {
+                      day: "2-digit",
+                      month: "short",
+                      hour: "2-digit",
+                      minute: "2-digit",
+                    })}`
+                  : undefined
+              }
+              className="inline-flex items-center gap-1 rounded-sm border border-warn/40 bg-warn/10 px-1.5 py-0.5 font-mono text-[10px] font-semibold uppercase tracking-[0.05em] text-warn hover:bg-warn/15"
+            >
+              <FileWarning className="h-2.5 w-2.5" />
+              {corrections.count} correction
+              {corrections.count === 1 ? "" : "s"}
+            </Link>
+          ) : null}
+        </div>
       </td>
       <td className="px-3 py-2 align-top">
         <div className="text-[11.5px] text-fg-2">{title?.name ?? "—"}</div>

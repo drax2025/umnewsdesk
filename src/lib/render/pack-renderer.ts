@@ -5,7 +5,7 @@
  * (src/lib/actions/pack-render.ts) is responsible for loading the bundle
  * and writing the result to DB / disk.
  *
- * 12-section structure mandated by the pack-language doctrine:
+ * 13-section structure mandated by the pack-language doctrine:
  *
  *   §0  · Failure Log (cross-agent chronological)
  *   §1  · Article identity + tier + framing brief
@@ -20,6 +20,7 @@
  *   §10 · Standing-Rule Compliance sweep
  *   §11 · F9 Active checks (A1-A10)
  *   §12 · F8 Final artefact sweep + publish log + senior verdict
+ *   §13 · Stage 13 Corrections register (post-publish)
  */
 
 import type { FramingBrief } from "@/lib/spec/f1-triage";
@@ -42,6 +43,11 @@ import type {
   ArticleArtefactSweepRow,
   ArticlePublishLogRow,
 } from "@/lib/spec/f8-post-publish";
+import {
+  CORRECTION_KINDS,
+  CORRECTION_STATUSES,
+  type ArticleCorrectionRow,
+} from "@/lib/spec/stage13-corrections";
 import { A_CHECKS } from "@/lib/spec/f9-pre-publish";
 import { STANDING_RULES, statusForRule, justificationForRule } from "@/lib/spec/f9-standing-rule";
 import {
@@ -100,6 +106,7 @@ export type ArticleBundle = {
   failure_log: ArticleFailureLogRow[];
   artefact_sweep: ArticleArtefactSweepRow | null;
   publish_log: ArticlePublishLogRow[];
+  corrections: ArticleCorrectionRow[];
 };
 
 export type PackBundle = {
@@ -158,6 +165,7 @@ export function renderPackMarkdown(bundle: PackBundle): string {
     lines.push(...section10_StandingRule(a));
     lines.push(...section11_F9Checks(a));
     lines.push(...section12_PostPublish(a));
+    lines.push(...section13_Corrections(a));
     lines.push("");
     lines.push("---");
     lines.push("");
@@ -615,5 +623,76 @@ function section12_PostPublish(a: ArticleBundle): string[] {
   ]);
   out.push(...table(["Attempted", "Target", "Status", "URL", "Error"], logRows));
   out.push("");
+  return out;
+}
+
+/* -------------------------------------------------------------------------- */
+/*  §13 · Stage 13 Corrections register                                       */
+/* -------------------------------------------------------------------------- */
+
+function section13_Corrections(a: ArticleBundle): string[] {
+  const out: string[] = ["### §13 · Stage 13 Corrections register"];
+  out.push("");
+  if (a.corrections.length === 0) {
+    out.push(
+      "> Clean post-publish — no corrections, clarifications, updates, or retractions filed.",
+    );
+    out.push("");
+    return out;
+  }
+  // Sort sequence asc so the trail reads chronologically.
+  const sorted = [...a.corrections].sort((x, y) => x.sequence - y.sequence);
+  const kindLabel = (k: string) =>
+    CORRECTION_KINDS.find((d) => d.value === k)?.short ?? k.toUpperCase();
+  const statusLabel = (s: string) =>
+    CORRECTION_STATUSES.find((d) => d.value === s)?.short ?? s.toUpperCase();
+  const rows = sorted.map((c) => [
+    `#${c.sequence}`,
+    kindLabel(c.kind),
+    statusLabel(c.status),
+    fmtTs(c.filed_at),
+    fmtTs(c.approved_at),
+    c.description.replace(/\n/g, " ").slice(0, 240),
+  ]);
+  out.push(
+    ...table(
+      ["Seq", "Kind", "Status", "Filed", "Approved", "Description"],
+      rows,
+    ),
+  );
+  out.push("");
+  out.push("**Public notices appended to the live article**");
+  out.push("");
+  const approved = sorted.filter((c) => c.status === "approved");
+  if (approved.length === 0) {
+    out.push(
+      "> No approved corrections — no public notice appears on the article footer.",
+    );
+    out.push("");
+    return out;
+  }
+  for (const c of approved) {
+    out.push(`**#${c.sequence} · ${kindLabel(c.kind)}**`);
+    out.push("");
+    out.push(quoteBlock(c.public_notice));
+    if (c.source) {
+      out.push("");
+      out.push(`_Source: ${c.source}_`);
+    }
+    out.push("");
+  }
+  // Withdrawn entries are still part of the audit even though they don't
+  // render to the public.
+  const withdrawn = sorted.filter((c) => c.status === "withdrawn");
+  if (withdrawn.length > 0) {
+    out.push("**Withdrawn (audit only — not on reader-facing surface)**");
+    out.push("");
+    for (const c of withdrawn) {
+      out.push(
+        `- #${c.sequence} ${kindLabel(c.kind)} · withdrawn ${fmtTs(c.withdrawn_at)}${c.withdrawn_reason ? ` · ${c.withdrawn_reason}` : ""}`,
+      );
+    }
+    out.push("");
+  }
   return out;
 }

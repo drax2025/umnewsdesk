@@ -39,12 +39,32 @@ const STATE_CLASS: Record<string, string> = {
 export default async function DashboardPage() {
   const supabase = await createClient();
 
-  const { data: articles } = await supabase
-    .from("articles")
-    .select("id, slug, headline, state, sectors, updated_at, published_at")
-    .order("updated_at", { ascending: false });
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  const { data: meRow } = user
+    ? await supabase
+        .from("profiles")
+        .select("role")
+        .eq("id", user.id)
+        .single<{ role: string | null }>()
+    : { data: null };
+  const isSenior = meRow?.role === "senior_editor";
 
-  const rows: ArticleRow[] = articles ?? [];
+  const [articlesRes, correctionsDraftRes] = await Promise.all([
+    supabase
+      .from("articles")
+      .select("id, slug, headline, state, sectors, updated_at, published_at")
+      .order("updated_at", { ascending: false }),
+    // Stage 13 — Senior-only queue size for the awaiting-approval tile.
+    supabase
+      .from("article_corrections")
+      .select("id", { count: "exact", head: true })
+      .eq("status", "draft"),
+  ]);
+
+  const rows: ArticleRow[] = articlesRes.data ?? [];
+  const correctionsDraftCount = correctionsDraftRes.count ?? 0;
 
   const startOfToday = new Date();
   startOfToday.setHours(0, 0, 0, 0);
@@ -65,6 +85,7 @@ export default async function DashboardPage() {
     publishReady: rows.filter((r) => r.state === "scheduled").length,
     escalations: 0, // placeholder — wire to gates table later
     rejectQueue: rows.filter((r) => r.state === "rejected").length,
+    correctionsDraft: correctionsDraftCount,
   };
 
   const target = 14;
@@ -100,12 +121,22 @@ export default async function DashboardPage() {
           sub="Cleared for release"
           tone={counts.publishReady > 0 ? "success" : undefined}
         />
-        <StatTile
-          value={counts.escalations.toString()}
-          label="Escalations"
-          sub="Senior Editor only"
-          tone={counts.escalations > 0 ? "danger" : undefined}
-        />
+        {isSenior ? (
+          <StatTile
+            href="/corrections?status=draft"
+            value={counts.correctionsDraft.toString()}
+            label="Corrections to review"
+            sub="Stage 13 · Senior approval"
+            tone={counts.correctionsDraft > 0 ? "warn" : undefined}
+          />
+        ) : (
+          <StatTile
+            value={counts.escalations.toString()}
+            label="Escalations"
+            sub="Senior Editor only"
+            tone={counts.escalations > 0 ? "danger" : undefined}
+          />
+        )}
         <StatTile
           value={counts.rejectQueue.toString()}
           label="Reject queue"
