@@ -10,7 +10,6 @@ import {
   summariseSweep,
   type ArtefactCode,
   type ArtefactSweepEntry,
-  type ArtefactSweepResults,
   type ArtefactSweepStatus,
   type ArticleArtefactSweepRow,
   type PublishTarget,
@@ -834,8 +833,8 @@ export async function retractArticle(
   return { ok: true };
 }
 
-/* -------------------------------------------------------------------------- */
-/*  Read helpers (used by the page)                                           */
-/* -------------------------------------------------------------------------- */
-
-export type { ArtefactSweepResults };
+// NOTE: do NOT add `export type { ... }` re-exports to this file. "use server"
+// modules require every export to be an async function — Next.js wraps each
+// export as a server-action thunk, and a type re-export ends up emitted as a
+// ReferenceError at SSR module-evaluation time (digest 2438283078 case).
+// Consumers should import types directly from `@/lib/spec/f8-post-publish`.
