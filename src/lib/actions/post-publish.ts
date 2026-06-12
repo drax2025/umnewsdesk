@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { createServiceClient } from "@/lib/supabase/service";
 import {
+  ARTEFACTS,
   ARTEFACT_CODE_SET,
   normaliseSweepResults,
   summariseSweep,
@@ -206,6 +207,96 @@ export async function saveArtefactRow(
 
   revalidate(article_id);
   return { ok: true };
+}
+
+/* -------------------------------------------------------------------------- */
+/*  bulkStampArtefactSweep — fast-path for low-exposure articles              */
+/*                                                                            */
+/*  Stamps every currently-pending artefact with a single status (either      */
+/*  swept_clean or na). Designed for Tier 1 press releases that have zero     */
+/*  exposure to DIGIT / Futurescot / SFN — the editor would otherwise have    */
+/*  to click through all 17 codes one by one.                                 */
+/*                                                                            */
+/*  Conservative semantics: only fills rows whose current status is           */
+/*  'pending'. Rows already stamped Clean, Found, or N/A are left alone so    */
+/*  prior per-row work and per-row notes are never clobbered. After bulk      */
+/*  stamping the editor can still flip individual rows to                     */
+/*  contamination_found if exposure is discovered.                            */
+/*                                                                            */
+/*  Bulk N/A requires a reason; the reason is applied as the note for every   */
+/*  pending artefact, so the audit trail still names a justification.         */
+/* -------------------------------------------------------------------------- */
+
+export type BulkStampResult =
+  | { ok: true; stamped: number }
+  | { ok: false; error: string };
+
+export async function bulkStampArtefactSweep(
+  fd: FormData,
+): Promise<BulkStampResult> {
+  const gate = await requireEditor();
+  if (gate && !gate.ok) return { ok: false, error: gate.error };
+
+  const article_id = String(fd.get("article_id") ?? "").trim();
+  const status = parseSweepStatus(fd.get("status"));
+  const reason = trimOrNull(fd.get("reason"), 2400);
+
+  if (!article_id) return { ok: false, error: "Missing article_id" };
+  if (status !== "swept_clean" && status !== "na") {
+    return {
+      ok: false,
+      error: "Bulk stamp only supports 'swept_clean' or 'na'.",
+    };
+  }
+  if (status === "na" && !reason) {
+    return {
+      ok: false,
+      error:
+        "Bulk N/A requires a reason that applies to every pending artefact.",
+    };
+  }
+
+  const admin = createServiceClient();
+  const uid = await currentUserId();
+
+  const { data: existing } = await admin
+    .from("article_artefact_sweep")
+    .select("results")
+    .eq("article_id", article_id)
+    .maybeSingle<{ results: unknown }>();
+
+  const merged = normaliseSweepResults(existing?.results ?? null);
+  const note = status === "na" ? reason : null;
+
+  let stamped = 0;
+  for (const def of ARTEFACTS) {
+    const current = merged[def.code];
+    if (!current || current.status === "pending") {
+      merged[def.code] = { status, note } as ArtefactSweepEntry;
+      stamped += 1;
+    }
+  }
+
+  if (stamped === 0) {
+    // Nothing pending — no-op, but don't error.
+    return { ok: true, stamped: 0 };
+  }
+
+  const { error: upErr } = await admin
+    .from("article_artefact_sweep")
+    .upsert(
+      {
+        article_id,
+        results: merged,
+        completed_by: uid,
+        updated_at: new Date().toISOString(),
+      },
+      { onConflict: "article_id" },
+    );
+  if (upErr) return { ok: false, error: upErr.message };
+
+  revalidate(article_id);
+  return { ok: true, stamped };
 }
 
 /* -------------------------------------------------------------------------- */

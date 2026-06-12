@@ -9,6 +9,7 @@ import {
   Save,
   ShieldX,
   Shield,
+  Wand2,
   XCircle,
 } from "lucide-react";
 import {
@@ -23,7 +24,10 @@ import {
   type ArticleArtefactSweepRow,
   type ArtefactDef,
 } from "@/lib/spec/f8-post-publish";
-import { saveArtefactRow } from "@/lib/actions/post-publish";
+import {
+  bulkStampArtefactSweep,
+  saveArtefactRow,
+} from "@/lib/actions/post-publish";
 import type { PostPublishActionResult } from "@/lib/actions/post-publish";
 import { cn } from "@/lib/utils";
 
@@ -55,6 +59,11 @@ export function ArtefactSweepPanel({
   readOnly = false,
 }: Props) {
   const summary = summariseSweep(row);
+  // Bumped after a bulk stamp so the per-row client state is thrown away and
+  // re-initialised from the freshly-revalidated `row` prop. Without this the
+  // 17 individual rows would keep their stale local `status` after the bulk
+  // action completes.
+  const [version, setVersion] = useState(0);
 
   return (
     <section className="overflow-hidden rounded-md border border-border bg-card">
@@ -87,9 +96,16 @@ export function ArtefactSweepPanel({
         or unjustified N/A row blocks publish.
       </p>
 
+      <BulkStampToolbar
+        articleId={articleId}
+        pendingCount={summary.pending}
+        readOnly={readOnly}
+        onComplete={() => setVersion((v) => v + 1)}
+      />
+
       {(["digit", "futurescot", "sfn"] as ArtefactOutlet[]).map((outlet) => (
         <OutletBlock
-          key={outlet}
+          key={`${outlet}:${version}`}
           outlet={outlet}
           defs={artefactsByOutlet(outlet)}
           row={row}
@@ -98,6 +114,161 @@ export function ArtefactSweepPanel({
         />
       ))}
     </section>
+  );
+}
+
+/* -------------------------------------------------------------------------- */
+/*  Bulk stamp toolbar — Tier 1 press-release fast path                       */
+/* -------------------------------------------------------------------------- */
+
+function BulkStampToolbar({
+  articleId,
+  pendingCount,
+  readOnly,
+  onComplete,
+}: {
+  articleId: string;
+  pendingCount: number;
+  readOnly: boolean;
+  onComplete: () => void;
+}) {
+  const [mode, setMode] = useState<"idle" | "na">("idle");
+  const [reason, setReason] = useState("");
+  const [pendingAction, startTransition] = useTransition();
+  const [error, setError] = useState<string | null>(null);
+  const [lastStamped, setLastStamped] = useState<number | null>(null);
+
+  if (readOnly) return null;
+  if (pendingCount === 0) return null;
+
+  function stamp(status: "swept_clean" | "na") {
+    setError(null);
+    if (status === "na" && reason.trim().length === 0) {
+      setError("Reason is required when stamping N/A in bulk.");
+      return;
+    }
+
+    const fd = new FormData();
+    fd.set("article_id", articleId);
+    fd.set("status", status);
+    if (status === "na") fd.set("reason", reason.trim());
+
+    startTransition(async () => {
+      const res = await bulkStampArtefactSweep(fd);
+      if (!res.ok) {
+        setError(res.error);
+        return;
+      }
+      setLastStamped(res.stamped);
+      setMode("idle");
+      setReason("");
+      onComplete();
+      setTimeout(() => setLastStamped(null), 2800);
+    });
+  }
+
+  return (
+    <div className="space-y-2 border-b border-border bg-background/20 px-3 py-2.5">
+      <div className="flex flex-wrap items-center gap-2">
+        <span className="flex items-center gap-1 font-mono text-[10px] font-semibold uppercase tracking-[0.06em] text-um-muted">
+          <Wand2 className="h-3 w-3" />
+          Bulk · {pendingCount} pending
+        </span>
+        <button
+          type="button"
+          onClick={() => stamp("swept_clean")}
+          disabled={pendingAction || mode === "na"}
+          className="flex h-7 items-center gap-1 rounded-md border border-success/45 bg-success/10 px-2 text-[11px] font-medium text-success transition-colors hover:bg-success/15 disabled:opacity-50"
+        >
+          {pendingAction && mode !== "na" ? (
+            <Loader2 className="h-3 w-3 animate-spin" />
+          ) : (
+            <CheckCircle2 className="h-3 w-3" />
+          )}
+          Stamp all pending as Clean
+        </button>
+        <button
+          type="button"
+          onClick={() => {
+            setMode(mode === "na" ? "idle" : "na");
+            setError(null);
+          }}
+          disabled={pendingAction}
+          className={cn(
+            "flex h-7 items-center gap-1 rounded-md border px-2 text-[11px] font-medium transition-colors disabled:opacity-50",
+            mode === "na"
+              ? "border-warn/55 bg-warn/15 text-warn"
+              : "border-warn/45 bg-warn/10 text-warn hover:bg-warn/15",
+          )}
+        >
+          <ShieldX className="h-3 w-3" />
+          Stamp all pending as N/A…
+        </button>
+        {lastStamped !== null ? (
+          <span className="flex items-center gap-1 font-mono text-[10px] text-success">
+            <CheckCircle2 className="h-3 w-3" />
+            stamped {lastStamped}
+          </span>
+        ) : null}
+      </div>
+
+      {mode === "na" ? (
+        <div className="space-y-1.5">
+          <textarea
+            rows={2}
+            value={reason}
+            onChange={(e) => {
+              setReason(e.target.value);
+              setError(null);
+            }}
+            placeholder="Reason that applies to every pending artefact (e.g. 'Tier 1 press release — no exposure to DIGIT / Futurescot / SFN; sources are the issuing body's own release and verified primaries'). Required."
+            maxLength={2400}
+            disabled={pendingAction}
+            className="w-full resize-y rounded-md border border-border bg-background px-2.5 py-1.5 text-[11.5px] leading-[1.45] text-foreground placeholder:text-um-muted disabled:opacity-60"
+          />
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={() => stamp("na")}
+              disabled={pendingAction}
+              className="flex h-7 items-center gap-1 rounded-md border border-warn/45 bg-warn/10 px-2 text-[11px] font-medium text-warn hover:bg-warn/15 disabled:opacity-50"
+            >
+              {pendingAction ? (
+                <Loader2 className="h-3 w-3 animate-spin" />
+              ) : (
+                <ShieldX className="h-3 w-3" />
+              )}
+              Confirm bulk N/A
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                setMode("idle");
+                setReason("");
+                setError(null);
+              }}
+              disabled={pendingAction}
+              className="flex h-7 items-center gap-1 rounded-md border border-border bg-background px-2 text-[11px] font-medium text-fg-2 hover:bg-secondary disabled:opacity-50"
+            >
+              Cancel
+            </button>
+          </div>
+        </div>
+      ) : null}
+
+      {error ? (
+        <div className="rounded-sm border border-destructive/40 bg-destructive/5 px-2 py-1 text-[11px] text-destructive">
+          {error}
+        </div>
+      ) : null}
+
+      <p className="text-[10px] leading-[1.45] text-um-muted">
+        Bulk only fills the {pendingCount} pending row
+        {pendingCount === 1 ? "" : "s"} — rows already stamped Clean, Found, or
+        N/A are left as-is. After bulk, you can still flip individual rows to
+        contamination_found if exposure is discovered.
+      </p>
+    </div>
   );
 }
 
