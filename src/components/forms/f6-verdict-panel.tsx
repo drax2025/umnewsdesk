@@ -41,6 +41,32 @@ const VERDICT_ICON: Record<F6Verdict, React.ComponentType<{ className?: string }
   escalate: ShieldX,
 };
 
+/**
+ * Where each verdict lands the editor next. Kept here next to the panel
+ * because the routing intent is tied to the button labels — if a verdict
+ * changes meaning, this needs to move with it.
+ */
+function destinationFor(
+  verdict: F6Verdict,
+  articleId: string,
+): { href: string; label: string } {
+  switch (verdict) {
+    case "hand_to_f9":
+      return {
+        href: `/articles/${articleId}/pre-publish`,
+        label: "F9 Pre-Publish",
+      };
+    case "escalate":
+      return { href: `/queues/escalation`, label: "escalation queue" };
+    case "return_to_f1":
+    case "return_to_f2":
+    case "return_to_f3":
+    case "return_to_f4":
+    case "return_to_f5":
+      return { href: `/articles/${articleId}`, label: "article dossier" };
+  }
+}
+
 const textareaCls =
   "min-h-[72px] w-full rounded-md border border-border bg-background px-2.5 py-1.5 text-[12px] leading-[1.5] text-foreground placeholder:text-um-muted focus:border-primary/40 focus:outline-none";
 
@@ -102,8 +128,12 @@ export function F6VerdictPanel({
         setError(res.error);
         return;
       }
-      setNotice("Verdict stamped.");
-      router.refresh();
+      // After a verdict stamp, the screen has nothing left to do — auto-route
+      // to wherever the article now lives. Without this the editor sees a
+      // green pill on a dead page and has to manually navigate.
+      const dest = destinationFor(verdict, articleId);
+      setNotice(`Verdict stamped — routing to ${dest.label}…`);
+      router.push(dest.href);
     });
   }
 
