@@ -15,6 +15,7 @@ import {
   type PublishTarget,
 } from "@/lib/spec/f8-post-publish";
 import { logFailureEventInternal } from "@/lib/actions/failure-log";
+import { recordPublishedToInventory } from "@/lib/actions/inventory";
 
 /**
  * F8 Post-Publish server actions.
@@ -300,7 +301,9 @@ export async function publishArticle(
   // Load the article + sweep state.
   const { data: article } = await admin
     .from("articles")
-    .select("id, headline, standfirst, body, slug, state, backdate")
+    .select(
+      "id, headline, standfirst, body, slug, state, backdate, title_id, sectors, primary_frame",
+    )
     .eq("id", article_id)
     .maybeSingle<{
       id: string;
@@ -310,6 +313,9 @@ export async function publishArticle(
       slug: string | null;
       state: string;
       backdate: string | null;
+      title_id: string;
+      sectors: string[] | null;
+      primary_frame: string | null;
     }>();
   if (!article) return { ok: false, error: "Article not found" };
 
@@ -434,6 +440,26 @@ export async function publishArticle(
         completed_by: uid,
       })
       .eq("article_id", article_id);
+
+    // A2 master content inventory write-back (E7 mitigation, F8 step 5).
+    // Best-effort — failure here must not unwind the publish; the editor
+    // can fix the inventory from /inventory if it slips.
+    if (externalUrl) {
+      try {
+        await recordPublishedToInventory({
+          title_id: article.title_id,
+          article_id,
+          headline: article.headline,
+          url: externalUrl,
+          silo: article.primary_frame ?? null,
+          sectors: article.sectors ?? [],
+          published_at: article.backdate ?? now,
+          created_by: uid,
+        });
+      } catch {
+        /* inventory drift will be visible at /inventory */
+      }
+    }
   }
 
   revalidate(article_id);
