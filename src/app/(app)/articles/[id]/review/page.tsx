@@ -131,7 +131,11 @@ export default async function F6ReviewPage({
       <div className="flex-1 overflow-y-auto bg-background px-6 py-5">
         <div className="mx-auto flex max-w-[960px] flex-col gap-3">
           {/* Verdict / roll-up at the top (sticky-feeling) */}
-          <F6VerdictPanel articleId={article.id} review={review ?? null} />
+          <F6VerdictPanel
+            articleId={article.id}
+            review={review ?? null}
+            defamationTier={defamationTier}
+          />
 
           {/* H1-H10 sequence */}
           <SectionHeader

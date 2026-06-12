@@ -109,6 +109,105 @@ function revalidate(articleId: string) {
 }
 
 /* -------------------------------------------------------------------------- */
+/*  Bulk-stamp Tier 1 PR defaults                                             */
+/* -------------------------------------------------------------------------- */
+
+/**
+ * One-click sweep for routine Tier 1 press-release pass-throughs.
+ *
+ * The 11-gate per-row save loop is unavoidable when an article warrants
+ * gate-by-gate adjudication, but for the bread-and-butter Tier 1 PR
+ * (appointment, fund close, contract win, neutral/positive announcement)
+ * every gate is either a routine PASS or an N/A. Stamping each one
+ * individually is busywork that doesn't change the outcome.
+ *
+ * This action writes the standard Tier 1 PR profile in a single upsert:
+ *
+ *   H1 verbatim quote         → PASS  (writer is trusted to have copied accurately
+ *                                       from the supplied release; H6 footer cross-ref
+ *                                       catches mistakes downstream)
+ *   H2 source independence    → PASS  (single official PR source acceptable for Tier 1)
+ *   H3 paragraph breaks       → PASS
+ *   H4 author register        → N/A   (no first-person source material in standard PRs)
+ *   H5 date reconciliation    → PASS
+ *   H6 word count             → PASS  (no metric — editor can fill if non-routine)
+ *   H7 link integrity         → PASS  (link count left null; editor fills if non-routine)
+ *   H8 headline chars         → PASS  (chars left null; editor fills if non-routine)
+ *   H9 NFP footer             → PASS
+ *   H10 standing-rule sweep   → PASS
+ *   H11 defamation triage     → N/A   (Tier 1 auto-N/A per spec D-Checklist)
+ *
+ * The stamp goes on the `*_detail` columns as a short audit string so we can
+ * see later that this gate was bulk-stamped rather than individually examined.
+ *
+ * Refuses to run unless the article's commission has defamation_tier = 1.
+ * Tier 2 needs the D-Checklist filled, tier 3 routes to reject queue.
+ */
+export async function stampTier1Defaults(
+  fd: FormData,
+): Promise<ReviewActionResult> {
+  const gate = await requireEditor();
+  if (gate) return gate;
+
+  const article_id = String(fd.get("article_id") ?? "").trim();
+  if (!article_id) return { ok: false, error: "Missing article_id" };
+
+  const admin = createServiceClient();
+
+  // Verify Tier 1 via the commission → candidate chain. This must match how
+  // the page resolves the tier badge so editors can't bypass it.
+  const { data: comm } = await admin
+    .from("commissions")
+    .select("candidate_id")
+    .eq("article_id", article_id)
+    .maybeSingle<{ candidate_id: string | null }>();
+  if (!comm?.candidate_id) {
+    return {
+      ok: false,
+      error: "No commission found — cannot determine defamation tier.",
+    };
+  }
+  const { data: cand } = await admin
+    .from("candidates")
+    .select("defamation_tier")
+    .eq("id", comm.candidate_id)
+    .maybeSingle<{ defamation_tier: 1 | 2 | 3 | null }>();
+  if (cand?.defamation_tier !== 1) {
+    return {
+      ok: false,
+      error: `Bulk-stamp is Tier 1 only (this article is ${cand?.defamation_tier ?? "untiered"}).`,
+    };
+  }
+
+  const stamp = "Tier 1 PR bulk-stamp.";
+  const naStamp = "Tier 1 PR — N/A per spec.";
+  const now = new Date().toISOString();
+
+  const { error } = await admin.from("article_review").upsert(
+    {
+      article_id,
+      h1_status: "pass",  h1_detail: stamp,
+      h2_status: "pass",  h2_detail: stamp,
+      h3_status: "pass",  h3_detail: stamp,
+      h4_status: "na",    h4_detail: naStamp,
+      h5_status: "pass",  h5_detail: stamp,
+      h6_status: "pass",  h6_detail: stamp,
+      h7_status: "pass",  h7_detail: stamp,
+      h8_status: "pass",  h8_detail: stamp,
+      h9_status: "pass",  h9_detail: stamp,
+      h10_status: "pass", h10_detail: stamp,
+      h11_status: "na",   h11_detail: naStamp,
+      updated_at: now,
+    },
+    { onConflict: "article_id" },
+  );
+  if (error) return { ok: false, error: error.message };
+
+  revalidate(article_id);
+  return { ok: true };
+}
+
+/* -------------------------------------------------------------------------- */
 /*  Save one gate                                                             */
 /* -------------------------------------------------------------------------- */
 

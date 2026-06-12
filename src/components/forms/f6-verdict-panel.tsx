@@ -7,9 +7,11 @@ import {
   Gavel,
   RotateCcw,
   ShieldX,
+  Zap,
 } from "lucide-react";
 import {
   setReviewVerdict,
+  stampTier1Defaults,
   type ReviewActionResult,
 } from "@/lib/actions/review";
 import {
@@ -44,18 +46,35 @@ const textareaCls =
 export function F6VerdictPanel({
   articleId,
   review,
+  defamationTier,
 }: {
   articleId: string;
   review: ArticleReviewRow | null;
+  defamationTier: 1 | 2 | 3 | null;
 }) {
   const [rationale, setRationale] = useState<string>(
     review?.verdict_rationale ?? "",
   );
   const [pending, startTransition] = useTransition();
+  const [stamping, startStamping] = useTransition();
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
 
   const summary = summariseReview(review);
+
+  // Tier 1 PR pass-throughs are 90% of routine volume. One-click stamps the
+  // 11-gate default profile so the editor doesn't have to save each row.
+  function stampDefaults() {
+    setError(null);
+    setNotice(null);
+    const fd = new FormData();
+    fd.set("article_id", articleId);
+    startStamping(async () => {
+      const res: ReviewActionResult = await stampTier1Defaults(fd);
+      if (!res.ok) setError(res.error);
+      else setNotice("Tier 1 defaults stamped across all 11 gates.");
+    });
+  }
 
   function submit(verdict: F6Verdict) {
     setError(null);
@@ -123,6 +142,31 @@ export function F6VerdictPanel({
                 ? `${summary.pending} gate${summary.pending === 1 ? "" : "s"} still pending.`
                 : `${summary.hardFails} hard-gate fail${summary.hardFails === 1 ? "" : "s"} — cannot HAND TO F9.`}
             </span>
+          </div>
+        ) : null}
+
+        {/* Tier 1 PR fast-path. Only surfaces on T1 articles that aren't already
+            fully stamped, to avoid clutter on cases that need real adjudication. */}
+        {defamationTier === 1 && summary.pending > 0 ? (
+          <div className="mb-3 flex items-start justify-between gap-3 rounded-md border border-primary/30 bg-primary/5 px-2.5 py-2">
+            <div className="min-w-0 text-[11px] leading-[1.4] text-fg-2">
+              <div className="flex items-center gap-1 text-[10.5px] font-semibold uppercase tracking-[0.05em] text-primary">
+                <Zap className="h-3 w-3" />
+                Tier 1 PR fast-path
+              </div>
+              <p className="mt-0.5">
+                Bulk-stamp all 11 gates with the standard PR profile (H1-H3, H5-H10 PASS,
+                H4 + H11 N/A). Use only on routine pass-through releases.
+              </p>
+            </div>
+            <button
+              type="button"
+              disabled={stamping}
+              onClick={stampDefaults}
+              className="h-7 flex-shrink-0 rounded-md border border-primary/45 bg-primary/15 px-3 text-[11px] font-semibold text-primary hover:bg-primary/20 disabled:opacity-60"
+            >
+              {stamping ? "Stamping…" : "Stamp Tier 1 defaults"}
+            </button>
           </div>
         ) : null}
 
