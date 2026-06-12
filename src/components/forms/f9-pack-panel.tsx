@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useTransition } from "react";
+import { useRouter } from "next/navigation";
 import {
   CheckCircle2,
   FileText,
@@ -331,6 +332,35 @@ function RenderPackControls({
   );
 }
 
+/**
+ * Where each [PUB] verdict lands the editor next.
+ *
+ *   APPROVE → article is 'scheduled', pack auto-renders → next stop is F8
+ *             Post-Publish, where artefact sweep + publish log live.
+ *   MODIFY  → article goes back through the agent loop; dossier is the
+ *             jumping-off point because the editor picks which F-stage to
+ *             return to based on the notes.
+ *   REJECT  → article is dead — surfaces in the global reject queue.
+ */
+function pubDestination(
+  verdict: PubVerdict,
+  articleId: string,
+): { href: string; label: string } | null {
+  switch (verdict) {
+    case "approve":
+      return {
+        href: `/articles/${articleId}/post-publish`,
+        label: "F8 Post-Publish",
+      };
+    case "modify":
+      return { href: `/articles/${articleId}`, label: "article dossier" };
+    case "reject":
+      return { href: `/queues/reject`, label: "reject queue" };
+    case "pending":
+      return null;
+  }
+}
+
 function PubVerdictForm({
   articleId,
   row,
@@ -338,6 +368,7 @@ function PubVerdictForm({
   articleId: string;
   row: ArticlePrePublishRow | null;
 }) {
+  const router = useRouter();
   const [notes, setNotes] = useState<string>(row?.pub_verdict_notes ?? "");
   const [pending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
@@ -356,8 +387,20 @@ function PubVerdictForm({
     fd.set("pub_verdict_notes", notes);
     startTransition(async () => {
       const res: PrePublishActionResult = await setPubVerdict(fd);
-      if (!res.ok) setError(res.error);
-      else setNotice("Senior Editor verdict stamped.");
+      if (!res.ok) {
+        setError(res.error);
+        return;
+      }
+      // Same UX contract as F6 / F9 verdict panels — don't leave the editor
+      // staring at a stamped pill on a dead page. Route to the next stage.
+      const dest = pubDestination(verdict, articleId);
+      if (dest) {
+        setNotice(`Senior Editor verdict stamped — routing to ${dest.label}…`);
+        router.push(dest.href);
+      } else {
+        setNotice("Senior Editor verdict stamped.");
+        router.refresh();
+      }
     });
   }
 
