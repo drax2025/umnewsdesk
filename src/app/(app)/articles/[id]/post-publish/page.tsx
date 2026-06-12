@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 import { ChevronLeft, Globe2, ShieldCheck } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { ArtefactSweepPanel } from "@/components/forms/f8-artefact-sweep";
+import { FeaturedImagePanel } from "@/components/forms/featured-image-panel";
 import { PublishPanel } from "@/components/forms/f8-publish-panel";
 import type {
   ArticleArtefactSweepRow,
@@ -34,6 +35,9 @@ type ArticleRow = {
   state: string;
   slug: string | null;
   backdate: string | null;
+  featured_image_url: string | null;
+  featured_image_alt: string | null;
+  featured_image_credit: string | null;
 };
 
 type ProfileRow = { role: string | null };
@@ -55,10 +59,31 @@ export default async function F8PostPublishPage({
 
   const { data: article } = await supabase
     .from("articles")
-    .select("id, title_id, headline, standfirst, state, slug, backdate")
+    .select(
+      "id, title_id, headline, standfirst, state, slug, backdate, featured_image_url, featured_image_alt, featured_image_credit",
+    )
     .eq("id", id)
     .maybeSingle<ArticleRow>();
   if (!article) notFound();
+
+  // Candidate's source image — only used as the "fallback" hint in the
+  // featured-image panel and at publish time if no editor upload exists.
+  // The article→commission→candidate join here mirrors what the edit page
+  // already does; ok to skip when there's no commission row.
+  let candidateImageUrl: string | null = null;
+  const { data: comm } = await supabase
+    .from("commissions")
+    .select("candidate_id")
+    .eq("article_id", article.id)
+    .maybeSingle<{ candidate_id: string | null }>();
+  if (comm?.candidate_id) {
+    const { data: cand } = await supabase
+      .from("candidates")
+      .select("image_url")
+      .eq("id", comm.candidate_id)
+      .maybeSingle<{ image_url: string | null }>();
+    candidateImageUrl = cand?.image_url ?? null;
+  }
 
   // Current user's role (publish push restricted to senior_editor).
   const {
@@ -176,6 +201,18 @@ export default async function F8PostPublishPage({
           <ArtefactSweepPanel
             articleId={article.id}
             row={sweepRow ?? null}
+            readOnly={!isEditor || article.state === "live"}
+          />
+
+          {/* Featured image — last-chance hero swap before push. Editor +
+              senior_editor can still upload here in case the writer left it
+              empty or a better image arrived after F5. Read-only once live. */}
+          <FeaturedImagePanel
+            articleId={article.id}
+            initialUrl={article.featured_image_url}
+            initialAlt={article.featured_image_alt}
+            initialCredit={article.featured_image_credit}
+            candidateImageUrl={candidateImageUrl}
             readOnly={!isEditor || article.state === "live"}
           />
 

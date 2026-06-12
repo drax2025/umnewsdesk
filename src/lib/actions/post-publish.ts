@@ -303,8 +303,140 @@ export async function bulkStampArtefactSweep(
 /* -------------------------------------------------------------------------- */
 
 type WPPushResult =
-  | { ok: true; external_id: string | null; external_url: string | null }
+  | {
+      ok: true;
+      external_id: string | null;
+      external_url: string | null;
+      featured_image_warning?: string;
+    }
   | { ok: false; error: string };
+
+/**
+ * Upload an image to the target WordPress media library and return the
+ * attachment ID for use as `featured_media` on the post payload.
+ *
+ * Pipeline:
+ *   1. Fetch the bytes from our Supabase Storage URL (or, in fallback mode,
+ *      the candidate's source URL).
+ *   2. POST to /wp-json/wp/v2/media with Content-Disposition: attachment so
+ *      WP treats it as a file upload, not JSON.
+ *   3. If alt text or caption were supplied, PATCH /media/{id} to set
+ *      alt_text + caption. (WP rejects those on the initial upload — they
+ *      have to land via the JSON metadata endpoint.)
+ *
+ * Returns null on any failure. Caller treats null as "publish the post
+ * without a featured image and log a warning" rather than blocking the
+ * publish — losing the hero image is recoverable from the WP admin; losing
+ * the publish window often isn't.
+ */
+async function uploadFeaturedImageToWordPress(args: {
+  base: string;
+  user: string;
+  pass: string;
+  imageUrl: string;
+  alt: string | null;
+  credit: string | null;
+}): Promise<{ id: number; warning: string | null } | { id: null; warning: string }> {
+  // 1. Fetch our hosted image so we can stream the bytes into WP.
+  let imgRes: Response;
+  try {
+    imgRes = await fetch(args.imageUrl);
+  } catch (e) {
+    return { id: null, warning: `Image fetch failed: ${(e as Error).message}` };
+  }
+  if (!imgRes.ok) {
+    return {
+      id: null,
+      warning: `Image fetch returned HTTP ${imgRes.status} from ${args.imageUrl}`,
+    };
+  }
+  const contentType =
+    imgRes.headers.get("content-type")?.split(";")[0]?.trim() ?? "image/jpeg";
+  const buf = Buffer.from(await imgRes.arrayBuffer());
+  if (buf.byteLength === 0) {
+    return { id: null, warning: "Image fetch returned an empty body" };
+  }
+
+  // Pull a sane filename off the URL path; WP uses this as the attachment
+  // slug + alt-text fallback. Strip the query string and any path noise.
+  const urlPath = (() => {
+    try {
+      return new URL(args.imageUrl).pathname;
+    } catch {
+      return "/featured-image.jpg";
+    }
+  })();
+  const filename = urlPath.split("/").pop() || "featured-image.jpg";
+
+  // 2. Upload the binary.
+  const mediaUrl = `${args.base.replace(/\/+$/, "")}/wp-json/wp/v2/media`;
+  let upRes: Response;
+  try {
+    upRes = await fetch(mediaUrl, {
+      method: "POST",
+      headers: {
+        Authorization:
+          "Basic " + Buffer.from(`${args.user}:${args.pass}`).toString("base64"),
+        "Content-Type": contentType,
+        "Content-Disposition": `attachment; filename="${filename}"`,
+      },
+      body: buf,
+    });
+  } catch (e) {
+    return { id: null, warning: `WP media upload failed: ${(e as Error).message}` };
+  }
+  if (!upRes.ok) {
+    const text = await upRes.text().catch(() => "<no body>");
+    return {
+      id: null,
+      warning: `WP media upload ${upRes.status}: ${text.slice(0, 400)}`,
+    };
+  }
+  const upJson = (await upRes.json().catch(() => null)) as Record<
+    string,
+    unknown
+  > | null;
+  const attachmentId =
+    typeof upJson?.id === "number" ? upJson.id : Number(upJson?.id ?? NaN);
+  if (!Number.isFinite(attachmentId) || attachmentId <= 0) {
+    return { id: null, warning: "WP media upload returned no attachment id" };
+  }
+
+  // 3. Patch alt + caption if we have them. Best-effort: a failure here
+  // still leaves us with a usable attachment, just without metadata.
+  if (args.alt || args.credit) {
+    const patchUrl = `${mediaUrl}/${attachmentId}`;
+    const patchBody: Record<string, unknown> = {};
+    if (args.alt) patchBody.alt_text = args.alt;
+    if (args.credit) patchBody.caption = args.credit;
+    try {
+      const patchRes = await fetch(patchUrl, {
+        method: "POST", // WP REST accepts POST for updates too
+        headers: {
+          Authorization:
+            "Basic " +
+            Buffer.from(`${args.user}:${args.pass}`).toString("base64"),
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(patchBody),
+      });
+      if (!patchRes.ok) {
+        const text = await patchRes.text().catch(() => "<no body>");
+        return {
+          id: attachmentId,
+          warning: `Featured image uploaded (id ${attachmentId}) but alt/caption patch failed: WP ${patchRes.status}: ${text.slice(0, 200)}`,
+        };
+      }
+    } catch (e) {
+      return {
+        id: attachmentId,
+        warning: `Featured image uploaded but alt/caption patch threw: ${(e as Error).message}`,
+      };
+    }
+  }
+
+  return { id: attachmentId, warning: null };
+}
 
 async function pushToWordPress(payload: {
   title: string;
@@ -323,6 +455,14 @@ async function pushToWordPress(payload: {
   title_wp_username?: string | null;
   title_wp_app_password?: string | null;
   title_wp_default_category_id?: number | null;
+  /**
+   * Featured image — pre-resolved by the caller. May be either the editor's
+   * Supabase Storage upload or the candidate's source URL fallback. NULL
+   * means "publish without a featured image".
+   */
+  featured_image_url?: string | null;
+  featured_image_alt?: string | null;
+  featured_image_credit?: string | null;
 }): Promise<WPPushResult> {
   const base = payload.title_wp_base_url ?? process.env.WORDPRESS_URL;
   const user = payload.title_wp_username ?? process.env.WORDPRESS_USER;
@@ -337,6 +477,25 @@ async function pushToWordPress(payload: {
     };
   }
 
+  // Upload the featured image first (if any) so we have the attachment id
+  // to thread into the post payload. Failures here degrade gracefully —
+  // we still publish the post without `featured_media` and surface the
+  // warning on the publish log so the editor can attach manually in WP.
+  let featuredMediaId: number | null = null;
+  let featuredWarning: string | null = null;
+  if (payload.featured_image_url) {
+    const upload = await uploadFeaturedImageToWordPress({
+      base,
+      user,
+      pass,
+      imageUrl: payload.featured_image_url,
+      alt: payload.featured_image_alt ?? null,
+      credit: payload.featured_image_credit ?? null,
+    });
+    featuredMediaId = upload.id;
+    featuredWarning = upload.warning;
+  }
+
   const url = `${base.replace(/\/+$/, "")}/wp-json/wp/v2/posts`;
   const body: Record<string, unknown> = {
     title: payload.title,
@@ -349,6 +508,7 @@ async function pushToWordPress(payload: {
   if (payload.title_wp_default_category_id) {
     body.categories = [payload.title_wp_default_category_id];
   }
+  if (featuredMediaId) body.featured_media = featuredMediaId;
 
   let res: Response;
   try {
@@ -384,6 +544,7 @@ async function pushToWordPress(payload: {
       typeof json?.link === "string"
         ? json.link
         : null,
+    featured_image_warning: featuredWarning ?? undefined,
   };
 }
 
@@ -411,7 +572,7 @@ export async function publishArticle(
   const { data: article } = await admin
     .from("articles")
     .select(
-      "id, headline, standfirst, body, slug, state, backdate, title_id, sectors, primary_frame",
+      "id, headline, standfirst, body, slug, state, backdate, title_id, sectors, primary_frame, featured_image_url, featured_image_alt, featured_image_credit",
     )
     .eq("id", article_id)
     .maybeSingle<{
@@ -425,8 +586,45 @@ export async function publishArticle(
       title_id: string;
       sectors: string[] | null;
       primary_frame: string | null;
+      featured_image_url: string | null;
+      featured_image_alt: string | null;
+      featured_image_credit: string | null;
     }>();
   if (!article) return { ok: false, error: "Article not found" };
+
+  // Featured image resolution — editor's upload wins; otherwise sideload from
+  // the candidate's source image_url as a best-effort fallback. The candidate
+  // URL is often a PR-agency CDN, so sideload may fail (410, hotlink block),
+  // but the upload pipeline handles that gracefully and degrades to "publish
+  // without a hero" with a warning on the publish log.
+  let resolvedFeaturedUrl: string | null = article.featured_image_url;
+  let resolvedFeaturedAlt: string | null = article.featured_image_alt;
+  const resolvedFeaturedCredit: string | null = article.featured_image_credit;
+  let featuredSource: "editor_upload" | "candidate_fallback" | "none" = article.featured_image_url
+    ? "editor_upload"
+    : "none";
+  if (!resolvedFeaturedUrl) {
+    const { data: comm } = await admin
+      .from("commissions")
+      .select("candidate_id")
+      .eq("article_id", article_id)
+      .maybeSingle<{ candidate_id: string | null }>();
+    if (comm?.candidate_id) {
+      const { data: cand } = await admin
+        .from("candidates")
+        .select("image_url, working_headline")
+        .eq("id", comm.candidate_id)
+        .maybeSingle<{ image_url: string | null; working_headline: string | null }>();
+      if (cand?.image_url) {
+        resolvedFeaturedUrl = cand.image_url;
+        // Alt-text fallback: the candidate headline is the best label we
+        // have when no editor-supplied alt exists. Better than nothing
+        // accessibility-wise; editor can fix later in WP.
+        resolvedFeaturedAlt = resolvedFeaturedAlt ?? cand.working_headline ?? null;
+        featuredSource = "candidate_fallback";
+      }
+    }
+  }
 
   if (article.state !== "scheduled" && article.state !== "legal") {
     return {
@@ -457,6 +655,8 @@ export async function publishArticle(
     backdate: article.backdate,
     target,
     slug: slugOverride ?? article.slug,
+    featured_image_url: resolvedFeaturedUrl,
+    featured_image_source: featuredSource,
   };
 
   // Queue log row first so failures are still traceable.
@@ -476,6 +676,7 @@ export async function publishArticle(
   let externalId: string | null = null;
   let externalUrl: string | null = null;
   let pushError: string | null = null;
+  let featuredImageWarning: string | null = null;
 
   if (target === "manual") {
     externalUrl = manualUrl;
@@ -518,10 +719,14 @@ export async function publishArticle(
       title_wp_username: titleRow?.wp_username ?? null,
       title_wp_app_password: titleRow?.wp_app_password ?? null,
       title_wp_default_category_id: titleRow?.wp_default_category_id ?? null,
+      featured_image_url: resolvedFeaturedUrl,
+      featured_image_alt: resolvedFeaturedAlt,
+      featured_image_credit: resolvedFeaturedCredit,
     });
     if (res.ok) {
       externalId = res.external_id;
       externalUrl = res.external_url;
+      featuredImageWarning = res.featured_image_warning ?? null;
     } else {
       pushError = res.error;
     }
@@ -550,13 +755,20 @@ export async function publishArticle(
     return { ok: false, error: pushError };
   }
 
-  // Success path.
+  // Success path. The featured-image warning (if any) is non-fatal — the
+  // post itself published cleanly — but we still capture it on the log row's
+  // `error` field so the editor sees it on the F8 history table and can
+  // reattach the hero image manually in WP if needed. Distinguish this from
+  // a real publish failure with the "FEATURED_IMAGE:" prefix.
   await admin
     .from("article_publish_log")
     .update({
       status: target === "draft_only" ? "queued" : "published",
       external_id: externalId,
       external_url: externalUrl,
+      error: featuredImageWarning
+        ? `FEATURED_IMAGE: ${featuredImageWarning}`
+        : null,
       completed_at: now,
     })
     .eq("id", logRow.id);

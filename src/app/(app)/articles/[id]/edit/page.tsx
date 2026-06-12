@@ -4,6 +4,7 @@ import { ArrowLeft, FileText, Send, History } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { cn } from "@/lib/utils";
 import { DraftEditor } from "@/components/forms/draft-editor";
+import { FeaturedImagePanel } from "@/components/forms/featured-image-panel";
 import { FramingBriefPanel } from "@/components/forms/framing-brief-panel";
 import { HeadlineOptionsEditor } from "@/components/forms/headline-options-editor";
 import { BackdatePicker } from "@/components/forms/f5-backdate-picker";
@@ -35,6 +36,9 @@ type ArticleRow = {
   backdate: string | null;
   backdate_kind: BackdateKind | null;
   backdate_rationale: string | null;
+  featured_image_url: string | null;
+  featured_image_alt: string | null;
+  featured_image_credit: string | null;
 };
 
 type CommissionRow = {
@@ -46,6 +50,7 @@ type CandidateRow = {
   framing_brief: unknown | null;
   defamation_tier: number | null;
   source_published_at: string | null;
+  image_url: string | null;
 };
 
 function coerceFramingBrief(raw: unknown): FramingBrief | null {
@@ -141,7 +146,7 @@ export default async function ArticleEditPage({
   const { data: article } = await supabase
     .from("articles")
     .select(
-      "id, headline, standfirst, body, state, slug, sectors, geo_tier, updated_at, headline_options, headline_selected_idx, backdate, backdate_kind, backdate_rationale",
+      "id, headline, standfirst, body, state, slug, sectors, geo_tier, updated_at, headline_options, headline_selected_idx, backdate, backdate_kind, backdate_rationale, featured_image_url, featured_image_alt, featured_image_credit",
     )
     .eq("id", id)
     .single<ArticleRow>();
@@ -173,11 +178,12 @@ export default async function ArticleEditPage({
     : null;
   let defamationTier: 1 | 2 | 3 | null = null;
   let eventDate: string | null = null;
+  let candidateImageUrl: string | null = null;
 
   if (commission?.candidate_id) {
     const { data: candidate } = await supabase
       .from("candidates")
-      .select("framing_brief, defamation_tier, source_published_at")
+      .select("framing_brief, defamation_tier, source_published_at, image_url")
       .eq("id", commission.candidate_id)
       .maybeSingle<CandidateRow>();
     if (!framingBrief) {
@@ -189,6 +195,7 @@ export default async function ArticleEditPage({
     eventDate = candidate?.source_published_at
       ? String(candidate.source_published_at).slice(0, 10)
       : null;
+    candidateImageUrl = candidate?.image_url ?? null;
   }
 
   const headlineOptions = normaliseHeadlineOptions(article.headline_options);
@@ -259,6 +266,21 @@ export default async function ArticleEditPage({
               initialHeadline={article.headline}
               initialStandfirst={article.standfirst ?? ""}
               initialBody={article.body ?? ""}
+              readOnly={readOnly}
+            />
+
+            {/* Featured image — uploaded to Supabase Storage; sideloaded to
+                the target title's WordPress on F8 publish. If the editor
+                doesn't upload anything, publish falls back to the
+                candidate's source image_url (best-effort — external URLs
+                go stale). Locked once the article enters the approvals
+                pipeline. */}
+            <FeaturedImagePanel
+              articleId={article.id}
+              initialUrl={article.featured_image_url}
+              initialAlt={article.featured_image_alt}
+              initialCredit={article.featured_image_credit}
+              candidateImageUrl={candidateImageUrl}
               readOnly={readOnly}
             />
 
