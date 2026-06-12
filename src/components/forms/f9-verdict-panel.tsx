@@ -1,14 +1,17 @@
 "use client";
 
 import { useState, useTransition } from "react";
+import { useRouter } from "next/navigation";
 import {
   AlertTriangle,
   CheckCircle2,
   Package,
   RotateCcw,
+  Zap,
 } from "lucide-react";
 import {
   setF9Verdict,
+  stampF9Tier1Defaults,
   type PrePublishActionResult,
 } from "@/lib/actions/pre-publish";
 import {
@@ -37,24 +40,70 @@ const VERDICT_ICON: Record<F9Verdict, React.ComponentType<{ className?: string }
   return_to_f6: RotateCcw,
 };
 
+/**
+ * Where each F9 verdict lands the editor next. HAND TO SENIOR EDITOR leaves
+ * them on the F9 page so they can assemble the pack in the panel below
+ * (the next thing they need to do is right there). Returns route back to
+ * the article dossier where the upstream agent owns the fix.
+ */
+function destinationFor(
+  verdict: F9Verdict,
+  articleId: string,
+): { href: string; label: string } | null {
+  switch (verdict) {
+    case "hand_to_senior_editor":
+      return null; // stay on page — pack assembly is in the panel below
+    case "return_to_f1":
+    case "return_to_f2":
+    case "return_to_f3":
+    case "return_to_f4":
+    case "return_to_f5":
+    case "return_to_f6":
+      return { href: `/articles/${articleId}`, label: "article dossier" };
+  }
+}
+
 const textareaCls =
   "min-h-[72px] w-full rounded-md border border-border bg-background px-2.5 py-1.5 text-[12px] leading-[1.5] text-foreground placeholder:text-um-muted focus:border-primary/40 focus:outline-none";
 
 export function F9VerdictPanel({
   articleId,
   row,
+  defamationTier,
 }: {
   articleId: string;
   row: ArticlePrePublishRow | null;
+  defamationTier: 1 | 2 | 3 | null;
 }) {
+  const router = useRouter();
   const [rationale, setRationale] = useState<string>(
     row?.verdict_rationale ?? "",
   );
   const [pending, startTransition] = useTransition();
+  const [stamping, startStamping] = useTransition();
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
 
   const summary = summarisePrePublish(row);
+
+  // Tier 1 PR pass-throughs are 90% of routine volume. One-click stamps the
+  // 10-check default profile so the editor doesn't have to save each A-row.
+  function stampDefaults() {
+    setError(null);
+    setNotice(null);
+    const fd = new FormData();
+    fd.set("article_id", articleId);
+    startStamping(async () => {
+      const res: PrePublishActionResult = await stampF9Tier1Defaults(fd);
+      if (!res.ok) {
+        setError(res.error);
+        return;
+      }
+      setNotice("Tier 1 defaults stamped across all 10 A-checks.");
+      // Same refresh-after-action contract as the F6 panel.
+      router.refresh();
+    });
+  }
 
   function submit(verdict: F9Verdict) {
     setError(null);
@@ -69,8 +118,20 @@ export function F9VerdictPanel({
     fd.set("verdict_rationale", rationale);
     startTransition(async () => {
       const res: PrePublishActionResult = await setF9Verdict(fd);
-      if (!res.ok) setError(res.error);
-      else setNotice("Verdict stamped.");
+      if (!res.ok) {
+        setError(res.error);
+        return;
+      }
+      const dest = destinationFor(verdict, articleId);
+      if (dest) {
+        setNotice(`Verdict stamped — routing to ${dest.label}…`);
+        router.push(dest.href);
+      } else {
+        // hand_to_senior_editor: pack assembly panel is on this page, so just
+        // refresh so the gating unlocks and the editor can mint a pack ref.
+        setNotice("Verdict stamped — assemble the pack below.");
+        router.refresh();
+      }
     });
   }
 
@@ -140,6 +201,33 @@ export function F9VerdictPanel({
             All A-checks clear. Article is ready for the Senior Editor pack.
           </div>
         )}
+
+        {/* Tier 1 PR fast-path. Mirrors the F6 panel — only surfaces on T1
+            articles that still have pending A-checks, to avoid clutter on
+            cases that need real adjudication. */}
+        {defamationTier === 1 && summary.pending > 0 ? (
+          <div className="mb-3 flex items-start justify-between gap-3 rounded-md border border-primary/30 bg-primary/5 px-2.5 py-2">
+            <div className="min-w-0 text-[11px] leading-[1.4] text-fg-2">
+              <div className="flex items-center gap-1 text-[10.5px] font-semibold uppercase tracking-[0.05em] text-primary">
+                <Zap className="h-3 w-3" />
+                Tier 1 PR fast-path
+              </div>
+              <p className="mt-0.5">
+                Bulk-stamp all 10 A-checks with the standard PR profile (A2, A4-A10 PASS,
+                A1 + A3 N/A). A6 backdate and A8 headline chars auto-fill from source.
+                Use only on routine pass-through releases.
+              </p>
+            </div>
+            <button
+              type="button"
+              disabled={stamping}
+              onClick={stampDefaults}
+              className="h-7 flex-shrink-0 rounded-md border border-primary/45 bg-primary/15 px-3 text-[11px] font-semibold text-primary hover:bg-primary/20 disabled:opacity-60"
+            >
+              {stamping ? "Stamping…" : "Stamp Tier 1 defaults"}
+            </button>
+          </div>
+        ) : null}
 
         <textarea
           value={rationale}

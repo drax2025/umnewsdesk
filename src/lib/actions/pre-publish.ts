@@ -177,6 +177,117 @@ function revalidate(articleId: string, packRef?: string | null) {
 }
 
 /* -------------------------------------------------------------------------- */
+/*  Bulk-stamp Tier 1 PR defaults                                             */
+/* -------------------------------------------------------------------------- */
+
+/**
+ * One-click sweep for routine Tier 1 press-release pass-throughs at F9.
+ *
+ * Mirrors the F6 stampTier1Defaults action. A Tier-1 PR doesn't need
+ * gate-by-gate A1-A10 adjudication — the answer is the same every time:
+ *
+ *   A1  D-Steps log               → N/A   (Tier 1 explicitly N/A per spec)
+ *   A2  Primary source reverify   → PASS  (release URL still resolves)
+ *   A3  PDT (3+ independent)      → N/A   (single primary trace covers)
+ *   A4  Verbatim quote sampling   → PASS  (verbatim from release)
+ *   A5  Paragraph structure       → PASS
+ *   A6  Date / backdate           → PASS  (backdate auto-filled from candidate)
+ *   A7  Interlink resolution      → PASS  (soft check; counts left null)
+ *   A8  Headline + framing        → PASS  (headline chars auto-filled)
+ *   A9  NFP footer completeness   → PASS  (soft check)
+ *   A10 Standing-rule + numeric   → PASS
+ *
+ * Refuses to run unless commission.candidate.defamation_tier = 1.
+ * The metric columns we *can* auto-fill (A6 backdate, A8 headline chars) get
+ * populated so the audit trail is complete rather than partial. The rest
+ * stay null — editor can patch any individual row afterwards.
+ */
+export async function stampF9Tier1Defaults(
+  fd: FormData,
+): Promise<PrePublishActionResult> {
+  const gate = await requireEditor();
+  if (gate) return gate;
+
+  const article_id = String(fd.get("article_id") ?? "").trim();
+  if (!article_id) return { ok: false, error: "Missing article_id" };
+
+  const admin = createServiceClient();
+
+  // Tier verification via commission → candidate, matching how the page
+  // resolves the tier badge so editors can't bypass it.
+  const { data: comm } = await admin
+    .from("commissions")
+    .select("candidate_id")
+    .eq("article_id", article_id)
+    .maybeSingle<{ candidate_id: string | null }>();
+  if (!comm?.candidate_id) {
+    return {
+      ok: false,
+      error: "No commission found — cannot determine defamation tier.",
+    };
+  }
+  const { data: cand } = await admin
+    .from("candidates")
+    .select("defamation_tier, published_at")
+    .eq("id", comm.candidate_id)
+    .maybeSingle<{
+      defamation_tier: 1 | 2 | 3 | null;
+      published_at: string | null;
+    }>();
+  if (cand?.defamation_tier !== 1) {
+    return {
+      ok: false,
+      error: `Bulk-stamp is Tier 1 only (this article is ${cand?.defamation_tier ?? "untiered"}).`,
+    };
+  }
+
+  // Auto-fill A6 backdate from the source's published_at where available.
+  const backdate = cand.published_at
+    ? new Date(cand.published_at).toISOString().slice(0, 10)
+    : null;
+
+  // Auto-fill A8 headline char count.
+  const { data: art } = await admin
+    .from("articles")
+    .select("headline")
+    .eq("id", article_id)
+    .maybeSingle<{ headline: string | null }>();
+  const headlineChars = art?.headline ? art.headline.length : null;
+
+  const stamp = "Tier 1 PR bulk-stamp.";
+  const naStamp = "Tier 1 PR — N/A per spec.";
+  const now = new Date().toISOString();
+
+  const { error } = await admin.from("article_pre_publish").upsert(
+    {
+      article_id,
+      a1_status: "na",    a1_detail: naStamp,
+      a2_status: "pass",  a2_detail: stamp,
+      a3_status: "na",    a3_detail: naStamp,
+      a3_independent_count: null,
+      a4_status: "pass",  a4_detail: stamp,
+      a4_quotes_sampled: null,
+      a5_status: "pass",  a5_detail: stamp,
+      a6_status: "pass",  a6_detail: stamp,
+      a6_backdate: backdate,
+      a7_status: "pass",  a7_detail: stamp,
+      a7_internal_count: null,
+      a7_outbound_count: null,
+      a8_status: "pass",  a8_detail: stamp,
+      a8_headline_chars: headlineChars,
+      a9_status: "pass",  a9_detail: stamp,
+      a10_status: "pass", a10_detail: stamp,
+      updated_at: now,
+    },
+    { onConflict: "article_id" },
+  );
+  if (error) return { ok: false, error: error.message };
+
+  revalidate(article_id);
+  return { ok: true };
+}
+
+/* -------------------------------------------------------------------------- */
 /*  saveCheck — one A-check                                                   */
 /* -------------------------------------------------------------------------- */
 

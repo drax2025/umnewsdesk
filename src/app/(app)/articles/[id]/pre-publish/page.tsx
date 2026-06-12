@@ -222,7 +222,11 @@ export default async function F9PrePublishPage({
       <div className="flex-1 overflow-y-auto bg-background px-6 py-5">
         <div className="mx-auto flex max-w-[960px] flex-col gap-3">
           {/* Verdict / roll-up at the top */}
-          <F9VerdictPanel articleId={article.id} row={row ?? null} />
+          <F9VerdictPanel
+            articleId={article.id}
+            row={row ?? null}
+            defamationTier={defamationTier}
+          />
 
           {/* Hard checks A1-A6 */}
           <SectionHeader
