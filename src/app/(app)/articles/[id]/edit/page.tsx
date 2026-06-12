@@ -4,7 +4,17 @@ import { ArrowLeft, FileText, Send, History } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { cn } from "@/lib/utils";
 import { DraftEditor } from "@/components/forms/draft-editor";
+import { FramingBriefPanel } from "@/components/forms/framing-brief-panel";
+import { HeadlineOptionsEditor } from "@/components/forms/headline-options-editor";
 import { submitForReview } from "@/lib/actions/article-write";
+import {
+  EMPTY_FRAMING_BRIEF,
+  type FramingBrief,
+  type CategoryTag,
+  type GeographicTier,
+  type PrimaryFrame,
+} from "@/lib/spec/f1-triage";
+import { normaliseHeadlineOptions } from "@/lib/spec/f3-headlines";
 
 export const dynamic = "force-dynamic";
 
@@ -18,7 +28,43 @@ type ArticleRow = {
   sectors: string[];
   geo_tier: string | null;
   updated_at: string;
+  headline_options: unknown | null;
+  headline_selected_idx: number | null;
 };
+
+type CommissionRow = {
+  candidate_id: string | null;
+  framing_brief: unknown | null;
+};
+
+type CandidateRow = {
+  framing_brief: unknown | null;
+};
+
+function coerceFramingBrief(raw: unknown): FramingBrief | null {
+  if (!raw || typeof raw !== "object") return null;
+  const o = raw as Record<string, unknown>;
+  const tier = typeof o.geographic_tier === "string" ? o.geographic_tier : null;
+  const frame = typeof o.primary_frame === "string" ? o.primary_frame : null;
+  const anchor =
+    typeof o.scottish_anchor === "string" ? o.scottish_anchor : null;
+  const brief =
+    typeof o.per_story_brief === "string" ? o.per_story_brief : null;
+  const tags = Array.isArray(o.category_tags)
+    ? (o.category_tags.filter((t) => typeof t === "string") as CategoryTag[])
+    : [];
+  return {
+    ...EMPTY_FRAMING_BRIEF,
+    geographic_tier:
+      tier === "scottish_origin" || tier === "uk_origin" || tier === "global_origin"
+        ? (tier as GeographicTier)
+        : null,
+    primary_frame: (frame as PrimaryFrame | null) ?? null,
+    scottish_anchor: anchor,
+    per_story_brief: brief,
+    category_tags: tags,
+  };
+}
 
 type RevisionRow = {
   id: string;
@@ -88,23 +134,55 @@ export default async function ArticleEditPage({
   const { data: article } = await supabase
     .from("articles")
     .select(
-      "id, headline, standfirst, body, state, slug, sectors, geo_tier, updated_at",
+      "id, headline, standfirst, body, state, slug, sectors, geo_tier, updated_at, headline_options, headline_selected_idx",
     )
     .eq("id", id)
     .single<ArticleRow>();
 
   if (!article) notFound();
 
-  const { data: revs } = await supabase
-    .from("article_revisions")
-    .select("id, revision_no, summary, headline, created_at")
-    .eq("article_id", id)
-    .order("revision_no", { ascending: false })
-    .limit(20);
+  const [{ data: revs }, { data: commission }] = await Promise.all([
+    supabase
+      .from("article_revisions")
+      .select("id, revision_no, summary, headline, created_at")
+      .eq("article_id", id)
+      .order("revision_no", { ascending: false })
+      .limit(20),
+    supabase
+      .from("commissions")
+      .select("candidate_id, framing_brief")
+      .eq("article_id", id)
+      .maybeSingle<CommissionRow>(),
+  ]);
+
+  // Resolve framing brief: prefer commission, fall back to candidate.
+  let framingBrief: FramingBrief | null = coerceFramingBrief(
+    commission?.framing_brief,
+  );
+  let framingSource: "commission" | "candidate" | null = framingBrief
+    ? "commission"
+    : null;
+  if (!framingBrief && commission?.candidate_id) {
+    const { data: candidate } = await supabase
+      .from("candidates")
+      .select("framing_brief")
+      .eq("id", commission.candidate_id)
+      .maybeSingle<CandidateRow>();
+    framingBrief = coerceFramingBrief(candidate?.framing_brief);
+    framingSource = framingBrief ? "candidate" : null;
+  }
+
+  const headlineOptions = normaliseHeadlineOptions(article.headline_options);
+  const selectedIdxRaw = article.headline_selected_idx;
+  const headlineSelectedIdx: 0 | 1 | 2 | null =
+    selectedIdxRaw === 0 || selectedIdxRaw === 1 || selectedIdxRaw === 2
+      ? selectedIdxRaw
+      : null;
 
   const revisions: RevisionRow[] = revs ?? [];
   const readOnly = READONLY_STATES.has(article.state);
   const canSubmit = article.state === "commissioned";
+  const canEditHeadlines = WRITER_STATES.has(article.state);
 
   return (
     <div className="flex h-full flex-col">
@@ -145,6 +223,18 @@ export default async function ArticleEditPage({
         <div className="mx-auto grid max-w-[1400px] gap-5 xl:grid-cols-[1fr_320px]">
           {/* Editor column */}
           <div className="flex flex-col gap-4">
+            {/* B9.2 framing brief — read-only context for the Writer. */}
+            <FramingBriefPanel brief={framingBrief} source={framingSource} />
+
+            {/* F3 three-headline set + F5 selection. Locked once the article
+                advances past 'filed' — H8 / C8 then audits the live headline. */}
+            <HeadlineOptionsEditor
+              articleId={article.id}
+              initialOptions={headlineOptions}
+              initialSelectedIdx={headlineSelectedIdx}
+              readOnly={!canEditHeadlines}
+            />
+
             <DraftEditor
               id={article.id}
               initialHeadline={article.headline}
