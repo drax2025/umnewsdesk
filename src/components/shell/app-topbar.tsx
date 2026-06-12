@@ -11,12 +11,41 @@ type Props = {
 
 // External "store" wrapping setInterval. useSyncExternalStore handles SSR
 // (null snapshot until hydrated) without firing setState inside an effect.
+//
+// IMPORTANT: getSnapshot must return a STABLE value between calls inside the
+// same render. Returning `Date.now()` directly is a footgun — React calls
+// getSnapshot multiple times per render for tearing detection, and successive
+// Date.now() calls differ by microseconds, which makes React think the store
+// is changing every render and eventually throws "Maximum update depth
+// exceeded" a few seconds after mount. So we cache the timestamp at module
+// scope and only update it from inside the setInterval tick (which then
+// notifies subscribers and triggers a re-render).
+let cachedTimestamp: number | null = null;
+const clockListeners = new Set<() => void>();
+let clockIntervalId: ReturnType<typeof setInterval> | null = null;
+
 function subscribeToClock(notify: () => void) {
-  const id = setInterval(notify, 1000);
-  return () => clearInterval(id);
+  clockListeners.add(notify);
+  if (clockIntervalId === null) {
+    cachedTimestamp = Date.now();
+    clockIntervalId = setInterval(() => {
+      cachedTimestamp = Date.now();
+      for (const l of clockListeners) l();
+    }, 1000);
+    // Initial notify so the first render after subscribe picks up the
+    // freshly-populated cachedTimestamp instead of waiting a full second.
+    notify();
+  }
+  return () => {
+    clockListeners.delete(notify);
+    if (clockListeners.size === 0 && clockIntervalId !== null) {
+      clearInterval(clockIntervalId);
+      clockIntervalId = null;
+    }
+  };
 }
 function getClockSnapshot(): number | null {
-  return Date.now();
+  return cachedTimestamp;
 }
 function getServerClockSnapshot(): number | null {
   return null;
