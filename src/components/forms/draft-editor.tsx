@@ -30,16 +30,18 @@ export function DraftEditor({
   const [isPending, startTransition] = useTransition();
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  const baselineRef = useRef({
+  // Baseline tracks the last-saved snapshot so the "dirty" pill flips correctly.
+  // Held in state (not a ref) so it can be safely read during render.
+  const [baseline, setBaseline] = useState({
     headline: initialHeadline,
     standfirst: initialStandfirst,
     body: initialBody,
   });
 
   const isDirty =
-    headline !== baselineRef.current.headline ||
-    standfirst !== baselineRef.current.standfirst ||
-    body !== baselineRef.current.body;
+    headline !== baseline.headline ||
+    standfirst !== baseline.standfirst ||
+    body !== baseline.body;
 
   const wordCount = body.trim() ? body.trim().split(/\s+/).length : 0;
   const charCount = body.length;
@@ -61,7 +63,7 @@ export function DraftEditor({
     startTransition(async () => {
       try {
         await saveArticleDraft(fd);
-        baselineRef.current = { headline, standfirst, body };
+        setBaseline({ headline, standfirst, body });
         setSummary("");
         setStatus("saved");
         // Drop saved indicator after a beat

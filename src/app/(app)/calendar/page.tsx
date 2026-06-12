@@ -26,12 +26,6 @@ type ArticleRow = {
   geo_tier: string | null;
 };
 
-const SLOT_LABEL: Record<string, string> = {
-  am: "AM · 06:00",
-  pm: "PM · 15:00",
-  breaking: "Breaking",
-  evergreen: "Evergreen",
-};
 
 const SLOT_PILL: Record<string, string> = {
   am: "border-state-comm/35 bg-state-comm/10 text-state-comm",

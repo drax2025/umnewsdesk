@@ -163,7 +163,11 @@ export default async function CandidateInboxPage({
 
   const streamMap = new Map(streams.map((s) => [s.id, s]));
   const sourceMap = new Map(sources.map((s) => [s.id, s]));
-  const sweepMap = new Map(sweeps.map((s) => [s.id, s]));
+  // Server Component renders once per request, so a wall-clock snapshot
+  // here is stable for the lifetime of the response. Threading it to
+  // EmbargoChip keeps the child component pure.
+  // eslint-disable-next-line react-hooks/purity
+  const nowMs = Date.now();
 
   const counts = new Map<string, number>([["all", cands.length]]);
   for (const c of cands) counts.set(c.triage_state, (counts.get(c.triage_state) ?? 0) + 1);
@@ -400,6 +404,7 @@ export default async function CandidateInboxPage({
                                   until={c.embargo_until}
                                   confidence={c.embargo_confidence}
                                   triageState={c.triage_state}
+                                  nowMs={nowMs}
                                 />
                                 <AttachmentChip names={c.attachment_urls} />
                               </div>
@@ -787,15 +792,16 @@ function EmbargoChip({
   until,
   confidence,
   triageState,
+  nowMs,
 }: {
   until: string | null;
   confidence: CandidateRow["embargo_confidence"];
   triageState: CandidateRow["triage_state"];
+  nowMs: number;
 }) {
   if (!until) return null;
   const t = new Date(until);
-  const now = Date.now();
-  const future = t.getTime() > now;
+  const future = t.getTime() > nowMs;
   // Past + already released → no chip.
   if (!future && triageState !== "held_source") return null;
 

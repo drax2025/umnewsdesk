@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useSyncExternalStore } from "react";
 import { Bell, LogOut } from "lucide-react";
 import { signOut } from "@/app/login/actions";
 
@@ -9,14 +9,26 @@ type Props = {
   userInitials: string;
 };
 
-export function AppTopbar({ title, userInitials }: Props) {
-  const [now, setNow] = useState<Date | null>(null);
+// External "store" wrapping setInterval. useSyncExternalStore handles SSR
+// (null snapshot until hydrated) without firing setState inside an effect.
+function subscribeToClock(notify: () => void) {
+  const id = setInterval(notify, 1000);
+  return () => clearInterval(id);
+}
+function getClockSnapshot(): number | null {
+  return Date.now();
+}
+function getServerClockSnapshot(): number | null {
+  return null;
+}
 
-  useEffect(() => {
-    setNow(new Date());
-    const id = setInterval(() => setNow(new Date()), 1000);
-    return () => clearInterval(id);
-  }, []);
+export function AppTopbar({ title, userInitials }: Props) {
+  const ts = useSyncExternalStore(
+    subscribeToClock,
+    getClockSnapshot,
+    getServerClockSnapshot,
+  );
+  const now = ts !== null ? new Date(ts) : null;
 
   return (
     <header className="flex h-12 items-center gap-2.5 border-b border-border bg-card px-4">
