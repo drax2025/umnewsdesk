@@ -77,9 +77,6 @@ export function F6VerdictPanel({
         setError(res.error);
         return;
       }
-      // Temp: surface diagnostic to browser console so the user can see what
-      // the upsert + read-back round-trip actually returned.
-      if (res.diag) console.log("[F6 bulk-stamp diag]", res.diag);
       setNotice("Tier 1 defaults stamped across all 11 gates.");
       // revalidatePath alone doesn't re-fetch a mounted client component's
       // server-side props — without router.refresh() the roll-up stays stale

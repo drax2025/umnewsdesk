@@ -25,9 +25,7 @@ import { logFailureEventInternal } from "@/lib/actions/failure-log";
  * and zero pending gates.
  */
 
-export type ReviewActionResult =
-  | { ok: true; diag?: Record<string, unknown> }
-  | { ok: false; error: string };
+export type ReviewActionResult = { ok: true } | { ok: false; error: string };
 
 const STATUS_SET = new Set<HGateStatus>([
   "pending",
@@ -185,49 +183,28 @@ export async function stampTier1Defaults(
   const naStamp = "Tier 1 PR — N/A per spec.";
   const now = new Date().toISOString();
 
-  const { error, data: upsertData, status: upsertHttp } = await admin
-    .from("article_review")
-    .upsert(
-      {
-        article_id,
-        h1_status: "pass",  h1_detail: stamp,
-        h2_status: "pass",  h2_detail: stamp,
-        h3_status: "pass",  h3_detail: stamp,
-        h4_status: "na",    h4_detail: naStamp,
-        h5_status: "pass",  h5_detail: stamp,
-        h6_status: "pass",  h6_detail: stamp,
-        h7_status: "pass",  h7_detail: stamp,
-        h8_status: "pass",  h8_detail: stamp,
-        h9_status: "pass",  h9_detail: stamp,
-        h10_status: "pass", h10_detail: stamp,
-        h11_status: "na",   h11_detail: naStamp,
-        updated_at: now,
-      },
-      { onConflict: "article_id" },
-    )
-    .select("article_id, h1_status, h11_status");
+  const { error } = await admin.from("article_review").upsert(
+    {
+      article_id,
+      h1_status: "pass",  h1_detail: stamp,
+      h2_status: "pass",  h2_detail: stamp,
+      h3_status: "pass",  h3_detail: stamp,
+      h4_status: "na",    h4_detail: naStamp,
+      h5_status: "pass",  h5_detail: stamp,
+      h6_status: "pass",  h6_detail: stamp,
+      h7_status: "pass",  h7_detail: stamp,
+      h8_status: "pass",  h8_detail: stamp,
+      h9_status: "pass",  h9_detail: stamp,
+      h10_status: "pass", h10_detail: stamp,
+      h11_status: "na",   h11_detail: naStamp,
+      updated_at: now,
+    },
+    { onConflict: "article_id" },
+  );
   if (error) return { ok: false, error: error.message };
 
-  // Diagnostic read-back to confirm the row landed where we expect. Logged to
-  // server console so we can see in the dev tail whether the upsert + read
-  // round-trip is consistent.
-  const { data: readBack, error: readErr } = await admin
-    .from("article_review")
-    .select("article_id, h1_status, h4_status, h11_status, updated_at")
-    .eq("article_id", article_id)
-    .maybeSingle();
-
-  const diag = {
-    article_id,
-    upsert_http_status: upsertHttp,
-    upsert_returned: upsertData,
-    read_back: readBack,
-    read_err: readErr?.message ?? null,
-  };
-  console.log("[stampTier1Defaults]", diag);
-
   revalidate(article_id);
-  return { ok: true, diag };
+  return { ok: true };
 }
 
 /* -------------------------------------------------------------------------- */
