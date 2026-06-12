@@ -9,6 +9,7 @@ import {
   type GateCode,
   type HGateStatus,
 } from "@/lib/spec/f6-review";
+import { logFailureEventInternal } from "@/lib/actions/failure-log";
 
 /**
  * F6 Reviewer server actions.
@@ -289,6 +290,30 @@ export async function setReviewVerdict(
       .eq("id", article_id);
   } else if (verdict === "escalate") {
     // No state change — the [ESC] channel handles it; review record holds the stamp.
+    await logFailureEventInternal({
+      article_id,
+      stage: "F6",
+      event: "hard_gate_return",
+      gate_code: null,
+      detail: `F6 escalated to D0: ${rationale}`,
+      created_by: uid,
+    });
+  } else if (verdict.startsWith("return_to_")) {
+    const targetStage = verdict.replace("return_to_", "").toUpperCase() as
+      | "F1"
+      | "F2"
+      | "F3"
+      | "F4"
+      | "F5";
+    await logFailureEventInternal({
+      article_id,
+      stage: "F6",
+      event: "hard_gate_return",
+      gate_code: null,
+      detail: `F6 returned to ${targetStage}: ${rationale}`,
+      remediation: `Re-run ${targetStage} with the H-gate issues above resolved.`,
+      created_by: uid,
+    });
   }
 
   revalidate(article_id);

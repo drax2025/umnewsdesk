@@ -21,6 +21,7 @@ import {
   type StandingRuleStatus,
 } from "@/lib/spec/f9-standing-rule";
 import { DEFENCES, type DefamationDefence } from "@/lib/spec/f9-reasonable-steps";
+import { logFailureEventInternal } from "@/lib/actions/failure-log";
 
 /**
  * F9 Pre-Publish server actions.
@@ -376,6 +377,25 @@ export async function setF9Verdict(
       .from("articles")
       .update({ state: "legal" })
       .eq("id", article_id);
+  } else if (verdict.startsWith("return_to_")) {
+    // Auto-route the return to pack §0 so the cross-agent log is complete
+    // without the editor needing to retype the event.
+    const targetStage = verdict.replace("return_to_", "").toUpperCase() as
+      | "F1"
+      | "F2"
+      | "F3"
+      | "F4"
+      | "F5"
+      | "F6";
+    await logFailureEventInternal({
+      article_id,
+      stage: "F9",
+      event: "a_check_return",
+      gate_code: null,
+      detail: `F9 returned to ${targetStage}: ${rationale}`,
+      remediation: `Re-run ${targetStage} with the issues above resolved.`,
+      created_by: uid,
+    });
   }
 
   revalidate(article_id);
@@ -571,8 +591,25 @@ export async function setPubVerdict(
       .from("articles")
       .update({ state: "rejected" })
       .eq("id", article_id);
+    await logFailureEventInternal({
+      article_id,
+      stage: "F9",
+      event: "hard_gate_return",
+      gate_code: null,
+      detail: `Senior Editor [PUB-REJECT]: ${notes}`,
+      created_by: uid,
+    });
+  } else if (verdict === "modify") {
+    await logFailureEventInternal({
+      article_id,
+      stage: "F9",
+      event: "rework",
+      gate_code: null,
+      detail: `Senior Editor [PUB-MODIFY]: ${notes}`,
+      remediation: "Article routed back through agent loop for modification.",
+      created_by: uid,
+    });
   }
-  // MODIFY leaves state at 'legal' so it routes back through the agent loop.
 
   revalidate(article_id, row?.pack_ref ?? null);
   return { ok: true };

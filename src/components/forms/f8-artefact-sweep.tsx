@@ -1,0 +1,290 @@
+"use client";
+
+import { useState, useTransition } from "react";
+import {
+  AlertTriangle,
+  CheckCircle2,
+  CircleDashed,
+  Loader2,
+  Save,
+  ShieldX,
+  Shield,
+  XCircle,
+} from "lucide-react";
+import {
+  ARTEFACT_OUTLET_LABEL,
+  ARTEFACT_SWEEP_STATUS,
+  artefactsByOutlet,
+  noteForArtefact,
+  statusForArtefact,
+  summariseSweep,
+  type ArtefactOutlet,
+  type ArtefactSweepStatus,
+  type ArticleArtefactSweepRow,
+  type ArtefactDef,
+} from "@/lib/spec/f8-post-publish";
+import { saveArtefactRow } from "@/lib/actions/post-publish";
+import type { PostPublishActionResult } from "@/lib/actions/post-publish";
+import { cn } from "@/lib/utils";
+
+/**
+ * F8 Stage 1 — final B2 17-artefact sweep, grouped by outlet (DIGIT /
+ * Futurescot / SFN). Header roll-up shows live counts; publish is blocked
+ * upstream until cleanForPush is true.
+ */
+
+const STATUS_ICON: Record<
+  ArtefactSweepStatus,
+  React.ComponentType<{ className?: string }>
+> = {
+  pending: CircleDashed,
+  swept_clean: CheckCircle2,
+  contamination_found: XCircle,
+  na: ShieldX,
+};
+
+type Props = {
+  articleId: string;
+  row: ArticleArtefactSweepRow | null;
+  readOnly?: boolean;
+};
+
+export function ArtefactSweepPanel({
+  articleId,
+  row,
+  readOnly = false,
+}: Props) {
+  const summary = summariseSweep(row);
+
+  return (
+    <section className="overflow-hidden rounded-md border border-border bg-card">
+      <header className="flex flex-wrap items-center gap-2 border-b border-border bg-background/40 px-3 py-2">
+        <Shield className="h-3.5 w-3.5 text-primary" />
+        <h2 className="text-[11px] font-semibold uppercase tracking-[0.06em] text-foreground">
+          F8 final B2 sweep · 17 prohibited artefacts
+        </h2>
+        <span className="ml-auto font-mono text-[10.5px] text-um-muted">
+          {summary.clean} clean · {summary.found} found · {summary.na} N/A ·{" "}
+          {summary.pending} pending
+        </span>
+        {summary.cleanForPush ? (
+          <span className="flex items-center gap-1 rounded-sm border border-success/40 bg-success/10 px-1.5 py-0.5 font-mono text-[10px] font-semibold uppercase tracking-[0.05em] text-success">
+            <CheckCircle2 className="h-3 w-3" />
+            ready for push
+          </span>
+        ) : (
+          <span className="flex items-center gap-1 rounded-sm border border-warn/40 bg-warn/10 px-1.5 py-0.5 font-mono text-[10px] font-semibold uppercase tracking-[0.05em] text-warn">
+            <AlertTriangle className="h-3 w-3" />
+            sweep blocked
+          </span>
+        )}
+      </header>
+
+      <p className="border-b border-border bg-background/30 px-3 py-2 text-[10.5px] leading-[1.5] text-um-muted">
+        DIGIT, Futurescot and SFN are <strong>signal-only</strong>. F8 confirms
+        none of the 17 prohibited artefacts have slipped past F9 before
+        WordPress push. Any contamination_found row blocks publish; any pending
+        or unjustified N/A row blocks publish.
+      </p>
+
+      {(["digit", "futurescot", "sfn"] as ArtefactOutlet[]).map((outlet) => (
+        <OutletBlock
+          key={outlet}
+          outlet={outlet}
+          defs={artefactsByOutlet(outlet)}
+          row={row}
+          articleId={articleId}
+          readOnly={readOnly}
+        />
+      ))}
+    </section>
+  );
+}
+
+function OutletBlock({
+  outlet,
+  defs,
+  row,
+  articleId,
+  readOnly,
+}: {
+  outlet: ArtefactOutlet;
+  defs: ArtefactDef[];
+  row: ArticleArtefactSweepRow | null;
+  articleId: string;
+  readOnly: boolean;
+}) {
+  return (
+    <div className="border-b border-border last:border-b-0">
+      <div className="bg-background/30 px-3 py-1.5 font-mono text-[10px] font-semibold uppercase tracking-[0.08em] text-fg-2">
+        {ARTEFACT_OUTLET_LABEL[outlet]} · {defs.length} artefact
+        {defs.length === 1 ? "" : "s"}
+      </div>
+      <div className="divide-y divide-border">
+        {defs.map((def) => (
+          <ArtefactRow
+            key={def.code}
+            articleId={articleId}
+            def={def}
+            initialStatus={statusForArtefact(row?.results ?? null, def.code)}
+            initialNote={noteForArtefact(row?.results ?? null, def.code)}
+            readOnly={readOnly}
+          />
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function ArtefactRow({
+  articleId,
+  def,
+  initialStatus,
+  initialNote,
+  readOnly,
+}: {
+  articleId: string;
+  def: ArtefactDef;
+  initialStatus: ArtefactSweepStatus;
+  initialNote: string | null;
+  readOnly: boolean;
+}) {
+  const [status, setStatus] = useState<ArtefactSweepStatus>(initialStatus);
+  const [note, setNote] = useState<string>(initialNote ?? "");
+  const [pending, startTransition] = useTransition();
+  const [error, setError] = useState<string | null>(null);
+  const [saved, setSaved] = useState(false);
+
+  const needsNote =
+    (status === "contamination_found" || status === "na") &&
+    note.trim().length === 0;
+
+  function save() {
+    if (readOnly) return;
+    setError(null);
+    if (needsNote) {
+      setError(
+        status === "contamination_found"
+          ? "Contamination found — describe what."
+          : "N/A — record why this artefact does not apply.",
+      );
+      return;
+    }
+    const fd = new FormData();
+    fd.set("article_id", articleId);
+    fd.set("code", def.code);
+    fd.set("status", status);
+    fd.set("note", note);
+
+    startTransition(async () => {
+      const res: PostPublishActionResult = await saveArtefactRow(fd);
+      if (!res.ok) {
+        setError(res.error);
+        return;
+      }
+      setSaved(true);
+      setTimeout(() => setSaved(false), 2200);
+    });
+  }
+
+  return (
+    <div className="space-y-2 px-3 py-3">
+      <div className="flex flex-wrap items-baseline gap-2">
+        <span className="font-mono text-[10.5px] font-semibold uppercase tracking-[0.05em] text-fg-2">
+          {def.code}
+        </span>
+        <span className="text-[12.5px] font-medium text-foreground">
+          {def.label}
+        </span>
+        <div className="ml-auto flex items-center gap-1.5">
+          {saved ? (
+            <span className="flex items-center gap-1 font-mono text-[10px] text-success">
+              <CheckCircle2 className="h-3 w-3" />
+              saved
+            </span>
+          ) : null}
+          {!readOnly ? (
+            <button
+              type="button"
+              onClick={save}
+              disabled={pending}
+              className="flex h-7 items-center gap-1 rounded-sm border border-primary/40 bg-primary/10 px-2.5 text-[11px] font-medium text-primary hover:bg-primary/15 disabled:opacity-50"
+            >
+              {pending ? (
+                <Loader2 className="h-3 w-3 animate-spin" />
+              ) : (
+                <Save className="h-3 w-3" />
+              )}
+              Save
+            </button>
+          ) : null}
+        </div>
+      </div>
+
+      <p className="text-[10.5px] leading-[1.45] text-um-muted">
+        {def.description}
+      </p>
+
+      <div className="flex flex-wrap gap-1">
+        {ARTEFACT_SWEEP_STATUS.map((s) => {
+          const Icon = STATUS_ICON[s.value];
+          const active = status === s.value;
+          return (
+            <button
+              key={s.value}
+              type="button"
+              onClick={() => {
+                setStatus(s.value);
+                setError(null);
+              }}
+              disabled={readOnly || pending}
+              className={cn(
+                "flex h-7 items-center gap-1 rounded-md border px-2 font-mono text-[10.5px] font-medium uppercase tracking-[0.05em] transition-colors disabled:opacity-50",
+                active
+                  ? s.tone === "success"
+                    ? "border-success/45 bg-success/10 text-success"
+                    : s.tone === "destructive"
+                      ? "border-destructive/45 bg-destructive/10 text-destructive"
+                      : s.tone === "warn"
+                        ? "border-warn/45 bg-warn/10 text-warn"
+                        : "border-primary/40 bg-primary/10 text-primary"
+                  : "border-border bg-background text-fg-2 hover:bg-secondary",
+              )}
+            >
+              <Icon className="h-3 w-3" />
+              {s.short}
+            </button>
+          );
+        })}
+      </div>
+
+      <textarea
+        rows={2}
+        value={note}
+        onChange={(e) => {
+          setNote(e.target.value);
+          setError(null);
+        }}
+        disabled={readOnly || pending}
+        placeholder={
+          status === "contamination_found"
+            ? "What exactly was found? (required — auto-routed to pack §0)"
+            : status === "na"
+              ? "Why does this artefact not apply? (required)"
+              : "Optional one-line note."
+        }
+        maxLength={2400}
+        className={cn(
+          "w-full resize-y rounded-md border bg-background px-2.5 py-1.5 text-[11.5px] leading-[1.45] text-foreground placeholder:text-um-muted disabled:opacity-60",
+          needsNote ? "border-destructive/40" : "border-border",
+        )}
+      />
+
+      {error ? (
+        <div className="rounded-sm border border-destructive/40 bg-destructive/5 px-2 py-1 text-[11px] text-destructive">
+          {error}
+        </div>
+      ) : null}
+    </div>
+  );
+}
