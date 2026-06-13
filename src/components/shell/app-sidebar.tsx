@@ -2,7 +2,8 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { NAV_SECTIONS } from "./nav-config";
+import { Lock } from "lucide-react";
+import type { SidebarNavSection } from "@/lib/shell/get-nav-for-role";
 import { cn } from "@/lib/utils";
 
 type Props = {
@@ -11,9 +12,15 @@ type Props = {
     role: string;
     initials: string;
   };
+  /**
+   * Pre-filtered nav for the current user's role. The (app) layout resolves
+   * this server-side via getNavForRole so this client component never sees
+   * items the role isn't supposed to know exist.
+   */
+  sections: SidebarNavSection[];
 };
 
-export function AppSidebar({ user }: Props) {
+export function AppSidebar({ user, sections }: Props) {
   const pathname = usePathname();
 
   return (
@@ -30,7 +37,7 @@ export function AppSidebar({ user }: Props) {
 
       {/* Nav */}
       <nav className="flex-1 py-2">
-        {NAV_SECTIONS.map((section) => (
+        {sections.map((section) => (
           <div key={section.label}>
             <div className="px-4 pt-3.5 pb-1 text-[10px] font-semibold uppercase tracking-[0.07em] text-um-muted">
               {section.label}
@@ -41,6 +48,7 @@ export function AppSidebar({ user }: Props) {
                 item.href === "/"
                   ? pathname === "/"
                   : pathname.startsWith(item.href);
+              const readOnly = item.accessLevel === "read_only";
               return (
                 <Link
                   key={item.href}
@@ -51,6 +59,11 @@ export function AppSidebar({ user }: Props) {
                       ? "bg-accent text-foreground before:absolute before:left-0 before:top-1 before:bottom-1 before:w-[2px] before:rounded-r-sm before:bg-primary"
                       : "text-fg-2 hover:bg-secondary hover:text-foreground",
                   )}
+                  title={
+                    readOnly
+                      ? `${item.label} — read-only for your role`
+                      : item.label
+                  }
                 >
                   <Icon
                     className={cn(
@@ -59,6 +72,12 @@ export function AppSidebar({ user }: Props) {
                     )}
                   />
                   <span className="flex-1">{item.label}</span>
+                  {readOnly ? (
+                    <Lock
+                      className="h-3 w-3 flex-shrink-0 text-um-muted"
+                      aria-label="read-only"
+                    />
+                  ) : null}
                   {item.badge ? (
                     <span
                       className={cn(
