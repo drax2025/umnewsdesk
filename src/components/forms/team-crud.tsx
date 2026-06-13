@@ -1,10 +1,11 @@
 "use client";
 
 import { useRef, useState, useTransition } from "react";
-import { Plus, Trash2, X } from "lucide-react";
+import { KeyRound, Plus, Trash2, X } from "lucide-react";
 import {
   deleteTeamMember,
   inviteTeamMember,
+  sendPasswordResetForUser,
   type TeamActionResult,
 } from "@/lib/actions/team";
 import { cn } from "@/lib/utils";
@@ -145,6 +146,76 @@ function InviteForm({ onDone }: { onDone: () => void }) {
         </button>
       </div>
     </form>
+  );
+}
+
+/* -------------------------------------------------------------------------- */
+/*  PASSWORD RESET                                                            */
+/* -------------------------------------------------------------------------- */
+
+/**
+ * Senior-editor-only inline button. One click → Supabase emails a
+ * recovery link to that user. No modal; the success state is a brief
+ * transition on the button itself so the table doesn't feel noisy.
+ */
+export function SendPasswordResetButton({
+  id,
+  name,
+}: {
+  id: string;
+  name: string;
+}) {
+  const [pending, startTransition] = useTransition();
+  const [status, setStatus] = useState<"idle" | "sent" | "error">("idle");
+  const [error, setError] = useState<string | null>(null);
+
+  function send() {
+    if (
+      !confirm(
+        `Email a password-reset link to ${name}? They'll be able to set a new password using the link.`,
+      )
+    ) {
+      return;
+    }
+    setStatus("idle");
+    setError(null);
+    const fd = new FormData();
+    fd.set("id", id);
+    startTransition(async () => {
+      const res = await sendPasswordResetForUser(fd);
+      if (!res.ok) {
+        setStatus("error");
+        setError(res.error);
+        return;
+      }
+      setStatus("sent");
+      window.setTimeout(() => setStatus("idle"), 2400);
+    });
+  }
+
+  return (
+    <button
+      type="button"
+      onClick={send}
+      disabled={pending}
+      title={
+        status === "error"
+          ? (error ?? "Reset failed")
+          : status === "sent"
+            ? "Reset link sent"
+            : "Email a password-reset link"
+      }
+      className={cn(
+        "flex h-6 w-6 items-center justify-center rounded-sm border bg-background text-fg-2 disabled:cursor-not-allowed disabled:opacity-50",
+        status === "sent"
+          ? "border-success/40 bg-success/10 text-success hover:bg-success/15"
+          : status === "error"
+            ? "border-destructive/45 bg-destructive/10 text-destructive hover:bg-destructive/15"
+            : "border-border hover:bg-primary/10 hover:text-primary",
+      )}
+    >
+      <KeyRound className="h-3 w-3" />
+    </button>
   );
 }
 

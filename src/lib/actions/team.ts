@@ -129,6 +129,60 @@ export async function updateProfileName(formData: FormData): Promise<TeamActionR
 }
 
 /* -------------------------------------------------------------------------- */
+/*  PASSWORD RESET (admin-triggered)                                          */
+/* -------------------------------------------------------------------------- */
+
+/**
+ * Senior-editor action: email a password-recovery link to one team
+ * member. Used from the /team table when a user pings to say they're
+ * locked out and you want to fix it without leaving the app.
+ *
+ * Behaviour:
+ *   - looks the target's email up via the admin auth API (auth.users
+ *     isn't reachable from the user-context client)
+ *   - calls supabase.auth.resetPasswordForEmail() — Supabase ships the
+ *     email itself using whatever SMTP / template the project is
+ *     configured with
+ *   - redirectTo points at /auth/callback, which exchanges the recovery
+ *     code for a session and forwards on to /auth/reset where the user
+ *     picks a new password
+ */
+export async function sendPasswordResetForUser(
+  formData: FormData,
+): Promise<TeamActionResult> {
+  const gate = await requireSeniorEditor();
+  if (gate) return gate;
+
+  const id = String(formData.get("id") ?? "");
+  if (!id) return { ok: false, error: "Missing user id" };
+
+  const admin = createServiceClient();
+  const { data: target, error: lookupErr } = await admin.auth.admin.getUserById(id);
+  if (lookupErr || !target?.user?.email) {
+    return {
+      ok: false,
+      error: lookupErr?.message ?? "Couldn't find that user's email",
+    };
+  }
+
+  // resetPasswordForEmail is callable from the user-context client (no auth
+  // required — that's the whole point). The redirect URL has to be on the
+  // current origin or the email link will land somewhere harmless.
+  const origin =
+    process.env.NEXT_PUBLIC_SITE_URL?.replace(/\/$/, "") ??
+    "https://desk.unionmedia.news";
+
+  const supabase = await createClient();
+  const { error: resetErr } = await supabase.auth.resetPasswordForEmail(
+    target.user.email,
+    { redirectTo: `${origin}/auth/callback?next=/auth/reset` },
+  );
+  if (resetErr) return { ok: false, error: resetErr.message };
+
+  return { ok: true, id };
+}
+
+/* -------------------------------------------------------------------------- */
 /*  DELETE                                                                    */
 /* -------------------------------------------------------------------------- */
 

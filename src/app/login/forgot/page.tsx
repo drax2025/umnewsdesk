@@ -1,22 +1,13 @@
-import { LoginForm } from "./login-form";
+import Link from "next/link";
+import { ForgotPasswordForm } from "./forgot-form";
 
 export const metadata = {
-  title: "Sign in — Union Media",
+  title: "Forgot password — Union Media",
 };
 
-type Search = { reset?: string; reset_error?: string };
-
-export default async function LoginPage({
-  searchParams,
-}: {
-  searchParams: Promise<Search>;
-}) {
-  const sp = await searchParams;
-  const resetSuccess = sp.reset === "1";
-  const resetError = sp.reset_error;
+export default function ForgotPasswordPage() {
   return (
     <div className="relative min-h-screen flex flex-col items-center justify-center px-4 py-6">
-      {/* Subtle grid overlay */}
       <div
         aria-hidden
         className="pointer-events-none fixed inset-0 opacity-35"
@@ -28,7 +19,6 @@ export default async function LoginPage({
       />
 
       <div className="relative z-10 w-full max-w-[360px] rounded-[10px] border border-border bg-card p-8 pb-7">
-        {/* Wordmark */}
         <div className="mb-6 flex items-center gap-2.5">
           <div className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-[7px] bg-primary">
             <svg width="18" height="18" viewBox="0 0 18 18" fill="none">
@@ -51,40 +41,20 @@ export default async function LoginPage({
         </div>
 
         <p className="mb-1 text-[16px] font-semibold tracking-[-0.02em]">
-          Sign in to your account
+          Reset your password
         </p>
-        <p className="mb-5 text-[12px] text-fg-2">
-          Internal staff access only.
+        <p className="mb-5 text-[12px] leading-[1.5] text-fg-2">
+          Enter your work email and we&apos;ll send a recovery link. The
+          link expires after 60 minutes.
         </p>
 
-        {resetSuccess ? (
-          <div className="mb-4 rounded-md border border-success/35 bg-success/10 px-3 py-2 text-[11.5px] leading-[1.5] text-success">
-            Password updated. Sign in with your new password to continue.
-          </div>
-        ) : null}
-        {resetError ? (
-          <div className="mb-4 rounded-md border border-destructive/40 bg-destructive/10 px-3 py-2 text-[11.5px] leading-[1.5] text-destructive">
-            {resetError === "missing_code"
-              ? "That recovery link was malformed. Request a fresh one below."
-              : resetError === "expired"
-                ? "Recovery link expired or already used. Request a fresh one below."
-                : "We couldn't sign you in via that recovery link. Request a fresh one below."}
-          </div>
-        ) : null}
-
-        <LoginForm />
-
-        <div className="mt-4 text-center text-[11.5px]">
-          <a href="/login/forgot" className="text-primary hover:underline">
-            Forgot your password?
-          </a>
-        </div>
+        <ForgotPasswordForm />
 
         <div className="mt-6 border-t border-border pt-4 text-center text-[11.5px] text-fg-2">
-          Having trouble?{" "}
-          <a href="mailto:editorial@unionmedia.news" className="text-primary hover:underline">
-            Contact IT support
-          </a>
+          Remembered it?{" "}
+          <Link href="/login" className="text-primary hover:underline">
+            Back to sign in
+          </Link>
         </div>
       </div>
 

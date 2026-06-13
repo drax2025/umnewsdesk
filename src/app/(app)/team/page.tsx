@@ -5,6 +5,7 @@ import { NameCell, RoleCell } from "@/components/forms/team-cells";
 import {
   DeleteMemberButton,
   InviteMemberButton,
+  SendPasswordResetButton,
 } from "@/components/forms/team-crud";
 
 export const dynamic = "force-dynamic";
@@ -201,11 +202,17 @@ export default async function TeamPage() {
                     </td>
                     <td className="px-3 py-2.5 text-right">
                       {canManage ? (
-                        <DeleteMemberButton
-                          id={p.id}
-                          name={p.full_name ?? email ?? "this member"}
-                          disabled={isMe}
-                        />
+                        <div className="flex items-center justify-end gap-1.5">
+                          <SendPasswordResetButton
+                            id={p.id}
+                            name={p.full_name ?? email ?? "this member"}
+                          />
+                          <DeleteMemberButton
+                            id={p.id}
+                            name={p.full_name ?? email ?? "this member"}
+                            disabled={isMe}
+                          />
+                        </div>
                       ) : null}
                     </td>
                   </tr>
