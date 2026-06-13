@@ -21,6 +21,10 @@ import {
 } from "@/lib/spec/stage13-corrections";
 import { logFailureEventInternal } from "@/lib/actions/failure-log";
 import { recordPublishedToInventory } from "@/lib/actions/inventory";
+import {
+  markdownToHtml,
+  markdownToInlineHtml,
+} from "@/lib/publish/markdown-to-html";
 
 /**
  * F8 Post-Publish server actions.
@@ -706,11 +710,22 @@ export async function publishArticle(
           ? (titleRow.wp_default_status as "draft" | "future")
           : "publish";
 
+    // The article body + standfirst are stored as markdown (DraftEditor
+    // saves md; email ingest converts inbound HTML to md). WordPress'
+    // `content` field expects HTML — so we render here, just before the
+    // network call, rather than mutating what's saved on the row. That
+    // keeps re-render idempotent and avoids any drift between what the
+    // editor sees in the dossier and what we ship.
+    const renderedContent = markdownToHtml(article.body);
+    const renderedExcerpt = article.standfirst
+      ? markdownToInlineHtml(article.standfirst)
+      : null;
+
     const res = await pushToWordPress({
       title: article.headline,
       slug: slugOverride ?? article.slug,
-      content: article.body ?? "",
-      excerpt: article.standfirst,
+      content: renderedContent,
+      excerpt: renderedExcerpt,
       status: effectiveStatus,
       post_date: article.backdate
         ? new Date(`${article.backdate}T07:00:00Z`).toISOString()
@@ -911,9 +926,12 @@ export async function republishWithApprovedCorrections(
     }>();
 
   const corrections = correctionsRaw ?? [];
-  const composedBody = applyApprovedCorrections(
-    article.body ?? "",
-    corrections,
+  // applyApprovedCorrections appends markdown blocks (the "[CORRECTION]:"
+  // notice strings live in stage13-corrections as markdown). Convert the
+  // whole composed body once here so the PATCH to WP carries HTML, same
+  // as the initial publish path.
+  const composedBody = markdownToHtml(
+    applyApprovedCorrections(article.body ?? "", corrections),
   );
   // Retraction takes the WP post out of public circulation (kept in archive).
   const wpStatus: "publish" | "draft" = hasApprovedRetraction(corrections)
