@@ -364,12 +364,12 @@ export default async function CandidateInboxPage({
                 <thead>
                   <tr>
                     <Th>ID</Th>
-                    <Th>Working Headline</Th>
+                    <Th className="w-[260px]">Working Headline</Th>
                     <Th className="w-[56px]">Image</Th>
                     <Th>Source</Th>
                     <Th>Surfaced</Th>
                     <Th>Layer</Th>
-                    <Th>Stream</Th>
+                    <Th className="w-[110px]">Stream</Th>
                     <Th>Dedup</Th>
                     <Th>Verify</Th>
                     <Th>Triage</Th>
@@ -390,7 +390,7 @@ export default async function CandidateInboxPage({
                         <td className="whitespace-nowrap px-3 py-2.5 font-mono text-[11px] font-semibold tabular-nums text-foreground">
                           {c.code}
                         </td>
-                        <td className="max-w-[440px] px-3 py-2.5">
+                        <td className="w-[260px] max-w-[260px] px-3 py-2.5">
                           <div className="flex items-start gap-1.5">
                             {c.kind === "email" ? (
                               <Mail
@@ -439,8 +439,10 @@ export default async function CandidateInboxPage({
                             {c.layer}
                           </span>
                         </td>
-                        <td className="whitespace-nowrap px-3 py-2.5 text-[11.5px] text-fg-2">
-                          {stream?.name ?? "—"}
+                        <td className="w-[110px] max-w-[110px] px-3 py-2.5 text-[11.5px] text-fg-2">
+                          <span className="block truncate" title={stream?.name ?? undefined}>
+                            {stream?.name ?? "—"}
+                          </span>
                         </td>
                         <td className="px-3 py-2.5 text-[11px]">
                           <span
