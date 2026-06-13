@@ -2,9 +2,79 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Lock } from "lucide-react";
+import type { LucideIcon } from "lucide-react";
+import {
+  Activity,
+  AlertTriangle,
+  Building2,
+  Calendar,
+  CheckSquare,
+  ClipboardList,
+  Clock,
+  Cog,
+  Columns3,
+  FileText,
+  FileWarning,
+  Grid2x2,
+  Inbox,
+  LayoutGrid,
+  Library,
+  ListTodo,
+  Lock,
+  Newspaper,
+  Package,
+  ScrollText,
+  Search,
+  Settings,
+  ShieldAlert,
+  Siren,
+  Sparkles,
+  TestTube2,
+  Users,
+  Workflow,
+} from "lucide-react";
+import type { NavIconName } from "@/components/shell/nav-config";
 import type { SidebarNavSection } from "@/lib/shell/get-nav-for-role";
 import { cn } from "@/lib/utils";
+
+/**
+ * iconName → component map. Lives here (in the client component) on
+ * purpose: the server-side nav resolver passes only serialisable data
+ * (strings, plain objects) across the RSC boundary, then this map
+ * resolves the actual React component on render. Passing the component
+ * reference itself from server → client trips Next 16's
+ * "Functions cannot be passed directly to Client Components" guard.
+ */
+const ICON_MAP: Record<NavIconName, LucideIcon> = {
+  Activity,
+  AlertTriangle,
+  Building2,
+  Calendar,
+  CheckSquare,
+  ClipboardList,
+  Clock,
+  Cog,
+  Columns3,
+  FileText,
+  FileWarning,
+  Grid2x2,
+  Inbox,
+  LayoutGrid,
+  Library,
+  ListTodo,
+  Lock,
+  Newspaper,
+  Package,
+  ScrollText,
+  Search,
+  Settings,
+  ShieldAlert,
+  Siren,
+  Sparkles,
+  TestTube2,
+  Users,
+  Workflow,
+};
 
 type Props = {
   user: {
@@ -43,7 +113,7 @@ export function AppSidebar({ user, sections }: Props) {
               {section.label}
             </div>
             {section.items.map((item) => {
-              const Icon = item.icon;
+              const Icon = ICON_MAP[item.iconName];
               const active =
                 item.href === "/"
                   ? pathname === "/"
