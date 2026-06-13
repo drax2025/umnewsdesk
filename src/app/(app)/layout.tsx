@@ -36,20 +36,31 @@ export default async function AppLayout({
 
   if (!user) redirect("/login");
 
-  const { data: profile } = await supabase
-    .from("profiles")
-    .select("full_name, role")
-    .eq("id", user.id)
-    .single();
+  // Profile fetch is best-effort — if the row is missing we still render
+  // the shell with sensible fallbacks rather than 500 the whole app.
+  let profileFullName: string | null = null;
+  let profileRoleRaw: string | null = null;
+  try {
+    const { data: profile } = await supabase
+      .from("profiles")
+      .select("full_name, role")
+      .eq("id", user.id)
+      .single<{ full_name: string | null; role: string | null }>();
+    profileFullName = profile?.full_name ?? null;
+    profileRoleRaw = profile?.role ?? null;
+  } catch (err) {
+    console.warn("[(app) layout] profile lookup failed:", err);
+  }
 
-  const fullName = profile?.full_name ?? user.email ?? "User";
-  const role: Role = asRole(profile?.role ?? null);
+  const fullName = profileFullName ?? user.email ?? "User";
+  const role: Role = asRole(profileRoleRaw);
   const roleLabel = ROLE_LABEL[role];
-  const initials = initialsFromName(profile?.full_name, user.email ?? "U");
+  const initials = initialsFromName(profileFullName, user.email ?? "U");
 
   // Resolve the visible nav for this role. Items the role can't access are
   // dropped; read-only items stay in the list with an accessLevel flag the
-  // sidebar uses to render a small lock badge.
+  // sidebar uses to render a small lock badge. getNavForRole has its own
+  // fallback wrapper so this await cannot throw.
   const navSections = await getNavForRole(role);
 
   return (

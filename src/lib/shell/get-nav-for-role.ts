@@ -34,7 +34,32 @@ export type SidebarNavSection = {
   items: SidebarNavItem[];
 };
 
+function fullAccessSections(): SidebarNavSection[] {
+  return NAV_SECTIONS.map((s) => ({
+    label: s.label,
+    items: s.items.map((i) => ({ ...i, accessLevel: "full" as const })),
+  }));
+}
+
 export async function getNavForRole(
+  role: Role | null,
+): Promise<SidebarNavSection[]> {
+  // Belt-and-braces wrapper. The (app) layout cannot recover from a throw
+  // here — Next route-segment error boundaries don't catch errors raised
+  // by their own layout, so a stray exception turns into a generic 500
+  // for every page in the editorial app. If anything below misbehaves we
+  // fall back to "show everything as full access" rather than blank-out
+  // the entire UI; the per-page server-side role gates still enforce the
+  // security boundary.
+  try {
+    return await getNavForRoleInner(role);
+  } catch (err) {
+    console.error("[getNavForRole] falling back to full-access nav", err);
+    return fullAccessSections();
+  }
+}
+
+async function getNavForRoleInner(
   role: Role | null,
 ): Promise<SidebarNavSection[]> {
   // No role / unauth case: render the nav as if the user were a viewer.
@@ -44,10 +69,7 @@ export async function getNavForRole(
 
   // Senior Editor always sees everything — skip the DB hop entirely.
   if (effective === "senior_editor") {
-    return NAV_SECTIONS.map((s) => ({
-      ...s,
-      items: s.items.map((i) => ({ ...i, accessLevel: "full" as const })),
-    }));
+    return fullAccessSections();
   }
 
   // Pull just the rows for the caller's role. Small table (~100 rows total),
@@ -56,16 +78,29 @@ export async function getNavForRole(
   let permissionMap: Map<string, AccessLevel> | null = null;
   try {
     const admin = createServiceClient();
-    const { data } = await admin
+    const { data, error } = await admin
       .from("role_menu_permissions")
       .select("menu_key, access")
       .eq("role", effective)
       .returns<Array<{ menu_key: string; access: AccessLevel }>>();
-    if (data) {
+    if (error) {
+      // Most commonly: migration 0034 hasn't been applied in this env yet.
+      // Don't throw — fall through to DEFAULT_PERMISSIONS so the app still
+      // boots while the publisher applies the migration.
+      console.warn(
+        "[getNavForRole] role_menu_permissions query failed, using defaults:",
+        error.message,
+      );
+      permissionMap = null;
+    } else if (data) {
       permissionMap = new Map(data.map((r) => [r.menu_key, r.access]));
     }
-  } catch {
-    // Table missing / network blip — fall through to DEFAULT_PERMISSIONS.
+  } catch (err) {
+    // Service client constructor throw (missing env var) or network blip.
+    console.warn(
+      "[getNavForRole] permission lookup threw, using defaults:",
+      err,
+    );
     permissionMap = null;
   }
 
@@ -78,7 +113,7 @@ export async function getNavForRole(
       survivingItems.push({ ...item, accessLevel });
     }
     if (survivingItems.length > 0) {
-      out.push({ ...section, items: survivingItems });
+      out.push({ label: section.label, items: survivingItems });
     }
   }
   return out;
