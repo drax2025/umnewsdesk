@@ -72,6 +72,15 @@ export const NAV_SECTIONS: NavSection[] = [
     ],
   },
   {
+    label: "Discovery",
+    items: [
+      { key: "discovery_overview", label: "Discovery Overview", href: "/discovery", iconName: "Search" },
+      { key: "candidate_inbox", label: "Candidate Inbox", href: "/discovery/inbox", iconName: "Inbox" },
+      { key: "ops_rr_queue", label: "OPS-RR Queue", href: "/discovery/ops-rr", iconName: "AlertTriangle" },
+      { key: "sweep_run_detail", label: "Sweep Run Detail", href: "/discovery/sweeps", iconName: "Clock" },
+    ],
+  },
+  {
     label: "Editorial",
     items: [
       { key: "pipeline", label: "Pipeline", href: "/pipeline", iconName: "Workflow" },
@@ -94,15 +103,6 @@ export const NAV_SECTIONS: NavSection[] = [
       { key: "d0_escalation", label: "D0 Escalation [ESC]", href: "/queues/escalation", iconName: "Siren" },
       { key: "team", label: "Team", href: "/team", iconName: "Users" },
       { key: "press_agencies", label: "Press Agencies", href: "/team/agencies", iconName: "Building2" },
-    ],
-  },
-  {
-    label: "Discovery",
-    items: [
-      { key: "discovery_overview", label: "Discovery Overview", href: "/discovery", iconName: "Search" },
-      { key: "candidate_inbox", label: "Candidate Inbox", href: "/discovery/inbox", iconName: "Inbox" },
-      { key: "ops_rr_queue", label: "OPS-RR Queue", href: "/discovery/ops-rr", iconName: "AlertTriangle" },
-      { key: "sweep_run_detail", label: "Sweep Run Detail", href: "/discovery/sweeps", iconName: "Clock" },
     ],
   },
   {
