@@ -3,6 +3,7 @@ import { Clock, Mail, Paperclip } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { cn } from "@/lib/utils";
 import { AutoSubmitSelect } from "@/components/forms/auto-submit-select";
+import { InboxRightPanel } from "@/components/discovery/inbox-right-panel";
 import {
   dismissCandidate,
   escalateCandidateToOpsRr,
@@ -126,10 +127,59 @@ function fmtTime(iso: string): string {
   return new Date(iso).toLocaleTimeString("en-GB", { hour12: false }).slice(0, 5);
 }
 
+/**
+ * Columns the operator can sort by from the table header. F1 / Image /
+ * Actions are excluded because they're either composite UI or have no
+ * meaningful ordering. Default is surfaced_at desc — newest first,
+ * matching the Supabase query order.
+ */
+type SortColumn =
+  | "code"
+  | "working_headline"
+  | "source"
+  | "surfaced_at"
+  | "layer"
+  | "stream"
+  | "dedup_state"
+  | "verification_state"
+  | "triage_state"
+  | "score";
+
+type SortDir = "asc" | "desc";
+
+const SORTABLE_COLUMNS: ReadonlySet<SortColumn> = new Set<SortColumn>([
+  "code",
+  "working_headline",
+  "source",
+  "surfaced_at",
+  "layer",
+  "stream",
+  "dedup_state",
+  "verification_state",
+  "triage_state",
+  "score",
+]);
+
+const DEFAULT_SORT: SortColumn = "surfaced_at";
+const DEFAULT_DIR: SortDir = "desc";
+
+/** Sensible default direction per column — score and surfaced_at start desc. */
+function defaultDirFor(col: SortColumn): SortDir {
+  return col === "score" || col === "surfaced_at" ? "desc" : "asc";
+}
+
 export default async function CandidateInboxPage({
   searchParams,
 }: {
-  searchParams: Promise<{ state?: string; layer?: string; stream?: string; verified?: string; q?: string }>;
+  searchParams: Promise<{
+    state?: string;
+    layer?: string;
+    stream?: string;
+    verified?: string;
+    q?: string;
+    sort?: string;
+    dir?: string;
+  }>;
 }) {
   const sp = await searchParams;
   const activeState = sp.state ?? "all";
@@ -137,6 +187,10 @@ export default async function CandidateInboxPage({
   const activeStream = sp.stream ?? "";
   const activeVerified = sp.verified ?? "";
   const q = sp.q ?? "";
+  const activeSort: SortColumn = SORTABLE_COLUMNS.has(sp.sort as SortColumn)
+    ? (sp.sort as SortColumn)
+    : DEFAULT_SORT;
+  const activeDir: SortDir = sp.dir === "asc" || sp.dir === "desc" ? sp.dir : DEFAULT_DIR;
 
   const supabase = await createClient();
   const [candRes, streamsRes, sourcesRes, sweepsRes, opsRes, titlesRes] =
@@ -203,6 +257,52 @@ export default async function CandidateInboxPage({
     );
   }
 
+  // Sort the filtered set. Nulls always sink to the bottom regardless of
+  // direction — an unscored candidate at the top of "score asc" would be
+  // surprising. localeCompare gets {numeric:true} so codes like DC-006501
+  // sort by their numeric tail rather than lexicographically.
+  function getSortKey(c: CandidateRow, col: SortColumn): string | number | null {
+    switch (col) {
+      case "code":
+        return c.code;
+      case "working_headline":
+        return c.working_headline.toLowerCase();
+      case "source":
+        return (
+          c.raw?.agency_name ??
+          (c.source_id ? sourceMap.get(c.source_id)?.name : null) ??
+          ""
+        ).toLowerCase();
+      case "surfaced_at":
+        return c.surfaced_at;
+      case "layer":
+        return c.layer;
+      case "stream":
+        return (
+          (c.stream_id ? streamMap.get(c.stream_id)?.name : null) ?? ""
+        ).toLowerCase();
+      case "dedup_state":
+        return c.dedup_state;
+      case "verification_state":
+        return c.verification_state;
+      case "triage_state":
+        return c.triage_state;
+      case "score":
+        return c.score;
+    }
+  }
+
+  const sortMul = activeDir === "asc" ? 1 : -1;
+  filtered = [...filtered].sort((a, b) => {
+    const av = getSortKey(a, activeSort);
+    const bv = getSortKey(b, activeSort);
+    if (av === null && bv === null) return 0;
+    if (av === null) return 1; // nulls last
+    if (bv === null) return -1;
+    if (typeof av === "number" && typeof bv === "number") return (av - bv) * sortMul;
+    return String(av).localeCompare(String(bv), undefined, { numeric: true }) * sortMul;
+  });
+
   // Route summary numbers
   const readyCount = cands.filter((c) => c.triage_state === "ready").length;
   const heldDup = cands.filter((c) => c.triage_state === "held_dedup").length;
@@ -232,6 +332,26 @@ export default async function CandidateInboxPage({
       ? readyScores.reduce((a, c) => a + Number(c.score), 0) / readyScores.length
       : 0;
 
+  // Pre-format time-sensitive labels for the right panel — keeps the
+  // client component a pure presentation surface and avoids hydration
+  // mismatches around Date.now().
+  const oldestReadyLabel = oldestReady ? relTime(oldestReady) : null;
+  const avgScoreLabel = avgScore ? `${avgScore.toFixed(1)}/22` : "—";
+  const lastSweepCode = sweeps.length > 0 ? (sweeps[0]?.code ?? null) : null;
+
+  // Sort/filter preservation helpers. Sort gets dropped from the URL
+  // when it matches the default so a "fresh" inbox link stays clean.
+  const sortIsDefault = activeSort === DEFAULT_SORT && activeDir === DEFAULT_DIR;
+  const sortPreserve: { sort?: string; dir?: string } = sortIsDefault
+    ? {}
+    : { sort: activeSort, dir: activeDir };
+  const filterPreserveParams = new URLSearchParams();
+  if (activeState !== "all") filterPreserveParams.set("state", activeState);
+  if (activeLayer) filterPreserveParams.set("layer", activeLayer);
+  if (activeStream) filterPreserveParams.set("stream", activeStream);
+  if (activeVerified) filterPreserveParams.set("verified", activeVerified);
+  if (q) filterPreserveParams.set("q", q);
+
   return (
     <div className="flex h-full flex-col">
       {/* Filter bar */}
@@ -249,6 +369,8 @@ export default async function CandidateInboxPage({
             if (activeStream) params.set("stream", activeStream);
             if (activeVerified) params.set("verified", activeVerified);
             if (q) params.set("q", q);
+            if (sortPreserve.sort) params.set("sort", sortPreserve.sort);
+            if (sortPreserve.dir) params.set("dir", sortPreserve.dir);
             const href = params.toString()
               ? `/discovery/inbox?${params.toString()}`
               : "/discovery/inbox";
@@ -288,6 +410,8 @@ export default async function CandidateInboxPage({
             stream: activeStream || undefined,
             verified: activeVerified || undefined,
             q: q || undefined,
+            sort: sortPreserve.sort,
+            dir: sortPreserve.dir,
           }}
           options={[
             { value: "", label: "Layer — All" },
@@ -307,6 +431,8 @@ export default async function CandidateInboxPage({
             layer: activeLayer || undefined,
             verified: activeVerified || undefined,
             q: q || undefined,
+            sort: sortPreserve.sort,
+            dir: sortPreserve.dir,
           }}
           options={[
             { value: "", label: "Stream — All" },
@@ -323,6 +449,8 @@ export default async function CandidateInboxPage({
             layer: activeLayer || undefined,
             stream: activeStream || undefined,
             q: q || undefined,
+            sort: sortPreserve.sort,
+            dir: sortPreserve.dir,
           }}
           options={[
             { value: "", label: "Verification — All" },
@@ -341,6 +469,12 @@ export default async function CandidateInboxPage({
           {activeLayer ? <input type="hidden" name="layer" value={activeLayer} /> : null}
           {activeStream ? <input type="hidden" name="stream" value={activeStream} /> : null}
           {activeVerified ? <input type="hidden" name="verified" value={activeVerified} /> : null}
+          {sortPreserve.sort ? (
+            <input type="hidden" name="sort" value={sortPreserve.sort} />
+          ) : null}
+          {sortPreserve.dir ? (
+            <input type="hidden" name="dir" value={sortPreserve.dir} />
+          ) : null}
           <input
             name="q"
             defaultValue={q}
@@ -363,18 +497,82 @@ export default async function CandidateInboxPage({
               <table className="w-full border-collapse">
                 <thead>
                   <tr>
-                    <Th>ID</Th>
-                    <Th className="w-[260px]">Working Headline</Th>
+                    <SortHeader
+                      column="code"
+                      label="ID"
+                      activeSort={activeSort}
+                      activeDir={activeDir}
+                      preserve={filterPreserveParams}
+                    />
+                    <SortHeader
+                      column="working_headline"
+                      label="Working Headline"
+                      className="w-[260px]"
+                      activeSort={activeSort}
+                      activeDir={activeDir}
+                      preserve={filterPreserveParams}
+                    />
                     <Th className="w-[56px]">Image</Th>
-                    <Th>Source</Th>
-                    <Th>Surfaced</Th>
-                    <Th>Layer</Th>
-                    <Th className="w-[110px]">Stream</Th>
-                    <Th>Dedup</Th>
-                    <Th>Verify</Th>
-                    <Th>Triage</Th>
+                    <SortHeader
+                      column="source"
+                      label="Source"
+                      activeSort={activeSort}
+                      activeDir={activeDir}
+                      preserve={filterPreserveParams}
+                    />
+                    <SortHeader
+                      column="surfaced_at"
+                      label="Surfaced"
+                      activeSort={activeSort}
+                      activeDir={activeDir}
+                      preserve={filterPreserveParams}
+                    />
+                    <SortHeader
+                      column="layer"
+                      label="Layer"
+                      activeSort={activeSort}
+                      activeDir={activeDir}
+                      preserve={filterPreserveParams}
+                    />
+                    <SortHeader
+                      column="stream"
+                      label="Stream"
+                      className="w-[110px]"
+                      activeSort={activeSort}
+                      activeDir={activeDir}
+                      preserve={filterPreserveParams}
+                    />
+                    <SortHeader
+                      column="dedup_state"
+                      label="Dedup"
+                      activeSort={activeSort}
+                      activeDir={activeDir}
+                      preserve={filterPreserveParams}
+                    />
+                    <SortHeader
+                      column="verification_state"
+                      label="Verify"
+                      activeSort={activeSort}
+                      activeDir={activeDir}
+                      preserve={filterPreserveParams}
+                    />
+                    <SortHeader
+                      column="triage_state"
+                      label="Triage"
+                      activeSort={activeSort}
+                      activeDir={activeDir}
+                      preserve={filterPreserveParams}
+                    />
                     <Th>F1</Th>
-                    <Th className="text-right">Score</Th>
+                    <SortHeader
+                      column="score"
+                      label="Score"
+                      className="text-right"
+                      alignRight
+                      activeSort={activeSort}
+                      activeDir={activeDir}
+                      preserve={filterPreserveParams}
+                    />
                     <Th className="text-right">Actions</Th>
                   </tr>
                 </thead>
@@ -513,173 +711,22 @@ export default async function CandidateInboxPage({
           </div>
         </div>
 
-        {/* Route Summary */}
-        <aside className="hidden w-[300px] flex-shrink-0 flex-col overflow-y-auto border-l border-border bg-card lg:flex">
-          <div className="flex items-center justify-between border-b border-border px-4 py-2.5">
-            <span className="text-[10.5px] font-semibold uppercase tracking-[0.07em] text-um-muted">
-              Route Summary
-            </span>
-          </div>
-
-          <div className="space-y-2 px-4 py-3">
-            <RouteCard
-              value={readyCount}
-              tone="success"
-              label="Ready for F1 Triage"
-              sub={
-                oldestReady
-                  ? `Passed verification + dedup check. Oldest: ${relTime(oldestReady)}.`
-                  : "Passed verification + dedup check."
-              }
-              href="/discovery/inbox?state=ready"
-            />
-            <RouteCard
-              value={heldDup}
-              tone="warn"
-              label="Held — Duplicate"
-              sub="Similar story already in pipeline (within 72h window)."
-              href="/discovery/inbox?state=held_dedup"
-            />
-            <RouteCard
-              value={heldSource}
-              tone="hold"
-              label="Held — Source Issue"
-              sub="Primary URL unverified or source flagged with active OPS-RR."
-              href="/discovery/inbox?state=held_source"
-            />
-            <RouteCard
-              value={pointer}
-              tone="muted"
-              label="Parked — Pointer Only"
-              sub="No primary content. Signal logged for reference."
-              href="/discovery/inbox?state=pointer"
-            />
-            <RouteCard
-              value={needsReview}
-              tone="danger"
-              label="Needs Review"
-              sub="Flagged by operator or schema mismatch — requires manual check."
-              href="/discovery/inbox?state=needs_review"
-            />
-          </div>
-
-          <div className="border-t border-border px-4 py-3">
-            <StatRow k="Acceptance rate" v={`${acceptanceRate.toFixed(1)}%`} tone="success" />
-            <StatRow k="Dedup hold rate" v={`${dedupRate.toFixed(1)}%`} tone="warn" />
-            <StatRow
-              k="Oldest in queue"
-              v={oldestReady ? relTime(oldestReady) : "—"}
-              tone={oldestReady ? "warn" : undefined}
-            />
-            <StatRow k="Avg score (ready)" v={avgScore ? `${avgScore.toFixed(1)}/22` : "—"} />
-            <StatRow
-              k="Last sweep"
-              v={
-                sweeps.length > 0 ? (
-                  <Link href="/discovery/sweeps" className="text-primary hover:underline">
-                    {sweeps[0]?.code ?? "—"}
-                  </Link>
-                ) : (
-                  "—"
-                )
-              }
-            />
-          </div>
-
-          <div className="border-t border-border px-4 py-3">
-            <div className="mb-2 flex items-center justify-between">
-              <span className="text-[10.5px] font-semibold uppercase tracking-[0.07em] text-um-muted">
-                Open OPS-RR
-              </span>
-              <span className="font-mono text-[10px] text-warn">{openOps.length} open</span>
-            </div>
-            {openOps.length === 0 ? (
-              <p className="text-[11px] italic text-um-muted">No open issues.</p>
-            ) : (
-              <ul className="space-y-2">
-                {openOps.map((o) => (
-                  <li key={o.code} className="flex items-start gap-2">
-                    <span className="flex-shrink-0 pt-0.5 font-mono text-[10px] font-semibold text-warn">
-                      {o.code}
-                    </span>
-                    <span className="text-[11px] leading-[1.4] text-fg-2">{o.description}</span>
-                  </li>
-                ))}
-              </ul>
-            )}
-            <Link
-              href="/discovery/ops-rr"
-              className="mt-3 block text-[11px] font-medium text-primary hover:underline"
-            >
-              View full OPS-RR queue →
-            </Link>
-          </div>
-        </aside>
+        {/* Route Summary — collapsible client panel. Reads time-sensitive
+            labels as plain strings so SSR and first paint agree. */}
+        <InboxRightPanel
+          readyCount={readyCount}
+          heldDup={heldDup}
+          heldSource={heldSource}
+          pointer={pointer}
+          needsReview={needsReview}
+          oldestReadyLabel={oldestReadyLabel}
+          acceptanceRate={acceptanceRate}
+          dedupRate={dedupRate}
+          avgScoreLabel={avgScoreLabel}
+          lastSweepCode={lastSweepCode}
+          openOps={openOps.map((o) => ({ code: o.code, description: o.description }))}
+        />
       </div>
-    </div>
-  );
-}
-
-function RouteCard({
-  value,
-  tone,
-  label,
-  sub,
-  href,
-}: {
-  value: number;
-  tone: "success" | "warn" | "hold" | "muted" | "danger";
-  label: string;
-  sub: string;
-  href: string;
-}) {
-  const valClass =
-    tone === "success"
-      ? "text-success"
-      : tone === "warn"
-        ? "text-warn"
-        : tone === "danger"
-          ? "text-destructive"
-          : tone === "hold"
-            ? "text-state-legal"
-            : "text-um-muted";
-  return (
-    <Link
-      href={href}
-      className="block rounded-md border border-border bg-background p-3 transition-colors hover:border-border-mid"
-    >
-      <div className="mb-1 flex items-baseline gap-2">
-        <span className={cn("font-mono text-[20px] font-semibold leading-none tabular-nums", valClass)}>
-          {value}
-        </span>
-      </div>
-      <div className="text-[11.5px] font-medium text-foreground">{label}</div>
-      <div className="mt-0.5 text-[10.5px] leading-[1.4] text-um-muted">{sub}</div>
-    </Link>
-  );
-}
-
-function StatRow({
-  k,
-  v,
-  tone,
-}: {
-  k: string;
-  v: string | React.ReactNode;
-  tone?: "success" | "warn" | "danger";
-}) {
-  const c =
-    tone === "success"
-      ? "text-success"
-      : tone === "warn"
-        ? "text-warn"
-        : tone === "danger"
-          ? "text-destructive"
-          : "text-fg-2";
-  return (
-    <div className="flex items-center gap-2 border-b border-border py-1.5 text-[11.5px] last:border-b-0">
-      <span className="flex-1 text-um-muted">{k}</span>
-      <span className={cn("font-mono font-medium tabular-nums", c)}>{v}</span>
     </div>
   );
 }
@@ -973,5 +1020,85 @@ function Th({ children, className }: { children: React.ReactNode; className?: st
     >
       {children}
     </th>
+  );
+}
+
+/**
+ * Sortable table header. Renders a Link that toggles direction when
+ * clicked on the active column, or jumps to the column's natural
+ * default direction when activating a new column. Default sort
+ * (surfaced_at desc) stays out of the URL so /discovery/inbox keeps
+ * its clean canonical form.
+ *
+ * `preserve` carries all current filter params; we copy it and append
+ * sort+dir so a sort choice doesn't blow away the filter state.
+ */
+function SortHeader({
+  column,
+  label,
+  activeSort,
+  activeDir,
+  preserve,
+  className,
+  alignRight,
+}: {
+  column: SortColumn;
+  label: string;
+  activeSort: SortColumn;
+  activeDir: SortDir;
+  preserve: URLSearchParams;
+  className?: string;
+  alignRight?: boolean;
+}) {
+  const isActive = activeSort === column;
+  const nextDir: SortDir = isActive
+    ? activeDir === "asc"
+      ? "desc"
+      : "asc"
+    : defaultDirFor(column);
+
+  const params = new URLSearchParams(preserve);
+  const isDefault = column === DEFAULT_SORT && nextDir === DEFAULT_DIR;
+  if (isDefault) {
+    params.delete("sort");
+    params.delete("dir");
+  } else {
+    params.set("sort", column);
+    params.set("dir", nextDir);
+  }
+  const qs = params.toString();
+  const href = qs ? `/discovery/inbox?${qs}` : "/discovery/inbox";
+
+  // Glyphs: filled arrow on active column, muted ↕ on inactive ones.
+  const indicator = isActive ? (activeDir === "asc" ? "▲" : "▼") : "↕";
+
+  return (
+    <Th className={className}>
+      <Link
+        href={href}
+        scroll={false}
+        title={
+          isActive
+            ? `Sorted ${activeDir === "asc" ? "ascending" : "descending"} — click to flip`
+            : `Sort by ${label.toLowerCase()}`
+        }
+        className={cn(
+          "inline-flex items-center gap-1 transition-colors hover:text-foreground",
+          alignRight && "w-full justify-end",
+          isActive && "text-foreground",
+        )}
+      >
+        <span>{label}</span>
+        <span
+          aria-hidden
+          className={cn(
+            "font-mono text-[9px] leading-none tabular-nums",
+            isActive ? "text-primary" : "text-um-muted/60",
+          )}
+        >
+          {indicator}
+        </span>
+      </Link>
+    </Th>
   );
 }
