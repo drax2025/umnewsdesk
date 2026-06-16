@@ -98,18 +98,28 @@ function nextCode(prefix: string, last: string | null): string {
 export async function commissionFromCandidate(formData: FormData) {
   const candidateId = String(formData.get("candidate_id") ?? "");
   const titleIdRaw = String(formData.get("title_id") ?? "").trim();
-  if (!candidateId) return;
+  if (!candidateId) {
+    console.warn("[commissioning] commissionFromCandidate rejected: missing candidate_id");
+    return;
+  }
 
   const supabase = await createClient();
 
-  const { data: cand } = await supabase
+  const { data: cand, error: candErr } = await supabase
     .from("candidates")
     .select(
       "id, working_headline, source_id, layer, summary, primary_url, author, published_at, body_text",
     )
     .eq("id", candidateId)
     .single();
-  if (!cand) return;
+  if (candErr || !cand) {
+    console.error("[commissioning] candidate lookup failed", { candidateId, candErr });
+    throw new Error(
+      `Could not read candidate ${candidateId} (${candErr?.code ?? "not_found"}): ${
+        candErr?.message ?? "no row matched"
+      }`,
+    );
+  }
 
   // Title selection:
   //   1. If the form supplied a title_id, validate it's an active title.
@@ -141,7 +151,15 @@ export async function commissionFromCandidate(formData: FormData) {
       .maybeSingle<{ id: string }>();
     titleId = fallback?.id ?? null;
   }
-  if (!titleId) return;
+  if (!titleId) {
+    console.error("[commissioning] no active title found for commissioning", {
+      candidateId,
+      requestedTitle: titleIdRaw || null,
+    });
+    throw new Error(
+      "No active publication silo found. Activate at least one title under /system/titles before commissioning.",
+    );
+  }
 
   const { data: user } = await supabase.auth.getUser();
   const userId = user.user?.id ?? null;
@@ -170,7 +188,14 @@ export async function commissionFromCandidate(formData: FormData) {
     })
     .select("id")
     .single();
-  if (artErr || !article) return;
+  if (artErr || !article) {
+    console.error("[commissioning] article insert failed", { candidateId, titleId, artErr });
+    throw new Error(
+      `Could not create article (${artErr?.code ?? "?"}): ${
+        artErr?.message ?? "insert returned no row"
+      }. Most likely cause: signed-in user lacks editor/senior_editor role for RLS.`,
+    );
+  }
 
   // Next commission code
   const { data: lastComm } = await supabase
@@ -182,7 +207,7 @@ export async function commissionFromCandidate(formData: FormData) {
 
   const code = nextCode("COM", lastComm?.code ?? null);
 
-  const { data: newComm } = await supabase
+  const { data: newComm, error: commErr } = await supabase
     .from("commissions")
     .insert({
       code,
@@ -194,9 +219,21 @@ export async function commissionFromCandidate(formData: FormData) {
     })
     .select("id")
     .single();
+  if (commErr || !newComm) {
+    console.error("[commissioning] commission insert failed", {
+      candidateId,
+      articleId: article.id,
+      commErr,
+    });
+    throw new Error(
+      `Article ${article.id} was created but commission row failed (${
+        commErr?.code ?? "?"
+      }): ${commErr?.message ?? "no row returned"}`,
+    );
+  }
 
   revalidateAll();
-  if (newComm?.id) redirect(`/commissioning/${newComm.id}`);
+  if (newComm.id) redirect(`/commissioning/${newComm.id}`);
   redirect("/commissioning");
 }
 
