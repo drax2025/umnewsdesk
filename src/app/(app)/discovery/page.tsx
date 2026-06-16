@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
 import { cn } from "@/lib/utils";
+import { DiscoveryRightPanel } from "@/components/discovery/discovery-right-panel";
 
 export const dynamic = "force-dynamic";
 
@@ -110,19 +111,6 @@ function relTime(iso: string): string {
   if (h < 24) return `${h}h ago`;
   const d = Math.floor(h / 24);
   return `${d}d ago`;
-}
-
-function dayLabel(iso: string): string {
-  const d = new Date(iso);
-  const today = new Date();
-  const diff = Math.floor(
-    (Date.UTC(today.getFullYear(), today.getMonth(), today.getDate()) -
-      Date.UTC(d.getFullYear(), d.getMonth(), d.getDate())) /
-      86_400_000,
-  );
-  if (diff <= 0) return "Today";
-  if (diff === 1) return "Yesterday";
-  return `${diff} days ago`;
 }
 
 function pct(n: number, total: number): string {
@@ -349,100 +337,25 @@ export default async function DiscoveryOverviewPage() {
           </div>
         </div>
 
-        {/* RIGHT: recent runs + source health */}
-        <aside className="hidden w-[300px] flex-shrink-0 flex-col overflow-y-auto bg-card lg:flex xl:w-[340px]">
-          <RPanelHead title="Recent Runs" />
-          <ul>
-            {runs.map((r) => (
-              <li
-                key={r.id}
-                className="flex items-center gap-2 border-b border-border px-4 py-2 text-[12px] last:border-b-0"
-              >
-                <span className="font-mono text-[11.5px] font-semibold tabular-nums text-foreground">
-                  {r.code}
-                </span>
-                <span
-                  className={cn(
-                    "rounded-sm px-1.5 py-0.5 text-[9.5px] font-bold uppercase tracking-[0.06em]",
-                    r.slot === "am"
-                      ? "bg-state-legal/15 text-state-legal"
-                      : "bg-state-sub/15 text-state-sub",
-                  )}
-                >
-                  {r.slot}
-                </span>
-                <div className="flex min-w-0 flex-1 flex-col">
-                  <span className="font-mono text-[10.5px] tabular-nums text-fg-2">
-                    {fmtTime(r.started_at)}
-                  </span>
-                  <span className="text-[10px] text-um-muted">{dayLabel(r.started_at)}</span>
-                </div>
-                <div className="flex flex-col items-end gap-0.5">
-                  <span className="font-mono text-[10.5px] tabular-nums text-fg-2">
-                    {r.candidates_total} cands
-                  </span>
-                  <span
-                    className={cn(
-                      "text-[10px]",
-                      r.parse_failures + r.not_reached > 5
-                        ? "text-destructive"
-                        : r.parse_failures + r.not_reached > 0
-                          ? "text-warn"
-                          : "text-um-muted",
-                    )}
-                  >
-                    {r.parse_failures + r.not_reached} issues
-                  </span>
-                </div>
-                <span
-                  className={cn(
-                    "ml-2 rounded-sm border px-1 py-0.5 text-[9.5px] font-medium",
-                    SWEEP_BADGE[r.status],
-                  )}
-                  title={r.status}
-                >
-                  {r.status === "complete"
-                    ? "✓"
-                    : r.status === "running"
-                      ? "…"
-                      : r.status === "partial"
-                        ? "~"
-                        : "✕"}
-                </span>
-              </li>
-            ))}
-          </ul>
-
-          <RPanelHead title="Source Health" linkLabel="Monitor →" linkHref="/system/source-health" />
-          <div className="border-b border-border bg-background px-4 py-2 text-[10.5px]">
-            <div className="flex items-center gap-3">
-              <SrcLegend tone="ok" label="OK" count={healthOk} />
-              <SrcLegend tone="warn" label="Warn" count={healthWarn} />
-              <SrcLegend tone="fail" label="Critical" count={healthFail} />
-            </div>
-          </div>
-          <ul>
-            {sources.slice(0, 15).map((s) => (
-              <li
-                key={s.id}
-                className="flex items-center gap-2 border-b border-border px-4 py-2 text-[12px] last:border-b-0"
-              >
-                <span
-                  className={cn(
-                    "h-2 w-2 flex-shrink-0 rounded-full",
-                    s.status === "active" && "bg-success",
-                    s.status === "warning" && "bg-warn",
-                    (s.status === "critical" || s.status === "paused") && "bg-destructive",
-                  )}
-                />
-                <span className="min-w-0 flex-1 truncate text-fg-2">{s.name}</span>
-                <span className="font-mono text-[10.5px] uppercase tracking-wider text-um-muted">
-                  {s.code}
-                </span>
-              </li>
-            ))}
-          </ul>
-        </aside>
+        {/* RIGHT: collapsible panel — recent runs + source health.
+            Owns its own state (localStorage-persisted); we just feed
+            it serialisable data. */}
+        <DiscoveryRightPanel
+          runs={runs.map((r) => ({
+            id: r.id,
+            code: r.code,
+            slot: r.slot,
+            status: r.status,
+            started_at: r.started_at,
+            candidates_total: r.candidates_total,
+            parse_failures: r.parse_failures,
+            not_reached: r.not_reached,
+          }))}
+          sources={sources}
+          healthOk={healthOk}
+          healthWarn={healthWarn}
+          healthFail={healthFail}
+        />
       </div>
     </div>
   );
@@ -648,41 +561,6 @@ function Stat({
       >
         {value}
       </strong>
-    </span>
-  );
-}
-
-function RPanelHead({
-  title,
-  linkLabel,
-  linkHref,
-}: {
-  title: string;
-  linkLabel?: string;
-  linkHref?: string;
-}) {
-  return (
-    <div className="flex items-center justify-between border-b border-border bg-card px-4 py-2.5">
-      <span className="text-[10.5px] font-semibold uppercase tracking-[0.07em] text-um-muted">
-        {title}
-      </span>
-      {linkLabel && linkHref ? (
-        <Link href={linkHref} className="text-[10.5px] font-medium text-primary hover:underline">
-          {linkLabel}
-        </Link>
-      ) : null}
-    </div>
-  );
-}
-
-function SrcLegend({ tone, label, count }: { tone: "ok" | "warn" | "fail"; label: string; count: number }) {
-  const dot =
-    tone === "ok" ? "bg-success" : tone === "warn" ? "bg-warn" : "bg-destructive";
-  return (
-    <span className="flex items-center gap-1.5">
-      <span className={cn("h-1.5 w-1.5 rounded-full", dot)} />
-      <span className="text-um-muted">{label}</span>
-      <span className="font-mono tabular-nums text-fg-2">{count}</span>
     </span>
   );
 }
