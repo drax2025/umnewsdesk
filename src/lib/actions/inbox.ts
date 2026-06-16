@@ -52,13 +52,24 @@ function revalidateAll() {
 export async function setCandidateTriage(formData: FormData) {
   const id = String(formData.get("id") ?? "");
   const target = String(formData.get("target") ?? "") as TriageState;
-  if (!id || !VALID_STATES.includes(target)) return;
+  if (!id || !VALID_STATES.includes(target)) {
+    console.warn("[inbox] setCandidateTriage rejected", { id, target });
+    return;
+  }
 
   const supabase = await createClient();
-  await supabase
+  const { error } = await supabase
     .from("candidates")
     .update({ triage_state: target })
     .eq("id", id);
+  if (error) {
+    // Surface to Vercel logs + throw so the form action shows the
+    // failure rather than appearing to no-op. Common cause: the
+    // candidate_triage_state enum is missing a value (run the
+    // pending 0035_candidate_archived_state migration).
+    console.error("[inbox] setCandidateTriage failed", { id, target, error });
+    throw new Error(`Could not update candidate (${error.code ?? "?"}): ${error.message}`);
+  }
 
   revalidateAll();
 }
@@ -71,13 +82,26 @@ export async function setCandidateTriage(formData: FormData) {
  */
 export async function dismissCandidate(formData: FormData) {
   const id = String(formData.get("id") ?? "");
-  if (!id) return;
+  if (!id) {
+    console.warn("[inbox] dismissCandidate rejected: missing id");
+    return;
+  }
 
   const supabase = await createClient();
-  await supabase
+  const { error } = await supabase
     .from("candidates")
     .update({ triage_state: "archived" })
     .eq("id", id);
+  if (error) {
+    // Most likely failure mode here: the 0035_candidate_archived_state
+    // migration hasn't been applied yet, so Postgres rejects the
+    // 'archived' enum value. Throw so we don't pretend it worked.
+    console.error("[inbox] dismissCandidate failed", { id, error });
+    throw new Error(
+      `Could not archive candidate (${error.code ?? "?"}): ${error.message}. ` +
+        "If this is a fresh deploy, apply supabase/migrations/0035_candidate_archived_state.sql.",
+    );
+  }
 
   revalidateAll();
 }
