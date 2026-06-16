@@ -1,0 +1,24 @@
+-- ════════════════════════════════════════════════════════════════════════════
+-- 0035_candidate_archived_state.sql
+--
+-- Adds an `archived` triage state for candidates so the inbox Dismiss
+-- button has somewhere meaningful to send a story. Archived candidates
+-- stay in the table for audit but are hidden from the operator inbox
+-- by default; the existing status filter ("Archived" pill) is the
+-- escape hatch for reviewing them.
+--
+-- Why an enum value rather than a separate `archived_at` flag:
+--   - `triage_state` is already the single source of truth for inbox
+--     visibility — keeping the routing decision there keeps the
+--     filter queries cheap (existing candidates_triage_idx covers it).
+--   - The existing TriageActions UI dispatches off `triage_state`, so
+--     a new state slots in without a parallel branching path.
+--
+-- IMPORTANT: ADD VALUE cannot be used inside the same transaction
+-- block as a query that references the new value. Supabase Studio's
+-- SQL editor runs each statement separately so this works fine when
+-- pasted on its own, but if you chain it with other DDL in a single
+-- transaction be sure to commit before referencing 'archived'.
+-- ════════════════════════════════════════════════════════════════════════════
+
+alter type candidate_triage_state add value if not exists 'archived';

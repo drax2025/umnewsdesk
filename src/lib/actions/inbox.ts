@@ -11,7 +11,8 @@ type TriageState =
   | "needs_review"
   | "pointer"
   | "sent_to_f1"
-  | "escalated";
+  | "escalated"
+  | "archived";
 
 const VALID_STATES: TriageState[] = [
   "ready",
@@ -21,6 +22,7 @@ const VALID_STATES: TriageState[] = [
   "pointer",
   "sent_to_f1",
   "escalated",
+  "archived",
 ];
 
 const SEVERITIES = new Set(["p1", "p2", "p3"]);
@@ -61,6 +63,12 @@ export async function setCandidateTriage(formData: FormData) {
   revalidateAll();
 }
 
+/**
+ * Soft-delete from the operator inbox. The row stays in the table for
+ * audit + future analytics, but disappears from every default view.
+ * Reviewers can pull archived items back in via the "Archived" status
+ * pill and restore individual rows to `ready`.
+ */
 export async function dismissCandidate(formData: FormData) {
   const id = String(formData.get("id") ?? "");
   if (!id) return;
@@ -68,7 +76,7 @@ export async function dismissCandidate(formData: FormData) {
   const supabase = await createClient();
   await supabase
     .from("candidates")
-    .update({ triage_state: "pointer" })
+    .update({ triage_state: "archived" })
     .eq("id", id);
 
   revalidateAll();

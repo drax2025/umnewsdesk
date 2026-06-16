@@ -41,7 +41,8 @@ type CandidateRow = {
     | "needs_review"
     | "pointer"
     | "sent_to_f1"
-    | "escalated";
+    | "escalated"
+    | "archived";
   risk: "low" | "med" | "high";
   score: number | null;
   score_breakdown: ScoreBreakdown | null;
@@ -76,6 +77,7 @@ const TRIAGE_STATES: { state: string; label: string }[] = [
   { state: "needs_review", label: "Needs Review" },
   { state: "pointer", label: "Pointer" },
   { state: "sent_to_f1", label: "Sent to F1" },
+  { state: "archived", label: "Archived" },
 ];
 
 const TRIAGE_PILL: Record<string, string> = {
@@ -86,6 +88,7 @@ const TRIAGE_PILL: Record<string, string> = {
   pointer: "border-um-muted/35 bg-um-muted/10 text-um-muted",
   sent_to_f1: "border-state-comm/35 bg-state-comm/10 text-state-comm",
   escalated: "border-destructive/40 bg-destructive/15 text-destructive",
+  archived: "border-um-muted/40 bg-um-muted/15 text-um-muted",
 };
 
 const TRIAGE_LABEL: Record<string, string> = {
@@ -96,6 +99,7 @@ const TRIAGE_LABEL: Record<string, string> = {
   pointer: "Pointer",
   sent_to_f1: "Sent · F1",
   escalated: "Escalated",
+  archived: "Archived",
 };
 
 const DEDUP_LABEL: Record<string, string> = {
@@ -237,11 +241,17 @@ export default async function CandidateInboxPage({
   // eslint-disable-next-line react-hooks/purity
   const nowMs = Date.now();
 
-  const counts = new Map<string, number>([["all", cands.length]]);
+  // "All" intentionally excludes archived — Dismiss should remove the
+  // row from the operator's default working set. The dedicated
+  // "Archived" pill is the explicit opt-in for reviewing them.
+  const nonArchivedTotal = cands.filter((c) => c.triage_state !== "archived").length;
+  const counts = new Map<string, number>([["all", nonArchivedTotal]]);
   for (const c of cands) counts.set(c.triage_state, (counts.get(c.triage_state) ?? 0) + 1);
 
-  let filtered = cands;
-  if (activeState !== "all") filtered = filtered.filter((c) => c.triage_state === activeState);
+  let filtered =
+    activeState === "all"
+      ? cands.filter((c) => c.triage_state !== "archived")
+      : cands.filter((c) => c.triage_state === activeState);
   if (activeLayer) filtered = filtered.filter((c) => c.layer === activeLayer);
   if (activeStream)
     filtered = filtered.filter((c) => {
@@ -324,7 +334,11 @@ export default async function CandidateInboxPage({
   const acceptanceRate = triaged ? (accepted / triaged) * 100 : 0;
   const dedupRate = cands.length ? (heldDup / cands.length) * 100 : 0;
 
-  const unscoredCount = cands.filter((c) => c.score === null).length;
+  // Archived rows are out of the working set — don't include them in
+  // the "unscored" call-to-action; the operator already decided.
+  const unscoredCount = cands.filter(
+    (c) => c.score === null && c.triage_state !== "archived",
+  ).length;
 
   const readyScores = cands.filter((c) => c.triage_state === "ready" && c.score !== null);
   const avgScore =
@@ -761,7 +775,7 @@ function TriageActions({
           <button
             type="submit"
             className="h-6 rounded-sm border border-border bg-background px-2 text-[10.5px] font-medium text-fg-2 transition-colors hover:bg-secondary"
-            title="Park as pointer — keeps the signal but removes from triage queue"
+            title="Archive — hide from the inbox. Findable via the Archived filter and restorable later."
           >
             Dismiss
           </button>
@@ -769,16 +783,20 @@ function TriageActions({
       </div>
     );
   }
-  // Held / needs_review / pointer — give a path back to ready
+  // Held / needs_review / pointer / archived — give a path back to ready.
+  // Archived gets a distinct label so a reviewer scanning the Archived
+  // view knows they're un-doing a Dismiss rather than promoting a hold.
+  const isArchived = state === "archived";
   return (
     <form action={setCandidateTriage} className="inline-block">
       <input type="hidden" name="id" value={id} />
       <input type="hidden" name="target" value="ready" />
       <button
         type="submit"
+        title={isArchived ? "Restore to Ready and surface again in the inbox" : undefined}
         className="h-6 rounded-sm border border-border bg-background px-2 text-[10.5px] font-medium text-fg-2 transition-colors hover:bg-secondary"
       >
-        ↺ Ready
+        {isArchived ? "↺ Restore" : "↺ Ready"}
       </button>
     </form>
   );
