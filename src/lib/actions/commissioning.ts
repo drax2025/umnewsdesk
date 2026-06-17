@@ -108,7 +108,7 @@ export async function commissionFromCandidate(formData: FormData) {
   const { data: cand, error: candErr } = await supabase
     .from("candidates")
     .select(
-      "id, working_headline, source_id, layer, summary, primary_url, author, published_at, body_text",
+      "id, working_headline, source_id, layer, summary, primary_url, author, published_at, body_text, production_option, defamation_tier",
     )
     .eq("id", candidateId)
     .single();
@@ -118,6 +118,26 @@ export async function commissionFromCandidate(formData: FormData) {
       `Could not read candidate ${candidateId} (${candErr?.code ?? "not_found"}): ${
         candErr?.message ?? "no row matched"
       }`,
+    );
+  }
+
+  // Triage gate — a candidate cannot be commissioned until F1 Triage is done.
+  // The two mandatory triage decisions are the production option (B0) and the
+  // defamation tier (D-Tiers); setting both is what auto-promotes a candidate
+  // to triage_state='ready' (see saveTriageScorecard). Without a tier the
+  // downstream F6 fast-path and backdate tier-lock have nothing to key off,
+  // which is exactly the "Tier —" gap this guard closes. The inbox already
+  // hides the Commission button until 'ready', but this server-side check
+  // also covers the title-picker fallback and any direct invocation.
+  if (cand.production_option == null || cand.defamation_tier == null) {
+    const missing = [
+      cand.production_option == null ? "production option" : null,
+      cand.defamation_tier == null ? "defamation tier" : null,
+    ]
+      .filter(Boolean)
+      .join(" + ");
+    throw new Error(
+      `Candidate not triaged — set the ${missing} in F1 Triage before commissioning.`,
     );
   }
 
