@@ -11,7 +11,7 @@ import { cn } from "@/lib/utils";
  *
  * The brief is authored upstream (F1) and refined at commissioning. On the
  * edit surface the Writer sees it but does not edit it — per spec it is set
- * before drafting. If F9 reframes the article the brief can be modified at
+ * before drafting. If F7 reframes the article the brief can be modified at
  * the Senior Editor verdict step.
  *
  * Renders all five axes:
@@ -151,7 +151,7 @@ export function FramingBriefPanel({
 
       <footer className="border-t border-border bg-background/40 px-3 py-2 text-[10.5px] leading-[1.5] text-um-muted">
         Travels with the article through F2 / F3 / F4 / F5. The Writer drafts
-        to the per-story brief; F9 confirms or modifies at the verdict step.
+        to the per-story brief; F7 confirms or modifies at the verdict step.
         {source ? (
           <span className="ml-1">
             Source: <span className="font-mono">{source}</span>.

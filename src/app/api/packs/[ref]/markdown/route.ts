@@ -7,7 +7,7 @@ import { createServiceClient } from "@/lib/supabase/service";
  *
  * Returns the canonical 12-section pack archive (rendered by renderPack).
  * Editor + senior_editor gated. The DB copy is authoritative — the on-disk
- * `workspace/pre_publish_packs/<REF>.md` is only present in dev.
+ * `workspace/pre_flight_packs/<REF>.md` is only present in dev.
  *
  * Query string `?download=1` switches the Content-Disposition to attachment
  * so the browser saves rather than displays.
@@ -42,7 +42,7 @@ export async function GET(
 
   const admin = createServiceClient();
   const { data: pack } = await admin
-    .from("pre_publish_packs")
+    .from("pre_flight_packs")
     .select("pack_ref, archive_markdown, archive_signature, rendered_at")
     .eq("pack_ref", ref)
     .maybeSingle<{
@@ -59,7 +59,7 @@ export async function GET(
     return NextResponse.json(
       {
         error:
-          "Pack has not been rendered yet. Trigger 'Render pack' from the F9 panel.",
+          "Pack has not been rendered yet. Trigger 'Render pack' from the F7 panel.",
       },
       { status: 409 },
     );

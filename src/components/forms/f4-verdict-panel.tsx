@@ -173,7 +173,7 @@ export function F4VerdictPanel({
         <textarea
           value={rationale}
           onChange={(e) => setRationale(e.target.value)}
-          placeholder="One paragraph. Note the placed links, any rejected candidates and why, and any E4 recency notes. Stamps into the F9 pack."
+          placeholder="One paragraph. Note the placed links, any rejected candidates and why, and any E4 recency notes. Stamps into the F7 Pre-Flight Pack."
           className={textareaCls}
           maxLength={2400}
         />

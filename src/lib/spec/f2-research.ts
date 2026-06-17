@@ -1,5 +1,5 @@
 /**
- * F2 Researcher constants & types, lifted from spec v3.0:
+ * F2 Research constants & types, lifted from spec v3.0:
  *   - F2          operational sequence (primary, signal-only gate, independent confirmation, …)
  *   - B1, C1, C3  verbatim audit + paragraph-break preservation
  *   - B2          signal-only outlets (DIGIT, Futurescot, SFN)
@@ -135,8 +135,8 @@ export const VERDICTS: {
 }[] = [
   {
     value: "hand_to_f3",
-    label: "Hand to F3 Writer",
-    hint: "Source pack complete, frame supported. Article advances to drafting.",
+    label: "Hand to F3 Initial Draft",
+    hint: "Source pack complete, frame supported. Article advances to F3 drafting.",
     tone: "success",
   },
   {

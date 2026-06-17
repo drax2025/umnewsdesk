@@ -5,19 +5,19 @@ import { AlertTriangle, ShieldX, Trash2 } from "lucide-react";
 import {
   deleteFailure,
   logFailure,
-  type PrePublishActionResult,
-} from "@/lib/actions/pre-publish";
+  type PreFlightActionResult,
+} from "@/lib/actions/pre-flight";
 import {
   A_CHECK_CODES,
   ROOT_CAUSE_AGENTS,
   type ACheckCode,
-  type PrePublishFailureRow,
+  type PreFlightFailureRow,
   type RootCauseAgent,
-} from "@/lib/spec/f9-pre-publish";
+} from "@/lib/spec/f7-pre-flight";
 import { cn } from "@/lib/utils";
 
 /**
- * F9 Failure Log. Lives below the A-checks, above the verdict panel.
+ * F7 Failure Log. Lives below the A-checks, above the verdict panel.
  *
  *   - Top: existing failures rendered with delete buttons
  *   - Bottom: append form (check code, severity, root-cause agent, description,
@@ -37,12 +37,12 @@ const textareaCls =
 
 type Severity = "soft_fail" | "fail";
 
-export function F9FailureLog({
+export function F7FailureLog({
   articleId,
   failures,
 }: {
   articleId: string;
-  failures: PrePublishFailureRow[];
+  failures: PreFlightFailureRow[];
 }) {
   const [checkCode, setCheckCode] = useState<ACheckCode>("A1");
   const [severity, setSeverity] = useState<Severity>("fail");
@@ -68,7 +68,7 @@ export function F9FailureLog({
     fd.set("description", description);
     fd.set("remediation", remediation);
     startTransition(async () => {
-      const res: PrePublishActionResult = await logFailure(fd);
+      const res: PreFlightActionResult = await logFailure(fd);
       if (!res.ok) setError(res.error);
       else {
         setNotice("Failure logged.");
@@ -100,7 +100,7 @@ export function F9FailureLog({
         {failures.length === 0 ? (
           <p className="px-4 py-3 text-[11.5px] italic text-um-muted">
             No failures recorded yet. Soft-fails and hard-fails on any A-check
-            land here for the F9 audit trail.
+            land here for the F7 audit trail.
           </p>
         ) : null}
         {failures.map((f) => (
@@ -218,7 +218,7 @@ function FailureRow({
   failure,
 }: {
   articleId: string;
-  failure: PrePublishFailureRow;
+  failure: PreFlightFailureRow;
 }) {
   const [pending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);

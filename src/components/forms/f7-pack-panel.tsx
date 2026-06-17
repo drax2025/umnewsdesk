@@ -13,26 +13,26 @@ import {
 import {
   assemblePack,
   setPubVerdict,
-  type PrePublishActionResult,
-} from "@/lib/actions/pre-publish";
+  type PreFlightActionResult,
+} from "@/lib/actions/pre-flight";
 import { renderPack, type RenderPackResult } from "@/lib/actions/pack-render";
 import {
   PACK_HARD_CAP,
   PUB_VERDICTS,
-  type ArticlePrePublishRow,
-  type PrePublishPackRow,
+  type ArticlePreFlightRow,
+  type PreFlightPackRow,
   type PubVerdict,
-} from "@/lib/spec/f9-pre-publish";
+} from "@/lib/spec/f7-pre-flight";
 import { cn } from "@/lib/utils";
 
 /**
- * F9 Pack panel.
+ * F7 Pack panel.
  *
  *   - Top half: pack assembly. If the article has no pack_ref, expose two
  *     mint/join controls (origin sweep ID, optional existing pack ref).
  *   - Bottom half: Senior Editor [PUB] APPROVE / MODIFY / REJECT stamp.
  *
- * The [PUB] section only renders for senior_editor and only once the F9
+ * The [PUB] section only renders for senior_editor and only once the F7
  * verdict is HAND TO SENIOR EDITOR and a pack_ref is bound.
  */
 
@@ -45,13 +45,13 @@ const textareaCls =
 
 type Props = {
   articleId: string;
-  row: ArticlePrePublishRow | null;
-  pack: PrePublishPackRow | null;
+  row: ArticlePreFlightRow | null;
+  pack: PreFlightPackRow | null;
   canStampPub: boolean;
 };
 
-export function F9PackPanel({ articleId, row, pack, canStampPub }: Props) {
-  const f9Ready = row?.verdict === "hand_to_senior_editor";
+export function F7PackPanel({ articleId, row, pack, canStampPub }: Props) {
+  const f7Ready = row?.verdict === "hand_to_senior_editor";
   const hasPack = Boolean(row?.pack_ref);
 
   return (
@@ -60,7 +60,7 @@ export function F9PackPanel({ articleId, row, pack, canStampPub }: Props) {
         <div className="flex items-center gap-2">
           <Layers className="h-3.5 w-3.5 text-um-muted" />
           <h2 className="text-[12.5px] font-semibold text-foreground">
-            Pre-Publish Pack
+            Pre-Flight Pack
           </h2>
           {row?.pack_ref ? (
             <span className="font-mono text-[10.5px] text-fg-2">
@@ -76,11 +76,11 @@ export function F9PackPanel({ articleId, row, pack, canStampPub }: Props) {
         ) : (
           <AssembleForm
             articleId={articleId}
-            disabled={!f9Ready}
+            disabled={!f7Ready}
             reason={
-              f9Ready
+              f7Ready
                 ? null
-                : "F9 verdict must be HAND TO SENIOR EDITOR before the article can join a pack."
+                : "F7 verdict must be HAND TO SENIOR EDITOR before the article can join a pack."
             }
           />
         )}
@@ -122,7 +122,7 @@ function AssembleForm({
     fd.set("origin_sweep_id", originSweep);
     fd.set("pack_ref", existingRef);
     startTransition(async () => {
-      const res: PrePublishActionResult = await assemblePack(fd);
+      const res: PreFlightActionResult = await assemblePack(fd);
       if (!res.ok) setError(res.error);
       else if ("pack_ref" in res) setNotice(`Pack ${res.pack_ref} assembled.`);
       else setNotice("Pack assembled.");
@@ -138,11 +138,11 @@ function AssembleForm({
       ) : null}
       <div className="grid grid-cols-2 gap-2.5">
         <div>
-          <label className={labelCls} htmlFor="pp-sweep">
+          <label className={labelCls} htmlFor="pf-sweep">
             Origin sweep ID
           </label>
           <input
-            id="pp-sweep"
+            id="pf-sweep"
             type="text"
             value={originSweep}
             onChange={(e) => setOriginSweep(e.target.value)}
@@ -153,15 +153,15 @@ function AssembleForm({
           />
         </div>
         <div>
-          <label className={labelCls} htmlFor="pp-ref">
+          <label className={labelCls} htmlFor="pf-ref">
             Join existing pack (optional)
           </label>
           <input
-            id="pp-ref"
+            id="pf-ref"
             type="text"
             value={existingRef}
             onChange={(e) => setExistingRef(e.target.value)}
-            placeholder="PPP-YYYY-MM-DD-NNN"
+            placeholder="PFP-YYYY-MM-DD-NNN"
             className={cn(inputCls, "mt-1 font-mono")}
             disabled={disabled}
             maxLength={64}
@@ -198,8 +198,8 @@ function PackSummary({
   row,
   pack,
 }: {
-  row: ArticlePrePublishRow | null;
-  pack: PrePublishPackRow | null;
+  row: ArticlePreFlightRow | null;
+  pack: PreFlightPackRow | null;
 }) {
   const ref = row?.pack_ref ?? null;
   const archive = row?.pack_archive_path ?? pack?.archive_path ?? null;
@@ -336,7 +336,7 @@ function RenderPackControls({
  * Where each [PUB] verdict lands the editor next.
  *
  *   APPROVE → article is 'scheduled', pack auto-renders → next stop is F8
- *             Post-Publish, where artefact sweep + publish log live.
+ *             Publish, where artefact sweep + publish log live.
  *   MODIFY  → article goes back through the agent loop; dossier is the
  *             jumping-off point because the editor picks which F-stage to
  *             return to based on the notes.
@@ -349,8 +349,8 @@ function pubDestination(
   switch (verdict) {
     case "approve":
       return {
-        href: `/articles/${articleId}/post-publish`,
-        label: "F8 Post-Publish",
+        href: `/articles/${articleId}/publish`,
+        label: "F8 Publish",
       };
     case "modify":
       return { href: `/articles/${articleId}`, label: "article dossier" };
@@ -366,7 +366,7 @@ function PubVerdictForm({
   row,
 }: {
   articleId: string;
-  row: ArticlePrePublishRow | null;
+  row: ArticlePreFlightRow | null;
 }) {
   const router = useRouter();
   const [notes, setNotes] = useState<string>(row?.pub_verdict_notes ?? "");
@@ -386,12 +386,12 @@ function PubVerdictForm({
     fd.set("pub_verdict", verdict);
     fd.set("pub_verdict_notes", notes);
     startTransition(async () => {
-      const res: PrePublishActionResult = await setPubVerdict(fd);
+      const res: PreFlightActionResult = await setPubVerdict(fd);
       if (!res.ok) {
         setError(res.error);
         return;
       }
-      // Same UX contract as F6 / F9 verdict panels — don't leave the editor
+      // Same UX contract as F6 / F7 verdict panels — don't leave the editor
       // staring at a stamped pill on a dead page. Route to the next stage.
       const dest = pubDestination(verdict, articleId);
       if (dest) {

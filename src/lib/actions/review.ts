@@ -21,7 +21,7 @@ import { logFailureEventInternal } from "@/lib/actions/failure-log";
  *   - setReviewVerdict(fd) — stamp the verdict + rationale + transition state
  *
  * All three are upserts on article_review (PK = article_id). All gated on
- * editor + senior_editor. Stamping HAND-TO-F9 requires zero hard-gate fails
+ * editor + senior_editor. Stamping HAND-TO-F7 requires zero hard-gate fails
  * and zero pending gates.
  */
 
@@ -36,7 +36,7 @@ const STATUS_SET = new Set<HGateStatus>([
 ]);
 const GATE_SET = new Set<GateCode>(GATE_CODES);
 const VERDICT_SET = new Set<F6Verdict>([
-  "hand_to_f9",
+  "hand_to_f7",
   "return_to_f1",
   "return_to_f2",
   "return_to_f3",
@@ -322,8 +322,8 @@ export async function setReviewVerdict(
     return { ok: false, error: "Rationale is required to stamp a verdict." };
   }
 
-  // For HAND-TO-F9, double-check the gate state: no hard-gate fails, no pending.
-  if (verdict === "hand_to_f9") {
+  // For HAND-TO-F7, double-check the gate state: no hard-gate fails, no pending.
+  if (verdict === "hand_to_f7") {
     const admin = createServiceClient();
     const { data } = await admin
       .from("article_review")
@@ -335,7 +335,7 @@ export async function setReviewVerdict(
     if (!data) {
       return {
         ok: false,
-        error: "No gate audit on file. Save the gate rows before stamping HAND TO F9.",
+        error: "No gate audit on file. Save the gate rows before stamping HAND TO F7.",
       };
     }
     const HARD_KEYS = [
@@ -352,13 +352,13 @@ export async function setReviewVerdict(
       if (st === "fail") {
         return {
           ok: false,
-          error: `Cannot HAND TO F9 — ${k.toUpperCase().replace("_STATUS", "")} is a FAIL.`,
+          error: `Cannot HAND TO F7 — ${k.toUpperCase().replace("_STATUS", "")} is a FAIL.`,
         };
       }
       if (st === "pending") {
         return {
           ok: false,
-          error: `Cannot HAND TO F9 — ${k.toUpperCase().replace("_STATUS", "")} is still PENDING.`,
+          error: `Cannot HAND TO F7 — ${k.toUpperCase().replace("_STATUS", "")} is still PENDING.`,
         };
       }
     }
@@ -382,10 +382,10 @@ export async function setReviewVerdict(
   if (upErr) return { ok: false, error: upErr.message };
 
   // Bubble state changes to articles where appropriate.
-  if (verdict === "hand_to_f9") {
+  if (verdict === "hand_to_f7") {
     await admin
       .from("articles")
-      .update({ state: "legal" }) // F6→F9 transition uses 'legal' as proxy in v1 schema
+      .update({ state: "legal" }) // F6→F7 transition uses 'legal' as proxy in v1 schema
       .eq("id", article_id);
   } else if (verdict === "escalate") {
     // No state change — the [ESC] channel handles it; review record holds the stamp.

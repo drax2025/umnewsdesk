@@ -11,29 +11,29 @@ import {
   formatPackRef,
   type ACheckCode,
   type ACheckStatus,
-  type F9Verdict,
+  type F7Verdict,
   type PubVerdict,
   type RootCauseAgent,
-} from "@/lib/spec/f9-pre-publish";
+} from "@/lib/spec/f7-pre-flight";
 import {
   STANDING_RULES,
   type StandingRuleCode,
   type StandingRuleStatus,
-} from "@/lib/spec/f9-standing-rule";
-import { DEFENCES, type DefamationDefence } from "@/lib/spec/f9-reasonable-steps";
+} from "@/lib/spec/f7-standing-rule";
+import { DEFENCES, type DefamationDefence } from "@/lib/spec/f7-reasonable-steps";
 import { logFailureEventInternal } from "@/lib/actions/failure-log";
 import { renderPack } from "@/lib/actions/pack-render";
 
 /**
- * F9 Pre-Publish server actions.
+ * F7 Pre-Flight Check server actions.
  *
  * Five write paths:
  *
  *   - saveCheck(fd)              — set one A-check status + detail + metric
  *   - logFailure(fd)             — append a Failure Log row (soft_fail / fail)
  *   - deleteFailure(fd)          — remove a Failure Log row
- *   - setF9Verdict(fd)           — stamp the F9 verdict + rationale
- *   - assemblePack(fd)           — assemble a new Pre-Publish Pack ref
+ *   - setF7Verdict(fd)           — stamp the F7 verdict + rationale
+ *   - assemblePack(fd)           — assemble a new Pre-Flight Pack ref
  *   - setPubVerdict(fd)          — Senior Editor APPROVE / MODIFY / REJECT
  *
  * All gated on editor + senior_editor roles. Pack assembly requires the
@@ -41,7 +41,7 @@ import { renderPack } from "@/lib/actions/pack-render";
  * requires the role be 'senior_editor'.
  */
 
-export type PrePublishActionResult =
+export type PreFlightActionResult =
   | { ok: true }
   | { ok: true; pack_ref: string }
   | { ok: false; error: string };
@@ -54,7 +54,7 @@ const STATUS_SET = new Set<ACheckStatus>([
   "na",
 ]);
 const CODE_SET = new Set<ACheckCode>(A_CHECK_CODES);
-const VERDICT_SET = new Set<F9Verdict>([
+const VERDICT_SET = new Set<F7Verdict>([
   "hand_to_senior_editor",
   "return_to_f1",
   "return_to_f2",
@@ -80,7 +80,7 @@ const DEFENCE_SET = new Set<DefamationDefence>(DEFENCES.map((d) => d.value));
 /*  Auth helpers                                                              */
 /* -------------------------------------------------------------------------- */
 
-async function requireEditor(): Promise<PrePublishActionResult | null> {
+async function requireEditor(): Promise<PreFlightActionResult | null> {
   const supabase = await createClient();
   const {
     data: { user },
@@ -97,7 +97,7 @@ async function requireEditor(): Promise<PrePublishActionResult | null> {
   return null;
 }
 
-async function requireSeniorEditor(): Promise<PrePublishActionResult | null> {
+async function requireSeniorEditor(): Promise<PreFlightActionResult | null> {
   const supabase = await createClient();
   const {
     data: { user },
@@ -136,9 +136,9 @@ function parseCode(raw: unknown): ACheckCode | null {
   return CODE_SET.has(s as ACheckCode) ? (s as ACheckCode) : null;
 }
 
-function parseVerdict(raw: unknown): F9Verdict | null {
+function parseVerdict(raw: unknown): F7Verdict | null {
   const s = String(raw ?? "").trim();
-  return VERDICT_SET.has(s as F9Verdict) ? (s as F9Verdict) : null;
+  return VERDICT_SET.has(s as F7Verdict) ? (s as F7Verdict) : null;
 }
 
 function parsePubVerdict(raw: unknown): PubVerdict | null {
@@ -171,9 +171,9 @@ function parseDateOrNull(raw: unknown): string | null {
 }
 
 function revalidate(articleId: string, packRef?: string | null) {
-  revalidatePath(`/articles/${articleId}/pre-publish`);
+  revalidatePath(`/articles/${articleId}/pre-flight`);
   revalidatePath(`/articles/${articleId}`);
-  if (packRef) revalidatePath(`/pre-publish-packs/${packRef}`);
+  if (packRef) revalidatePath(`/pre-flight-packs/${packRef}`);
 }
 
 /* -------------------------------------------------------------------------- */
@@ -181,7 +181,7 @@ function revalidate(articleId: string, packRef?: string | null) {
 /* -------------------------------------------------------------------------- */
 
 /**
- * One-click sweep for routine Tier 1 press-release pass-throughs at F9.
+ * One-click sweep for routine Tier 1 press-release pass-throughs at F7.
  *
  * Mirrors the F6 stampTier1Defaults action. A Tier-1 PR doesn't need
  * gate-by-gate A1-A10 adjudication — the answer is the same every time:
@@ -202,9 +202,9 @@ function revalidate(articleId: string, packRef?: string | null) {
  * populated so the audit trail is complete rather than partial. The rest
  * stay null — editor can patch any individual row afterwards.
  */
-export async function stampF9Tier1Defaults(
+export async function stampF7Tier1Defaults(
   fd: FormData,
-): Promise<PrePublishActionResult> {
+): Promise<PreFlightActionResult> {
   const gate = await requireEditor();
   if (gate) return gate;
 
@@ -258,7 +258,7 @@ export async function stampF9Tier1Defaults(
   const naStamp = "Tier 1 PR — N/A per spec.";
   const now = new Date().toISOString();
 
-  const { error } = await admin.from("article_pre_publish").upsert(
+  const { error } = await admin.from("article_pre_flight").upsert(
     {
       article_id,
       a1_status: "na",    a1_detail: naStamp,
@@ -293,7 +293,7 @@ export async function stampF9Tier1Defaults(
 
 export async function saveCheck(
   fd: FormData,
-): Promise<PrePublishActionResult> {
+): Promise<PreFlightActionResult> {
   const gate = await requireEditor();
   if (gate) return gate;
 
@@ -334,7 +334,7 @@ export async function saveCheck(
 
   const admin = createServiceClient();
   const { error } = await admin
-    .from("article_pre_publish")
+    .from("article_pre_flight")
     .upsert(payload, { onConflict: "article_id" });
   if (error) return { ok: false, error: error.message };
 
@@ -348,7 +348,7 @@ export async function saveCheck(
 
 export async function logFailure(
   fd: FormData,
-): Promise<PrePublishActionResult> {
+): Promise<PreFlightActionResult> {
   const gate = await requireEditor();
   if (gate) return gate;
 
@@ -370,7 +370,7 @@ export async function logFailure(
 
   const uid = await currentUserId();
   const admin = createServiceClient();
-  const { error } = await admin.from("pre_publish_failures").insert({
+  const { error } = await admin.from("pre_flight_failures").insert({
     article_id,
     check_code: code,
     status,
@@ -391,7 +391,7 @@ export async function logFailure(
 
 export async function deleteFailure(
   fd: FormData,
-): Promise<PrePublishActionResult> {
+): Promise<PreFlightActionResult> {
   const gate = await requireEditor();
   if (gate) return gate;
 
@@ -401,7 +401,7 @@ export async function deleteFailure(
 
   const admin = createServiceClient();
   const { error } = await admin
-    .from("pre_publish_failures")
+    .from("pre_flight_failures")
     .delete()
     .eq("id", id);
   if (error) return { ok: false, error: error.message };
@@ -411,12 +411,12 @@ export async function deleteFailure(
 }
 
 /* -------------------------------------------------------------------------- */
-/*  setF9Verdict — F9's own verdict (hand-to-senior or return)                */
+/*  setF7Verdict — F7's own verdict (hand-to-senior or return)                */
 /* -------------------------------------------------------------------------- */
 
-export async function setF9Verdict(
+export async function setF7Verdict(
   fd: FormData,
-): Promise<PrePublishActionResult> {
+): Promise<PreFlightActionResult> {
   const gate = await requireEditor();
   if (gate) return gate;
 
@@ -434,7 +434,7 @@ export async function setF9Verdict(
   if (verdict === "hand_to_senior_editor") {
     const admin = createServiceClient();
     const { data } = await admin
-      .from("article_pre_publish")
+      .from("article_pre_flight")
       .select(
         "a1_status, a2_status, a3_status, a4_status, a5_status, a6_status, a7_status, a8_status, a9_status, a10_status",
       )
@@ -469,7 +469,7 @@ export async function setF9Verdict(
   const uid = await currentUserId();
   const now = new Date().toISOString();
   const admin = createServiceClient();
-  const { error } = await admin.from("article_pre_publish").upsert(
+  const { error } = await admin.from("article_pre_flight").upsert(
     {
       article_id,
       verdict,
@@ -501,10 +501,10 @@ export async function setF9Verdict(
       | "F6";
     await logFailureEventInternal({
       article_id,
-      stage: "F9",
+      stage: "F7",
       event: "a_check_return",
       gate_code: null,
-      detail: `F9 returned to ${targetStage}: ${rationale}`,
+      detail: `F7 returned to ${targetStage}: ${rationale}`,
       remediation: `Re-run ${targetStage} with the issues above resolved.`,
       created_by: uid,
     });
@@ -515,11 +515,11 @@ export async function setF9Verdict(
 }
 
 /* -------------------------------------------------------------------------- */
-/*  assemblePack — create a Pre-Publish Pack ref                              */
+/*  assemblePack — create a Pre-Flight Pack ref                               */
 /* -------------------------------------------------------------------------- */
 
 /**
- * Bind the article to a Pre-Publish Pack. Either pass an existing pack_ref
+ * Bind the article to a Pre-Flight Pack. Either pass an existing pack_ref
  * (joining a pack that already exists with < 3 articles) or pass nothing
  * and a new pack will be minted with a date-stamped ref.
  *
@@ -527,7 +527,7 @@ export async function setF9Verdict(
  */
 export async function assemblePack(
   fd: FormData,
-): Promise<PrePublishActionResult> {
+): Promise<PreFlightActionResult> {
   const gate = await requireEditor();
   if (gate) return gate;
 
@@ -536,10 +536,10 @@ export async function assemblePack(
   const passedRef = trimOrNull(fd.get("pack_ref"), 64);
   if (!article_id) return { ok: false, error: "Missing article_id" };
 
-  // Pre-flight: F9 verdict must already be HAND TO SENIOR EDITOR.
+  // Pre-flight: F7 verdict must already be HAND TO SENIOR EDITOR.
   const admin = createServiceClient();
   const { data: pp } = await admin
-    .from("article_pre_publish")
+    .from("article_pre_flight")
     .select("verdict, pack_ref")
     .eq("article_id", article_id)
     .maybeSingle();
@@ -547,7 +547,7 @@ export async function assemblePack(
     return {
       ok: false,
       error:
-        "F9 verdict must be HAND TO SENIOR EDITOR before the article can join a pack.",
+        "F7 verdict must be HAND TO SENIOR EDITOR before the article can join a pack.",
     };
   }
   if (pp.pack_ref) {
@@ -560,7 +560,7 @@ export async function assemblePack(
   if (packRef) {
     // Joining an existing pack — find an empty slot.
     const { data: pack } = await admin
-      .from("pre_publish_packs")
+      .from("pre_flight_packs")
       .select(
         "pack_ref, article_1_id, article_2_id, article_3_id, archive_path",
       )
@@ -582,31 +582,33 @@ export async function assemblePack(
       };
     }
     const { error: upErr } = await admin
-      .from("pre_publish_packs")
+      .from("pre_flight_packs")
       .update({
         [slot]: article_id,
         updated_at: new Date().toISOString(),
       })
       .eq("pack_ref", packRef);
     if (upErr) return { ok: false, error: upErr.message };
-    archivePath = pack.archive_path ?? `workspace/pre_publish_packs/${packRef}.md`;
+    archivePath = pack.archive_path ?? `workspace/pre_flight_packs/${packRef}.md`;
   } else {
-    // Minting a new pack — derive the next NNN for today.
+    // Minting a new pack — derive the next NNN for today. Look for both the
+    // new PFP- prefix and any legacy PPP- refs from before the rename so the
+    // sequence number doesn't restart and clash with old archives.
     const today = new Date();
     const dateStr = today.toISOString().slice(0, 10);
     const { data: todaysPacks } = await admin
-      .from("pre_publish_packs")
+      .from("pre_flight_packs")
       .select("pack_ref")
-      .like("pack_ref", `PPP-${dateStr}-%`)
+      .or(`pack_ref.like.PFP-${dateStr}-%,pack_ref.like.PPP-${dateStr}-%`)
       .order("pack_ref", { ascending: false })
       .limit(1);
     const last = todaysPacks?.[0]?.pack_ref ?? null;
     const lastSeq = last ? Number.parseInt(last.split("-").pop() ?? "0", 10) : 0;
     packRef = formatPackRef(today, (Number.isFinite(lastSeq) ? lastSeq : 0) + 1);
-    archivePath = `workspace/pre_publish_packs/${packRef}.md`;
+    archivePath = `workspace/pre_flight_packs/${packRef}.md`;
 
     const uid = await currentUserId();
-    const { error: insErr } = await admin.from("pre_publish_packs").insert({
+    const { error: insErr } = await admin.from("pre_flight_packs").insert({
       pack_ref: packRef,
       article_1_id: article_id,
       origin_sweep_id: originSweep,
@@ -618,7 +620,7 @@ export async function assemblePack(
   }
 
   const { error: ppErr } = await admin
-    .from("article_pre_publish")
+    .from("article_pre_flight")
     .upsert(
       {
         article_id,
@@ -641,7 +643,7 @@ export async function assemblePack(
 
 export async function setPubVerdict(
   fd: FormData,
-): Promise<PrePublishActionResult> {
+): Promise<PreFlightActionResult> {
   const gate = await requireSeniorEditor();
   if (gate) return gate;
 
@@ -662,7 +664,7 @@ export async function setPubVerdict(
 
   // Article-level stamp.
   const { data: row, error: upErr } = await admin
-    .from("article_pre_publish")
+    .from("article_pre_flight")
     .upsert(
       {
         article_id,
@@ -681,7 +683,7 @@ export async function setPubVerdict(
   // Pack-level mirror (if the article is in a pack).
   if (row?.pack_ref) {
     await admin
-      .from("pre_publish_packs")
+      .from("pre_flight_packs")
       .update({
         pub_verdict: verdict,
         pub_verdict_at: now,
@@ -701,7 +703,7 @@ export async function setPubVerdict(
 
     // Auto-render the canonical pack archive at PUB-PASS. Best-effort —
     // failure here must not block the verdict stamp; the editor can
-    // re-render from the F9 panel.
+    // re-render from the F7 panel.
     if (row?.pack_ref) {
       try {
         const fd2 = new FormData();
@@ -718,7 +720,7 @@ export async function setPubVerdict(
       .eq("id", article_id);
     await logFailureEventInternal({
       article_id,
-      stage: "F9",
+      stage: "F7",
       event: "hard_gate_return",
       gate_code: null,
       detail: `Senior Editor [PUB-REJECT]: ${notes}`,
@@ -727,7 +729,7 @@ export async function setPubVerdict(
   } else if (verdict === "modify") {
     await logFailureEventInternal({
       article_id,
-      stage: "F9",
+      stage: "F7",
       event: "rework",
       gate_code: null,
       detail: `Senior Editor [PUB-MODIFY]: ${notes}`,
@@ -764,7 +766,7 @@ function parseRuleStatus(raw: unknown): StandingRuleStatus | null {
  */
 export async function saveStandingRule(
   fd: FormData,
-): Promise<PrePublishActionResult> {
+): Promise<PreFlightActionResult> {
   const gate = await requireEditor();
   if (gate) return gate;
 
@@ -828,11 +830,11 @@ function parseDefence(raw: unknown): DefamationDefence | null {
 /**
  * Save the reasonable-steps log for a Tier 2 article. The form posts every
  * field every time — partial fills are allowed (incomplete state visible in
- * the UI summary); a Tier-2 article cannot pass F9 unless the row is complete.
+ * the UI summary); a Tier-2 article cannot pass F7 unless the row is complete.
  */
 export async function saveReasonableSteps(
   fd: FormData,
-): Promise<PrePublishActionResult> {
+): Promise<PreFlightActionResult> {
   const gate = await requireEditor();
   if (gate) return gate;
 

@@ -1,5 +1,5 @@
 /**
- * F9 Pre-Publish Pack renderer.
+ * F7 Pre-Flight Pack renderer.
  *
  * Pure transformation: data bundle → markdown string. No I/O. The caller
  * (src/lib/actions/pack-render.ts) is responsible for loading the bundle
@@ -18,9 +18,9 @@
  *   §8  · Reasonable-Steps log (Tier 2 only — header present always)
  *   §9  · F6 Gate audit (H1-H11)
  *   §10 · Standing-Rule Compliance sweep
- *   §11 · F9 Active checks (A1-A10)
+ *   §11 · F7 Active checks (A1-A10)
  *   §12 · F8 Final artefact sweep + publish log + senior verdict
- *   §13 · Stage 13 Corrections register (post-publish)
+ *   §13 · Stage 13 Corrections register (after publish)
  */
 
 import type { FramingBrief } from "@/lib/spec/f1-triage";
@@ -31,36 +31,36 @@ import type {
 } from "@/lib/spec/f2-research";
 import type { ArticleReviewRow } from "@/lib/spec/f6-review";
 import type {
-  ArticlePrePublishRow,
-  PrePublishFailureRow,
-} from "@/lib/spec/f9-pre-publish";
-import type { ArticleStandingRuleSweepRow } from "@/lib/spec/f9-standing-rule";
+  ArticlePreFlightRow,
+  PreFlightFailureRow,
+} from "@/lib/spec/f7-pre-flight";
+import type { ArticleStandingRuleSweepRow } from "@/lib/spec/f7-standing-rule";
 import type {
   ArticleReasonableStepsRow,
-} from "@/lib/spec/f9-reasonable-steps";
+} from "@/lib/spec/f7-reasonable-steps";
 import type { ArticleFailureLogRow } from "@/lib/spec/failure-log";
 import type {
   ArticleArtefactSweepRow,
   ArticlePublishLogRow,
-} from "@/lib/spec/f8-post-publish";
+} from "@/lib/spec/f8-publish";
 import {
   CORRECTION_KINDS,
   CORRECTION_STATUSES,
   type ArticleCorrectionRow,
 } from "@/lib/spec/stage13-corrections";
-import { A_CHECKS } from "@/lib/spec/f9-pre-publish";
-import { STANDING_RULES, statusForRule, justificationForRule } from "@/lib/spec/f9-standing-rule";
+import { A_CHECKS } from "@/lib/spec/f7-pre-flight";
+import { STANDING_RULES, statusForRule, justificationForRule } from "@/lib/spec/f7-standing-rule";
 import {
   ARTEFACTS,
   normaliseSweepResults,
   PUBLISH_TARGET_LABEL,
   PUBLISH_STATUS_LABEL,
-} from "@/lib/spec/f8-post-publish";
+} from "@/lib/spec/f8-publish";
 import {
   DEFENCES,
   REASONABLE_STEPS_FIELD_LABELS,
   summariseReasonableSteps,
-} from "@/lib/spec/f9-reasonable-steps";
+} from "@/lib/spec/f7-reasonable-steps";
 import { normaliseNFPFooter, NFP_FOOTER_FIELD_LABELS } from "@/lib/spec/nfp-footer";
 import { FAILURE_LOG_EVENTS, FAILURE_LOG_STAGES } from "@/lib/spec/failure-log";
 
@@ -99,8 +99,8 @@ export type ArticleBundle = {
     notes: string | null;
   }[];
   review: ArticleReviewRow | null;
-  preP: ArticlePrePublishRow | null;
-  internal_failures: PrePublishFailureRow[];
+  preP: ArticlePreFlightRow | null;
+  internal_failures: PreFlightFailureRow[];
   standing_rule: ArticleStandingRuleSweepRow | null;
   reasonable_steps: ArticleReasonableStepsRow | null;
   failure_log: ArticleFailureLogRow[];
@@ -163,7 +163,7 @@ export function renderPackMarkdown(bundle: PackBundle): string {
     lines.push(...section8_ReasonableSteps(a));
     lines.push(...section9_F6Gates(a));
     lines.push(...section10_StandingRule(a));
-    lines.push(...section11_F9Checks(a));
+    lines.push(...section11_F7Checks(a));
     lines.push(...section12_PostPublish(a));
     lines.push(...section13_Corrections(a));
     lines.push("");
@@ -231,7 +231,7 @@ function section0_FailureLog(a: ArticleBundle): string[] {
   const out: string[] = ["### §0 · Failure Log (cross-agent)"];
   if (a.failure_log.length === 0) {
     out.push("");
-    out.push("> Clean run — no failure events recorded across F1–F9.");
+    out.push("> Clean run — no failure events recorded across F1–F7.");
     out.push("");
     return out;
   }
@@ -542,14 +542,14 @@ function section10_StandingRule(a: ArticleBundle): string[] {
 }
 
 /* -------------------------------------------------------------------------- */
-/*  §11 · F9 Active checks                                                    */
+/*  §11 · F7 Active checks                                                    */
 /* -------------------------------------------------------------------------- */
 
-function section11_F9Checks(a: ArticleBundle): string[] {
-  const out: string[] = ["### §11 · F9 Active checks (A1-A10)"];
+function section11_F7Checks(a: ArticleBundle): string[] {
+  const out: string[] = ["### §11 · F7 Active checks (A1-A10)"];
   out.push("");
   if (!a.preP) {
-    out.push("> No F9 audit on file.");
+    out.push("> No F7 audit on file.");
     out.push("");
     return out;
   }
@@ -574,7 +574,7 @@ function section11_F9Checks(a: ArticleBundle): string[] {
   }
   if (a.internal_failures.length > 0) {
     out.push("");
-    out.push("**F9 internal failure log**");
+    out.push("**F7 internal failure log**");
     out.push("");
     const rows2 = a.internal_failures.map((f) => [
       f.check_code,
@@ -635,7 +635,7 @@ function section13_Corrections(a: ArticleBundle): string[] {
   out.push("");
   if (a.corrections.length === 0) {
     out.push(
-      "> Clean post-publish — no corrections, clarifications, updates, or retractions filed.",
+      "> Clean post-publication — no corrections, clarifications, updates, or retractions filed.",
     );
     out.push("");
     return out;

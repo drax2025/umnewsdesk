@@ -1,5 +1,5 @@
 /**
- * F9 Pack section 8 — Reasonable-steps log.
+ * F7 Pre-Flight Pack section 8 — Reasonable-steps log.
  *
  * D-Steps doctrine. Required for every Tier 2 article that proceeds to
  * production. Tier 1 is not applicable (no defamation risk to log against).

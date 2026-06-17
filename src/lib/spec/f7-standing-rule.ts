@@ -1,11 +1,11 @@
 /**
- * Pack section 10 — Standing-Rule Compliance.
+ * F7 Pre-Flight Pack section 10 — Standing-Rule Compliance.
  *
- * F9 cannot return PASS without every row completed:
+ * F7 cannot return PASS without every row completed:
  *   CHECKED-PASS / CHECKED-FAIL / N/A-with-justification.
  *
  * A pending row, or N/A without justification, makes the pack INCOMPLETE
- * and routes back to F9.
+ * and routes back to F7.
  *
  * Mirrors article_standing_rule_sweep in migration 0022.
  */
@@ -52,7 +52,7 @@ export const STANDING_RULES: StandingRuleDef[] = [
     code: "B2",
     label: "B2 — Source independence (17-artefact prohibited-use list)",
     description:
-      "DIGIT / Futurescot / Scottish Financial News do not appear in any of the 17 prohibited artefacts. Record WHICH artefacts were swept.",
+      "DIGIT / Futurescot / Scottish Financial News do not appear in any of the 17 prohibited artefacts. Record WHICH artefacts were swept (mirrored from F8 Publish artefact sweep).",
     hasArtefactsSwept: true,
   },
   {

@@ -135,7 +135,7 @@ export function NFPFooterEditor({
 
       <p className="border-b border-border bg-background/30 px-3 py-2 text-[10.5px] leading-[1.5] text-um-muted">
         Field-by-field NFP footer. H9 audits this on file in F6; A9 reverifies
-        at F9. Free-text paragraph notes remain in the legacy draft field below.
+        at F7. Free-text paragraph notes remain in the legacy draft field below.
       </p>
 
       <div className="grid gap-3 px-3 py-3 lg:grid-cols-[260px_1fr]">

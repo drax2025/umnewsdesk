@@ -1,5 +1,5 @@
 /**
- * F8 Post-Publish — spec types and the canonical 17-artefact prohibited-use
+ * F8 Publish — spec types and the canonical 17-artefact prohibited-use
  * list referenced by the B2 standing rule.
  *
  * Three signal-only outlets are sequestered by the spec:
@@ -11,7 +11,10 @@
  * They are SIGNAL ONLY. Union Media may use them to detect that a story
  * exists, but may not lift any of the 17 artefacts enumerated below. F8
  * does a final sweep at publish time to confirm no contamination slipped
- * past F9.
+ * past F7 (Pre-Flight Check).
+ *
+ * Naming note: this stage was previously called "Post-Publish". Under the
+ * v3.0 spec it is the publish action itself — F7 is the gate, F8 pushes.
  */
 
 /* -------------------------------------------------------------------------- */

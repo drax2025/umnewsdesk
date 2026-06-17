@@ -10,18 +10,18 @@ import {
 } from "lucide-react";
 import {
   saveCheck,
-  type PrePublishActionResult,
-} from "@/lib/actions/pre-publish";
+  type PreFlightActionResult,
+} from "@/lib/actions/pre-flight";
 import {
   A_CHECK_STATUS,
   type ACheckDef,
   type ACheckStatus,
-  type ArticlePrePublishRow,
-} from "@/lib/spec/f9-pre-publish";
+  type ArticlePreFlightRow,
+} from "@/lib/spec/f7-pre-flight";
 import { cn } from "@/lib/utils";
 
 /**
- * F9 A-check row. Renders:
+ * F7 A-check row. Renders:
  *
  *   - Check code (A1-A10), HARD/SOFT tag, label, spec ref, root-cause agent
  *   - Method hint
@@ -58,20 +58,20 @@ const STATUS_TONE: Record<ACheckStatus, string> = {
 type Props = {
   articleId: string;
   check: ACheckDef;
-  row: ArticlePrePublishRow | null;
+  row: ArticlePreFlightRow | null;
   readOnly?: boolean;
 };
 
-export function F9CheckRow({ articleId, check, row, readOnly }: Props) {
+export function F7CheckRow({ articleId, check, row, readOnly }: Props) {
   const prefix = check.code.toLowerCase() as
     | "a1" | "a2" | "a3" | "a4" | "a5"
     | "a6" | "a7" | "a8" | "a9" | "a10";
 
   const initialStatus: ACheckStatus =
-    (row?.[`${prefix}_status` as keyof ArticlePrePublishRow] as ACheckStatus) ??
+    (row?.[`${prefix}_status` as keyof ArticlePreFlightRow] as ACheckStatus) ??
     "pending";
   const initialDetail =
-    (row?.[`${prefix}_detail` as keyof ArticlePrePublishRow] as string | null) ??
+    (row?.[`${prefix}_detail` as keyof ArticlePreFlightRow] as string | null) ??
     "";
 
   // Pre-load any per-check metric.
@@ -129,7 +129,7 @@ export function F9CheckRow({ articleId, check, row, readOnly }: Props) {
     if (check.code === "A8") fd.set("headline_chars", headlineChars);
 
     startTransition(async () => {
-      const res: PrePublishActionResult = await saveCheck(fd);
+      const res: PreFlightActionResult = await saveCheck(fd);
       if (!res.ok) setError(res.error);
       else setSaved(true);
     });

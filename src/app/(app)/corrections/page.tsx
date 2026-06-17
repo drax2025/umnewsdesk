@@ -188,7 +188,7 @@ export default async function CorrectionsIndexPage({
 
         <p className="rounded-md border border-dashed border-border bg-background/40 px-3 py-2 text-[10.5px] leading-[1.5] text-um-muted">
           <strong className="text-fg-2">Stage 13 policy:</strong> every
-          post-publish change is a row here. Editors file drafts; Senior
+          post-publication change is a row here. Editors file drafts; Senior
           Editors approve, which appends the public notice to the article
           and (for retractions) flips state to <code>killed</code>. Open
           the dossier link for full action controls.

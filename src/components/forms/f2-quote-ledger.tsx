@@ -21,7 +21,7 @@ import { cn } from "@/lib/utils";
  *   - B1 / C1 — verbatim audit hard gate (string-equality vs source)
  *   - C3      — paragraph-break preservation (stored as \n\n)
  *   - F6 H1   — Reviewer's verbatim gate
- *   - F9 A4   — Pre-publish verbatim re-audit
+ *   - F7 A4   — Pre-flight verbatim re-audit
  *
  * Quote text is stored exactly as captured. No whitespace collapse, no
  * smart-quote normalisation. Speaker / role / institution are metadata
@@ -283,7 +283,7 @@ function QuoteDialog({
             spellCheck={false}
           />
           <p className="mt-1 text-[10.5px] text-um-muted">
-            Byte-exact retention: F6 H1 and F9 A4 string-compare against this
+            Byte-exact retention: F6 H1 and F7 A4 string-compare against this
             ledger.
           </p>
         </div>

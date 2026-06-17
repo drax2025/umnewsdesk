@@ -2,32 +2,32 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { ChevronLeft, Compass, Gavel, Package, Pencil } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
-import { F9CheckRow } from "@/components/forms/f9-check-row";
-import { F9FailureLog } from "@/components/forms/f9-failure-log";
-import { F9PackPanel } from "@/components/forms/f9-pack-panel";
-import { F9VerdictPanel } from "@/components/forms/f9-verdict-panel";
-import { StandingRuleSweep } from "@/components/forms/f9-standing-rule-sweep";
-import { ReasonableStepsLog } from "@/components/forms/f9-reasonable-steps";
+import { F7CheckRow } from "@/components/forms/f7-check-row";
+import { F7FailureLog } from "@/components/forms/f7-failure-log";
+import { F7PackPanel } from "@/components/forms/f7-pack-panel";
+import { F7VerdictPanel } from "@/components/forms/f7-verdict-panel";
+import { StandingRuleSweep } from "@/components/forms/f7-standing-rule-sweep";
+import { ReasonableStepsLog } from "@/components/forms/f7-reasonable-steps";
 import { FailureLogPanel } from "@/components/forms/failure-log-panel";
 import {
   A_CHECKS,
-  type ArticlePrePublishRow,
-  type PrePublishFailureRow,
-  type PrePublishPackRow,
-} from "@/lib/spec/f9-pre-publish";
-import type { ArticleStandingRuleSweepRow } from "@/lib/spec/f9-standing-rule";
-import type { ArticleReasonableStepsRow } from "@/lib/spec/f9-reasonable-steps";
+  type ArticlePreFlightRow,
+  type PreFlightFailureRow,
+  type PreFlightPackRow,
+} from "@/lib/spec/f7-pre-flight";
+import type { ArticleStandingRuleSweepRow } from "@/lib/spec/f7-standing-rule";
+import type { ArticleReasonableStepsRow } from "@/lib/spec/f7-reasonable-steps";
 import type { ArticleFailureLogRow } from "@/lib/spec/failure-log";
 
 export const dynamic = "force-dynamic";
 
 /**
- * F9 Pre-Publish screen — /articles/[id]/pre-publish.
+ * F7 Pre-Flight Check screen — /articles/[id]/pre-flight.
  *
  * Layout:
  *
  *   Sub-topbar  · back to dossier
- *   Header      · F9 label, headline, link to F6 / editor, pack ref pill
+ *   Header      · F7 label, headline, link to F6 / editor, pack ref pill
  *   Verdict     · A-check roll-up + 7 verdict buttons
  *   A1-A6 hard  · the six hard-fail checks
  *   A7-A9 soft  · interlink / footer
@@ -35,7 +35,7 @@ export const dynamic = "force-dynamic";
  *   Failure Log · append rows for SOFT/HARD fails
  *   Pack panel  · assembly + [PUB] Senior Editor verdict
  *
- * F9 sits between F6 and F8. Per spec sections F9, A1-A10, D-Steps.
+ * F7 sits between F6 and F8. Per spec sections F7, A1-A10, D-Steps.
  */
 
 type ArticleRow = {
@@ -47,7 +47,7 @@ type ArticleRow = {
 
 type ProfileRow = { role: string | null };
 
-export default async function F9PrePublishPage({
+export default async function F7PreFlightPage({
   params,
 }: {
   params: Promise<{ id: string }>;
@@ -77,7 +77,7 @@ export default async function F9PrePublishPage({
   }
   const canStampPub = role === "senior_editor";
 
-  // The pre-publish row, failures and (optionally) the pack.
+  // The pre-flight row, failures and (optionally) the pack.
   const [
     { data: row },
     { data: failures },
@@ -87,16 +87,16 @@ export default async function F9PrePublishPage({
     { data: commission },
   ] = await Promise.all([
     supabase
-      .from("article_pre_publish")
+      .from("article_pre_flight")
       .select("*")
       .eq("article_id", id)
-      .maybeSingle<ArticlePrePublishRow>(),
+      .maybeSingle<ArticlePreFlightRow>(),
     supabase
-      .from("pre_publish_failures")
+      .from("pre_flight_failures")
       .select("*")
       .eq("article_id", id)
       .order("created_at", { ascending: false })
-      .returns<PrePublishFailureRow[]>(),
+      .returns<PreFlightFailureRow[]>(),
     supabase
       .from("article_standing_rule_sweep")
       .select("*")
@@ -132,13 +132,13 @@ export default async function F9PrePublishPage({
     if (t === 1 || t === 2 || t === 3) defamationTier = t;
   }
 
-  let pack: PrePublishPackRow | null = null;
+  let pack: PreFlightPackRow | null = null;
   if (row?.pack_ref) {
     const { data: packRow } = await supabase
-      .from("pre_publish_packs")
+      .from("pre_flight_packs")
       .select("*")
       .eq("pack_ref", row.pack_ref)
-      .maybeSingle<PrePublishPackRow>();
+      .maybeSingle<PreFlightPackRow>();
     pack = packRow ?? null;
   }
 
@@ -163,7 +163,7 @@ export default async function F9PrePublishPage({
         </Link>
         <span className="text-border-mid">/</span>
         <span className="font-mono text-[11px] font-semibold uppercase tracking-[0.06em] text-foreground">
-          F9 Pre-Publish
+          F7 Pre-Flight Check
         </span>
       </div>
 
@@ -173,7 +173,7 @@ export default async function F9PrePublishPage({
           <Package className="mt-1 h-4 w-4 flex-shrink-0 text-primary" />
           <div className="min-w-0 flex-1">
             <div className="mb-0.5 text-[10.5px] font-semibold uppercase tracking-[0.06em] text-um-muted">
-              F9 Pre-Publish · A1-A10 active checks · D-Steps doctrine
+              F7 Pre-Flight Check · A1-A10 active checks · D-Steps doctrine
             </div>
             <h1 className="text-[18px] font-semibold leading-[1.25] tracking-[-0.02em] text-foreground">
               {article.headline}
@@ -205,7 +205,7 @@ export default async function F9PrePublishPage({
               className="flex h-7 items-center gap-1.5 rounded-md border border-border bg-background px-2.5 text-[11.5px] font-medium text-fg-2 hover:bg-secondary"
             >
               <Gavel className="h-3.5 w-3.5" />
-              F6 Review
+              F6 Final Review
             </Link>
             <Link
               href={`/articles/${article.id}/edit`}
@@ -222,7 +222,7 @@ export default async function F9PrePublishPage({
       <div className="flex-1 overflow-y-auto bg-background px-6 py-5">
         <div className="mx-auto flex max-w-[960px] flex-col gap-3">
           {/* Verdict / roll-up at the top */}
-          <F9VerdictPanel
+          <F7VerdictPanel
             articleId={article.id}
             row={row ?? null}
             defamationTier={defamationTier}
@@ -234,7 +234,7 @@ export default async function F9PrePublishPage({
             hint="Source reverify · primary-record sampling · structure · backdate. Any FAIL hard-returns the article to the upstream agent."
           />
           {hardEarly.map((c) => (
-            <F9CheckRow
+            <F7CheckRow
               key={c.code}
               articleId={article.id}
               check={c}
@@ -248,7 +248,7 @@ export default async function F9PrePublishPage({
             hint="Interlink resolution · NFP footer completeness. Soft-fail is flagged in the pack but does not block hand-off."
           />
           {softChecks.map((c) => (
-            <F9CheckRow
+            <F7CheckRow
               key={c.code}
               articleId={article.id}
               check={c}
@@ -264,7 +264,7 @@ export default async function F9PrePublishPage({
           {hardChecks
             .filter((c) => c.code === "A8")
             .map((c) => (
-              <F9CheckRow
+              <F7CheckRow
                 key={c.code}
                 articleId={article.id}
                 check={c}
@@ -278,7 +278,7 @@ export default async function F9PrePublishPage({
             hint="B1-B7 each CHECKED-PASS / N/A-with-justification. Every numeric claim has a positive trace to source — not just no red flags."
           />
           {a10 ? (
-            <F9CheckRow
+            <F7CheckRow
               articleId={article.id}
               check={a10}
               row={row ?? null}
@@ -288,7 +288,7 @@ export default async function F9PrePublishPage({
           {/* Pack section 10 standing-rule compliance table */}
           <SectionHeader
             label="Standing-Rule Compliance · pack section 10"
-            hint="B1-B7 + Section M + Section L sweep. Every row must be CHECKED-PASS / CHECKED-FAIL / N/A-with-justification before F9 returns PASS."
+            hint="B1-B7 + Section M + Section L sweep. Every row must be CHECKED-PASS / CHECKED-FAIL / N/A-with-justification before F7 returns PASS."
           />
           <StandingRuleSweep
             articleId={article.id}
@@ -309,26 +309,26 @@ export default async function F9PrePublishPage({
           {/* Pack section 0 — cross-agent failure log */}
           <SectionHeader
             label="Article Failure Log · pack section 0"
-            hint="Cross-agent chronological record (F1 / F2 / F3 / F4 / F5 / F6 / F9). Read BEFORE article content in the pack."
+            hint="Cross-agent chronological record (F1 / F2 / F3 / F4 / F5 / F6 / F7). Read BEFORE article content in the pack."
           />
           <FailureLogPanel
             articleId={article.id}
             rows={failureLog ?? []}
           />
 
-          {/* F9-internal A-check failure log (pre_publish_failures) */}
+          {/* F7-internal A-check failure log (pre_flight_failures) */}
           <SectionHeader
-            label="A-check Failure Log (F9 internal)"
+            label="A-check Failure Log (F7 internal)"
             hint="One row per A1-A10 soft-fail / hard-fail. Routed through SK-RECORD.append-failure-log-row."
           />
-          <F9FailureLog articleId={article.id} failures={failures ?? []} />
+          <F7FailureLog articleId={article.id} failures={failures ?? []} />
 
           {/* Pack assembly + [PUB] verdict */}
           <SectionHeader
-            label="Pre-Publish Pack"
+            label="Pre-Flight Pack"
             hint="Hard cap of 3 articles per pack. Stamped to [PUB] for Senior Editor APPROVE / MODIFY / REJECT."
           />
-          <F9PackPanel
+          <F7PackPanel
             articleId={article.id}
             row={row ?? null}
             pack={pack}

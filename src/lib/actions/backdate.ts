@@ -35,7 +35,7 @@ const KIND_SET = new Set<BackdateKind>(BACKDATE_KINDS.map((k) => k.value));
 const WRITE_PATHS = (id: string) => [
   `/articles/${id}`,
   `/articles/${id}/edit`,
-  `/articles/${id}/pre-publish`,
+  `/articles/${id}/pre-flight`,
   `/articles/${id}/review`,
   "/pipeline",
   "/board",

@@ -18,7 +18,7 @@ import { createServiceClient } from "@/lib/supabase/service";
  * object — best-effort because the row update is the authoritative state, and
  * an orphaned object in the bucket is a janitor problem, not a publish blocker.
  *
- * On publish, post-publish.ts → publishArticle reads featured_image_url and
+ * On publish, publish.ts → publishArticle reads featured_image_url and
  * pushes it to the target title's WP media library, setting featured_media
  * on the post. If featured_image_url is NULL, the publish step falls back to
  * sideloading from candidates.image_url.
@@ -32,8 +32,8 @@ const WRITE_PATHS = (id: string) => [
   `/articles/${id}`,
   `/articles/${id}/edit`,
   `/articles/${id}/review`,
-  `/articles/${id}/pre-publish`,
-  `/articles/${id}/post-publish`,
+  `/articles/${id}/pre-flight`,
+  `/articles/${id}/publish`,
 ];
 
 function revalidate(id: string) {

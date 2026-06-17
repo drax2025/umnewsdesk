@@ -16,15 +16,15 @@ import {
   type ArticleReasonableStepsRow,
   type DefamationDefence,
   type ReasonableStepsField,
-} from "@/lib/spec/f9-reasonable-steps";
+} from "@/lib/spec/f7-reasonable-steps";
 import {
   saveReasonableSteps,
-  type PrePublishActionResult,
-} from "@/lib/actions/pre-publish";
+  type PreFlightActionResult,
+} from "@/lib/actions/pre-flight";
 import { cn } from "@/lib/utils";
 
 /**
- * F9 Pack section 8 — Reasonable-steps log (Tier 2 only).
+ * F7 Pack section 8 — Reasonable-steps log (Tier 2 only).
  *
  * Renders six fields:
  *   - Subjects named (comma- or newline-separated)
@@ -69,7 +69,7 @@ function NotApplicablePanel({ tier }: { tier: 1 | 2 | 3 | null }) {
     tier === 1
       ? "Tier 1 article — no defamation framework required. Reasonable-steps log is not applicable."
       : tier === 3
-        ? "Tier 3 article — F1 should have disqualified this article upstream. Reasonable-steps log is not collected at F9."
+        ? "Tier 3 article — F1 should have disqualified this article upstream. Reasonable-steps log is not collected at F7."
         : "Defamation tier not yet resolved. Set the tier in F1 / F2 before completing the reasonable-steps log.";
 
   return (
@@ -148,7 +148,7 @@ function ReasonableStepsForm({
     fd.set("tier_classifier_name", classifierName);
 
     startTransition(async () => {
-      const res: PrePublishActionResult = await saveReasonableSteps(fd);
+      const res: PreFlightActionResult = await saveReasonableSteps(fd);
       if (!res.ok) {
         setError(res.error);
         return;

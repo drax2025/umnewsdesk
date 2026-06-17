@@ -19,11 +19,11 @@ import {
   type ArticleArtefactSweepRow,
   type ArticlePublishLogRow,
   type PublishTarget,
-} from "@/lib/spec/f8-post-publish";
+} from "@/lib/spec/f8-publish";
 import {
   publishArticle,
   retractArticle,
-} from "@/lib/actions/post-publish";
+} from "@/lib/actions/publish";
 import { cn } from "@/lib/utils";
 
 type Props = {

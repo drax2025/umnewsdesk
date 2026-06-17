@@ -1,7 +1,7 @@
 /**
- * F4 Interlinker constants & types, lifted from spec v3.0:
+ * F4 Interlink constants & types, lifted from spec v3.0:
  *
- *   - F4   Interlinker operational sequence (candidates → resolution → placement → recency)
+ *   - F4   Interlink operational sequence (candidates → resolution → placement → recency)
  *   - B4   Reader-first placement test (3 questions, max 3 internal, zero is valid)
  *   - C7   Link integrity gate (banned domains, internal cap 0-3, outbound 3-5)
  *   - E4   Internal-link recency decay (prefer ≤ 90 days)

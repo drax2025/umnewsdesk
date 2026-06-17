@@ -23,7 +23,7 @@ import {
  *
  * All write paths are gated to editor + senior_editor. The verbatim ledger
  * (article_quotes.quote_text) preserves paragraph structure with \n\n —
- * the C1 / C3 / F9 audit chain depends on byte-exact retention.
+ * the C1 / C3 / F7 audit chain depends on byte-exact retention.
  */
 
 /* -------------------------------------------------------------------------- */
@@ -131,7 +131,7 @@ function parseBool(raw: unknown): boolean {
 function revalidate(articleId: string) {
   revalidatePath(`/articles/${articleId}/research`);
   revalidatePath(`/articles/${articleId}`);
-  revalidatePath(`/articles/${articleId}/pre-publish`);
+  revalidatePath(`/articles/${articleId}/pre-flight`);
 }
 
 /* -------------------------------------------------------------------------- */

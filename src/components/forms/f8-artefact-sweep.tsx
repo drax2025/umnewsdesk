@@ -23,12 +23,12 @@ import {
   type ArtefactSweepStatus,
   type ArticleArtefactSweepRow,
   type ArtefactDef,
-} from "@/lib/spec/f8-post-publish";
+} from "@/lib/spec/f8-publish";
 import {
   bulkStampArtefactSweep,
   saveArtefactRow,
-} from "@/lib/actions/post-publish";
-import type { PostPublishActionResult } from "@/lib/actions/post-publish";
+} from "@/lib/actions/publish";
+import type { PublishActionResult } from "@/lib/actions/publish";
 import { cn } from "@/lib/utils";
 
 /**
@@ -91,7 +91,7 @@ export function ArtefactSweepPanel({
 
       <p className="border-b border-border bg-background/30 px-3 py-2 text-[10.5px] leading-[1.5] text-um-muted">
         DIGIT, Futurescot and SFN are <strong>signal-only</strong>. F8 confirms
-        none of the 17 prohibited artefacts have slipped past F9 before
+        none of the 17 prohibited artefacts have slipped past F7 before
         WordPress push. Any contamination_found row blocks publish; any pending
         or unjustified N/A row blocks publish.
       </p>
@@ -348,7 +348,7 @@ function ArtefactRow({
     fd.set("note", note);
 
     startTransition(async () => {
-      const res: PostPublishActionResult = await saveArtefactRow(fd);
+      const res: PublishActionResult = await saveArtefactRow(fd);
       if (!res.ok) {
         setError(res.error);
         return;

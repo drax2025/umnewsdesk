@@ -1,17 +1,22 @@
 /**
- * F9 Pre-Publish Pack constants & types — lifted from spec v3.0 section F9 +
- * A1-A10 active-check matrix + D-Steps Reasonable Steps doctrine + the
- * Senior Editor [PUB] channel.
+ * F7 Pre-Flight Check constants & types — lifted from spec v3.0 section F7
+ * (was F9) + A1–A10 active-check matrix + D-Steps Reasonable Steps doctrine +
+ * the Senior Editor [PUB] channel.
  *
- * Single source of truth for the F9 page + components + server actions.
- * Mirrors the SQL columns in 0020_article_pre_publish_f9.sql exactly.
+ * Single source of truth for the F7 page + components + server actions.
+ * Mirrors the SQL columns in 0020_article_pre_publish_f9.sql + rename in
+ * 0036_rename_f9_to_f7_pre_flight.sql exactly.
  *
- * Per spec line 1155, the canonical Pre-Publish glyph palette is:
+ * Per spec line 1155, the canonical Pre-Flight glyph palette is:
  *
  *   ✅ PASS   ⚠️ SOFT-FAIL   ❌ FAIL   N/A
  *
  * Per spec line 107, A10 explicitly demands a *positive trace* on every
  * numeric / quantitative claim — not just an absence of red flags.
+ *
+ * Naming note: F7 (Pre-Flight Check) is the final gate before F8 (Publish).
+ * Returns route back to F1–F6 by root cause; the senior editor [PUB] verdict
+ * routes APPROVE → F8, MODIFY/REJECT → upstream agent.
  */
 import type { F6Verdict } from "@/lib/spec/f6-review";
 
@@ -41,7 +46,12 @@ export const A_CHECK_STATUS: {
 
 export type ACheckKind = "hard" | "soft";
 
-export type RootCauseAgent = "F1" | "F2" | "F3" | "F4" | "F5" | "F6" | "F9";
+/**
+ * Agents an A-check failure can return to. F7 (Pre-Flight) itself is not in
+ * the list — a check that fails because of an F7 bug falls back to F6 Final
+ * Review (the previous human gate).
+ */
+export type RootCauseAgent = "F1" | "F2" | "F3" | "F4" | "F5" | "F6";
 
 export type ACheckCode =
   | "A1" | "A2" | "A3" | "A4" | "A5"
@@ -173,14 +183,13 @@ export const ROOT_CAUSE_AGENTS: readonly RootCauseAgent[] = [
   "F4",
   "F5",
   "F6",
-  "F9",
 ] as const;
 
 /* -------------------------------------------------------------------------- */
-/*  F9 verdict                                                                */
+/*  F7 verdict                                                                */
 /* -------------------------------------------------------------------------- */
 
-export type F9Verdict =
+export type F7Verdict =
   | "hand_to_senior_editor"
   | "return_to_f1"
   | "return_to_f2"
@@ -189,8 +198,8 @@ export type F9Verdict =
   | "return_to_f5"
   | "return_to_f6";
 
-export const F9_VERDICTS: {
-  value: F9Verdict;
+export const F7_VERDICTS: {
+  value: F7Verdict;
   label: string;
   hint: string;
   tone: "success" | "warn" | "destructive";
@@ -198,7 +207,7 @@ export const F9_VERDICTS: {
   {
     value: "hand_to_senior_editor",
     label: "Hand to Senior Editor",
-    hint: "All A-checks PASS / SOFT-FAIL / N/A. Pack assembles and posts to [PUB].",
+    hint: "All A-checks PASS / SOFT-FAIL / N/A. Pack assembles and posts to [PUB] for F8 Publish.",
     tone: "success",
   },
   {
@@ -209,19 +218,19 @@ export const F9_VERDICTS: {
   },
   {
     value: "return_to_f2",
-    label: "Return to F2 Researcher",
-    hint: "A1 / A2 / A3 source-side failure. Researcher patches source pack.",
+    label: "Return to F2 Research",
+    hint: "A1 / A2 / A3 source-side failure. Research patches source pack.",
     tone: "warn",
   },
   {
     value: "return_to_f3",
-    label: "Return to F3 Writer",
+    label: "Return to F3 Initial Draft",
     hint: "A4 / A5 writer-side failure. Writer fixes quote / paragraph drift.",
     tone: "warn",
   },
   {
     value: "return_to_f4",
-    label: "Return to F4 Interlinker",
+    label: "Return to F4 Interlink",
     hint: "A7 interlink failure. Interlinker fixes link pack.",
     tone: "warn",
   },
@@ -233,14 +242,14 @@ export const F9_VERDICTS: {
   },
   {
     value: "return_to_f6",
-    label: "Return to F6 Reviewer",
+    label: "Return to F6 Final Review",
     hint: "F6 gate audit looks incomplete. Reviewer redoes the relevant H-gate.",
     tone: "destructive",
   },
 ];
 
 /** Map an A-check code to its default verdict if it fails. */
-export function defaultVerdictForFailure(code: ACheckCode): F9Verdict {
+export function defaultVerdictForFailure(code: ACheckCode): F7Verdict {
   const def = A_CHECKS.find((c) => c.code === code);
   if (!def) return "return_to_f6";
   switch (def.rootCause) {
@@ -250,7 +259,6 @@ export function defaultVerdictForFailure(code: ACheckCode): F9Verdict {
     case "F4": return "return_to_f4";
     case "F5": return "return_to_f5";
     case "F6": return "return_to_f6";
-    case "F9": return "return_to_f6"; // F9-internal fall back to F6 review
   }
 }
 
@@ -278,7 +286,7 @@ export const PUB_VERDICTS: {
     value: "approve",
     label: "APPROVE",
     short: "APPROVE",
-    hint: "Article cleared for F8 publish.",
+    hint: "Article cleared for F8 Publish.",
     tone: "success",
   },
   {
@@ -303,20 +311,27 @@ export const PUB_VERDICTS: {
 
 export const PACK_HARD_CAP = 3;
 
-/** Generate a pack ref of the form PPP-YYYY-MM-DD-NNN. */
+/**
+ * Generate a pack ref of the form PFP-YYYY-MM-DD-NNN.
+ *
+ * PFP = Pre-Flight Pack. Old refs in the database use the legacy "PPP-"
+ * prefix; migration 0036 left them in place so historical packs still
+ * round-trip. New packs minted from this codebase will use PFP- going
+ * forward.
+ */
 export function formatPackRef(date: Date, seq: number): string {
   const yyyy = date.getUTCFullYear();
   const mm = String(date.getUTCMonth() + 1).padStart(2, "0");
   const dd = String(date.getUTCDate()).padStart(2, "0");
   const nnn = String(Math.max(1, Math.min(999, seq))).padStart(3, "0");
-  return `PPP-${yyyy}-${mm}-${dd}-${nnn}`;
+  return `PFP-${yyyy}-${mm}-${dd}-${nnn}`;
 }
 
 /* -------------------------------------------------------------------------- */
 /*  Row types — mirror SQL 1:1                                                */
 /* -------------------------------------------------------------------------- */
 
-export type ArticlePrePublishRow = {
+export type ArticlePreFlightRow = {
   article_id: string;
 
   a1_status: ACheckStatus;
@@ -359,7 +374,7 @@ export type ArticlePrePublishRow = {
   origin_sweep_id: string | null;
   pack_archive_path: string | null;
 
-  verdict: F9Verdict | null;
+  verdict: F7Verdict | null;
   verdict_at: string | null;
   verdict_by: string | null;
   verdict_rationale: string | null;
@@ -372,7 +387,7 @@ export type ArticlePrePublishRow = {
   updated_at: string;
 };
 
-export type PrePublishFailureRow = {
+export type PreFlightFailureRow = {
   id: string;
   article_id: string;
   check_code: ACheckCode;
@@ -386,7 +401,7 @@ export type PrePublishFailureRow = {
   created_by: string | null;
 };
 
-export type PrePublishPackRow = {
+export type PreFlightPackRow = {
   pack_ref: string;
   article_1_id: string | null;
   article_2_id: string | null;
@@ -410,20 +425,20 @@ export type PrePublishPackRow = {
 /* -------------------------------------------------------------------------- */
 
 export function statusFromRow(
-  row: ArticlePrePublishRow | null,
+  row: ArticlePreFlightRow | null,
   code: ACheckCode,
 ): ACheckStatus {
   if (!row) return "pending";
-  const key = `${code.toLowerCase()}_status` as keyof ArticlePrePublishRow;
+  const key = `${code.toLowerCase()}_status` as keyof ArticlePreFlightRow;
   return (row[key] as ACheckStatus) ?? "pending";
 }
 
 export function detailFromRow(
-  row: ArticlePrePublishRow | null,
+  row: ArticlePreFlightRow | null,
   code: ACheckCode,
 ): string | null {
   if (!row) return null;
-  const key = `${code.toLowerCase()}_detail` as keyof ArticlePrePublishRow;
+  const key = `${code.toLowerCase()}_detail` as keyof ArticlePreFlightRow;
   return (row[key] as string | null) ?? null;
 }
 
@@ -431,7 +446,7 @@ export function detailFromRow(
 /*  Roll-up summary                                                           */
 /* -------------------------------------------------------------------------- */
 
-export type PrePublishSummary = {
+export type PreFlightSummary = {
   pass: number;
   soft: number;
   fail: number;
@@ -445,9 +460,9 @@ export type PrePublishSummary = {
   blockers: string[];
 };
 
-export function summarisePrePublish(
-  row: ArticlePrePublishRow | null,
-): PrePublishSummary {
+export function summarisePreFlight(
+  row: ArticlePreFlightRow | null,
+): PreFlightSummary {
   const counts = {
     pass: 0,
     soft: 0,

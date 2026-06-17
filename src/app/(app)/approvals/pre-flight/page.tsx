@@ -14,28 +14,28 @@ import {
   PACK_HARD_CAP,
   PUB_VERDICTS,
   statusFromRow,
-  summarisePrePublish,
+  summarisePreFlight,
   type ACheckStatus,
-  type ArticlePrePublishRow,
-  type PrePublishPackRow,
+  type ArticlePreFlightRow,
+  type PreFlightPackRow,
   type PubVerdict,
-} from "@/lib/spec/f9-pre-publish";
+} from "@/lib/spec/f7-pre-flight";
 import { cn } from "@/lib/utils";
 
 export const dynamic = "force-dynamic";
 
 /**
- * /approvals/pre-publish — Senior Editor [PUB] queue.
+ * /approvals/pre-flight — Senior Editor [PUB] queue.
  *
- * Lists every Pre-Publish Pack that F9 has handed to the Senior Editor. Each
- * pack card shows the 1-3 article(s) inside, the F9 verdict + A-check roll-up,
+ * Lists every Pre-Flight Pack that F7 has handed to the Senior Editor. Each
+ * pack card shows the 1-3 article(s) inside, the F7 verdict + A-check roll-up,
  * and an inline APPROVE / MODIFY / REJECT verdict stamp.
  *
  * Default tab: PENDING (pub_verdict='pending' on the pack). Switch to
  * DECIDED to see recent verdicts (last 14 days).
  *
  * Senior Editor gates the verdict form. Editors see read-only roll-ups +
- * deep-link to the article's /pre-publish page.
+ * deep-link to the article's /pre-flight page.
  */
 
 type TabKey = "pending" | "decided";
@@ -53,10 +53,10 @@ type ArticleLite = {
 };
 
 type PackWithItems = {
-  pack: PrePublishPackRow;
+  pack: PreFlightPackRow;
   articles: {
     article: ArticleLite;
-    pp: ArticlePrePublishRow | null;
+    pp: ArticlePreFlightRow | null;
   }[];
 };
 
@@ -67,7 +67,7 @@ const PUB_PILL: Record<PubVerdict, string> = {
   reject: "border-destructive/45 bg-destructive/10 text-destructive",
 };
 
-export default async function PrePublishApprovalsPage({
+export default async function PreFlightApprovalsPage({
   searchParams,
 }: {
   searchParams: Promise<{ tab?: string }>;
@@ -91,7 +91,7 @@ export default async function PrePublishApprovalsPage({
   const canStamp = role === "senior_editor";
 
   // Packs.
-  const basePacks = supabase.from("pre_publish_packs").select("*");
+  const basePacks = supabase.from("pre_flight_packs").select("*");
   const cutoff = new Date(
     new Date().valueOf() - 14 * 24 * 60 * 60 * 1000,
   ).toISOString();
@@ -101,16 +101,16 @@ export default async function PrePublishApprovalsPage({
       : basePacks.neq("pub_verdict", "pending").gte("updated_at", cutoff);
   const { data: packs } = await filteredPacks
     .order("created_at", { ascending: false })
-    .returns<PrePublishPackRow[]>();
+    .returns<PreFlightPackRow[]>();
 
   // Counts for the tab strip.
   const [{ count: pendingCount }, { count: decidedCount }] = await Promise.all([
     supabase
-      .from("pre_publish_packs")
+      .from("pre_flight_packs")
       .select("pack_ref", { count: "exact", head: true })
       .eq("pub_verdict", "pending"),
     supabase
-      .from("pre_publish_packs")
+      .from("pre_flight_packs")
       .select("pack_ref", { count: "exact", head: true })
       .neq("pub_verdict", "pending"),
   ]);
@@ -134,18 +134,18 @@ export default async function PrePublishApprovalsPage({
           .in("id", idList)
           .returns<ArticleLite[]>(),
     idList.length === 0
-      ? Promise.resolve({ data: [] as ArticlePrePublishRow[] })
+      ? Promise.resolve({ data: [] as ArticlePreFlightRow[] })
       : supabase
-          .from("article_pre_publish")
+          .from("article_pre_flight")
           .select("*")
           .in("article_id", idList)
-          .returns<ArticlePrePublishRow[]>(),
+          .returns<ArticlePreFlightRow[]>(),
   ]);
 
   const articleMap = new Map<string, ArticleLite>(
     (articlesRes.data ?? []).map((a) => [a.id, a]),
   );
-  const ppMap = new Map<string, ArticlePrePublishRow>(
+  const ppMap = new Map<string, ArticlePreFlightRow>(
     (ppRes.data ?? []).map((p) => [p.article_id, p]),
   );
 
@@ -174,7 +174,7 @@ export default async function PrePublishApprovalsPage({
         </Link>
         <span className="text-border-mid">/</span>
         <span className="font-mono text-[11px] font-semibold uppercase tracking-[0.06em] text-foreground">
-          Pre-Publish [PUB]
+          Pre-Flight [PUB]
         </span>
         <span className="ml-auto text-[11px] text-um-muted">
           Role: <span className="font-medium text-fg-2">{role}</span>
@@ -194,7 +194,7 @@ export default async function PrePublishApprovalsPage({
           return (
             <Link
               key={t.key}
-              href={`/approvals/pre-publish?tab=${t.key}`}
+              href={`/approvals/pre-flight?tab=${t.key}`}
               className={cn(
                 "-mb-px flex items-center gap-1.5 border-b-2 px-3 py-2.5 text-[11.5px] font-medium transition-colors",
                 isActive
@@ -250,7 +250,7 @@ function EmptyState({ tab }: { tab: TabKey }) {
       </h2>
       <p className="mt-1 max-w-md text-[12px] leading-[1.5] text-um-muted">
         {tab === "pending"
-          ? "Packs land here when F9 stamps HAND TO SENIOR EDITOR. Hard cap of three articles per pack."
+          ? "Packs land here when F7 stamps HAND TO SENIOR EDITOR. Hard cap of three articles per pack."
           : "Decisions stamped in the last 14 days will appear here."}
       </p>
     </div>
@@ -262,7 +262,7 @@ function PackCard({
   articles,
   canStamp,
 }: {
-  pack: PrePublishPackRow;
+  pack: PreFlightPackRow;
   articles: PackWithItems["articles"];
   canStamp: boolean;
 }) {
@@ -323,10 +323,10 @@ function ArticleSlot({
   canStamp,
 }: {
   article: ArticleLite;
-  pp: ArticlePrePublishRow | null;
+  pp: ArticlePreFlightRow | null;
   canStamp: boolean;
 }) {
-  const summary = summarisePrePublish(pp);
+  const summary = summarisePreFlight(pp);
   const hasStamp = pp && pp.pub_verdict !== "pending";
 
   return (
@@ -334,7 +334,7 @@ function ArticleSlot({
       <div className="mb-2 flex items-start gap-3">
         <div className="min-w-0 flex-1">
           <Link
-            href={`/articles/${article.id}/pre-publish`}
+            href={`/articles/${article.id}/pre-flight`}
             className="group block"
           >
             <h3 className="line-clamp-2 text-[13px] font-semibold leading-[1.3] text-foreground group-hover:text-primary">
@@ -348,11 +348,11 @@ function ArticleSlot({
           ) : null}
         </div>
         <Link
-          href={`/articles/${article.id}/pre-publish`}
+          href={`/articles/${article.id}/pre-flight`}
           className="flex h-7 flex-shrink-0 items-center gap-1.5 rounded-md border border-border bg-background px-2.5 text-[11px] font-medium text-fg-2 hover:bg-secondary"
         >
           <ExternalLink className="h-3 w-3" />
-          Open F9 detail
+          Open F7 detail
         </Link>
       </div>
 

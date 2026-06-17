@@ -21,8 +21,8 @@ import {
  *   - declareOverride(fd)     — convenience wrapper that flags an SK-OPS
  *                                override on the appended event
  *
- * The log is the canonical cross-agent record. F9's `pre_publish_failures`
- * stays in place for F9-internal A-check failures (existing contract); the
+ * The log is the canonical cross-agent record. F7's `pre_flight_failures`
+ * stays in place for F7-internal A-check failures (existing contract); the
  * new article_failure_log table is the broader chronological record read
  * BEFORE the article body in the pack.
  *
@@ -96,7 +96,7 @@ function parseBool(raw: unknown): boolean {
 
 function revalidate(articleId: string) {
   revalidatePath(`/articles/${articleId}`);
-  revalidatePath(`/articles/${articleId}/pre-publish`);
+  revalidatePath(`/articles/${articleId}/pre-flight`);
   revalidatePath(`/articles/${articleId}/review`);
   revalidatePath(`/articles/${articleId}/edit`);
 }
@@ -121,7 +121,7 @@ export async function appendFailureEvent(
   const override_reason = trimOrNull(fd.get("override_reason"), 2400);
 
   if (!article_id) return { ok: false, error: "Missing article_id" };
-  if (!stage) return { ok: false, error: "Pick a stage (F1-F9)" };
+  if (!stage) return { ok: false, error: "Pick a stage (F1-F8)" };
   if (!event) return { ok: false, error: "Pick an event type" };
   if (!detail) return { ok: false, error: "Describe what happened (required)" };
 
@@ -194,7 +194,7 @@ export async function deleteFailureEvent(
 
 /**
  * Server-internal: append a failure event from another action (e.g. F6 return,
- * F9 hard-gate return, F2 right-of-reply absence). Skips role-gating since the
+ * F7 hard-gate return, F2 right-of-reply absence). Skips role-gating since the
  * calling action has already authenticated. Always provide a `detail`.
  */
 export async function logFailureEventInternal(args: {

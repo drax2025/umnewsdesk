@@ -183,21 +183,21 @@ export default async function ArticleDossierPage({
               className="flex h-7 items-center gap-1.5 rounded-md border border-border bg-background px-2.5 text-[11.5px] font-medium text-fg-2 hover:bg-secondary"
             >
               <Gavel className="h-3.5 w-3.5" />
-              F6 Review
+              F6 Final Review
             </Link>
             <Link
-              href={`/articles/${a.id}/pre-publish`}
+              href={`/articles/${a.id}/pre-flight`}
               className="flex h-7 items-center gap-1.5 rounded-md border border-border bg-background px-2.5 text-[11.5px] font-medium text-fg-2 hover:bg-secondary"
             >
               <Package className="h-3.5 w-3.5" />
-              F9 Pre-Publish
+              F7 Pre-Flight
             </Link>
             <Link
-              href={`/articles/${a.id}/post-publish`}
+              href={`/articles/${a.id}/publish`}
               className="flex h-7 items-center gap-1.5 rounded-md border border-border bg-background px-2.5 text-[11.5px] font-medium text-fg-2 hover:bg-secondary"
             >
               <Globe2 className="h-3.5 w-3.5" />
-              F8 Post-Publish
+              F8 Publish
             </Link>
             <Link
               href={`/articles/${a.id}/edit`}

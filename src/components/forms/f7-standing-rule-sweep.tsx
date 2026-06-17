@@ -20,21 +20,21 @@ import {
   type ArticleStandingRuleSweepRow,
   type StandingRuleDef,
   type StandingRuleStatus,
-} from "@/lib/spec/f9-standing-rule";
+} from "@/lib/spec/f7-standing-rule";
 import {
   saveStandingRule,
-  type PrePublishActionResult,
-} from "@/lib/actions/pre-publish";
+  type PreFlightActionResult,
+} from "@/lib/actions/pre-flight";
 import { cn } from "@/lib/utils";
 
 /**
- * F9 Pack section 10 — Standing-Rule Compliance.
+ * F7 Pack section 10 — Standing-Rule Compliance.
  *
  * Renders nine rows (B1-B7 + Section M + Section L). Each row:
  *   - Status pills (PENDING / PASS / FAIL / N/A).
  *   - Justification textarea (required for FAIL or N/A).
  *   - B2 also exposes an "artefacts swept" field — which of the 17 prohibited
- *     artefacts F9 actually checked.
+ *     artefacts F7 actually checked.
  *
  * Roll-up bar at the top mirrors pack-language for the standing-rule section.
  */
@@ -80,10 +80,10 @@ export function StandingRuleSweep({ articleId, row, readOnly = false }: Props) {
       </header>
 
       <p className="border-b border-border bg-background/30 px-3 py-2 text-[10.5px] leading-[1.5] text-um-muted">
-        F9 cannot return PASS without every row CHECKED-PASS, CHECKED-FAIL or
+        F7 cannot return PASS without every row CHECKED-PASS, CHECKED-FAIL or
         N/A-with-justification. A pending row, or N/A without justification,
         leaves the pack <strong>INCOMPLETE</strong> and routes the article back
-        to F9.
+        to F7.
       </p>
 
       <div className="divide-y divide-border">
@@ -152,7 +152,7 @@ function StandingRuleRow({
     if (def.hasArtefactsSwept) fd.set("artefacts_swept", artefacts);
 
     startTransition(async () => {
-      const res: PrePublishActionResult = await saveStandingRule(fd);
+      const res: PreFlightActionResult = await saveStandingRule(fd);
       if (!res.ok) {
         setError(res.error);
         return;
@@ -260,7 +260,7 @@ function StandingRuleRow({
       {def.hasArtefactsSwept ? (
         <label className="flex flex-col gap-1">
           <span className="font-mono text-[10px] uppercase tracking-[0.05em] text-um-muted">
-            Artefacts swept · which of the 17 prohibited types F9 actually checked
+            Artefacts swept · which of the 17 prohibited types F7 actually checked
           </span>
           <textarea
             rows={2}

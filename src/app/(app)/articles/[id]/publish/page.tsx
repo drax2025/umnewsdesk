@@ -8,19 +8,19 @@ import { PublishPanel } from "@/components/forms/f8-publish-panel";
 import type {
   ArticleArtefactSweepRow,
   ArticlePublishLogRow,
-} from "@/lib/spec/f8-post-publish";
+} from "@/lib/spec/f8-publish";
 
 export const dynamic = "force-dynamic";
 
 /**
- * F8 Post-Publish screen — /articles/[id]/post-publish.
+ * F8 Publish screen — /articles/[id]/publish.
  *
  * Two stages on one page:
  *
  *   1. Final 17-artefact sweep (Stage 1) — B2 confirmation before push
  *   2. Publish push (Stage 2)            — WordPress / WP draft / manual
  *
- * Entry state: 'scheduled' (set by senior PUB-PASS in F9).
+ * Entry state: 'scheduled' (set by senior PUB-PASS in F7).
  * Exit state:  'live' + published_at + master-inventory write-back.
  *
  * Wordpress credentials come from env: WORDPRESS_URL / WORDPRESS_USER /
@@ -72,7 +72,7 @@ function coerceAttachments(raw: unknown): CandidateAttachment[] {
   return out;
 }
 
-export default async function F8PostPublishPage({
+export default async function F8PublishPage({
   params,
 }: {
   params: Promise<{ id: string }>;
@@ -182,7 +182,7 @@ export default async function F8PostPublishPage({
         </Link>
         <span className="text-border-mid">/</span>
         <span className="font-mono text-[11px] font-semibold uppercase tracking-[0.06em] text-foreground">
-          F8 Post-Publish
+          F8 Publish
         </span>
       </div>
 
@@ -192,7 +192,7 @@ export default async function F8PostPublishPage({
           <Globe2 className="mt-1 h-4 w-4 flex-shrink-0 text-primary" />
           <div className="min-w-0 flex-1">
             <div className="mb-0.5 text-[10.5px] font-semibold uppercase tracking-[0.06em] text-um-muted">
-              F8 Post-Publish · final sweep + WordPress push
+              F8 Publish · final sweep + WordPress push
             </div>
             <h1 className="text-[18px] font-semibold leading-[1.25] tracking-[-0.02em] text-foreground">
               {article.headline}
@@ -204,11 +204,11 @@ export default async function F8PostPublishPage({
             ) : null}
           </div>
           <Link
-            href={`/articles/${article.id}/pre-publish`}
+            href={`/articles/${article.id}/pre-flight`}
             className="flex h-7 flex-shrink-0 items-center gap-1.5 rounded-md border border-border bg-background px-2.5 text-[11.5px] font-medium text-fg-2 hover:bg-secondary"
           >
             <ShieldCheck className="h-3.5 w-3.5" />
-            F9 pack
+            F7 Pre-Flight Pack
           </Link>
         </div>
       </div>
@@ -220,7 +220,7 @@ export default async function F8PostPublishPage({
             <div className="rounded-md border border-warn/45 bg-warn/5 px-3 py-2 text-[11.5px] text-warn">
               Article state is <span className="font-mono">{article.state}</span>{" "}
               — F8 expects <span className="font-mono">scheduled</span> (after
-              senior PUB-PASS). If the article is still pre-PASS, complete F9
+              senior PUB-PASS). If the article is still pre-PASS, complete F7
               first.
             </div>
           ) : null}

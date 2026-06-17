@@ -2,14 +2,28 @@
  * Pack section 0 — Article Failure Log.
  *
  * Chronological cross-agent record. Sourced from F1 / F2 / F3 / F4 / F5 / F6 /
- * F9 via the shared `appendFailureEvent` action. Read by the pack renderer
- * BEFORE the article content sections (a clean log is itself a positive
- * disclosure — empty log == clean run, still mandatory).
+ * F7 / F8 via the shared `appendFailureEvent` action. Read by the pack
+ * renderer BEFORE the article content sections (a clean log is itself a
+ * positive disclosure — empty log == clean run, still mandatory).
  *
- * Mirrors article_failure_log in migration 0022.
+ * Mirrors article_failure_log in migrations 0022 + 0036.
+ *
+ * Naming note: the F9 stage was renumbered to F7 (Pre-Flight Check) and
+ * F8 (Post-Publish → Publish) was relabelled in migration 0036. The
+ * `failure_log_stage` enum kept its old `'F9'` value (Postgres cannot drop
+ * enum values without a type recreate) but the spec no longer references it
+ * — new rows always carry F1–F8.
  */
 
-export type FailureLogStage = "F1" | "F2" | "F3" | "F4" | "F5" | "F6" | "F9";
+export type FailureLogStage =
+  | "F1"
+  | "F2"
+  | "F3"
+  | "F4"
+  | "F5"
+  | "F6"
+  | "F7"
+  | "F8";
 
 export const FAILURE_LOG_STAGES: {
   value: FailureLogStage;
@@ -18,11 +32,12 @@ export const FAILURE_LOG_STAGES: {
 }[] = [
   { value: "F1", label: "F1 — Triage", short: "F1" },
   { value: "F2", label: "F2 — Research", short: "F2" },
-  { value: "F3", label: "F3 — Framing", short: "F3" },
-  { value: "F4", label: "F4 — Drafting", short: "F4" },
-  { value: "F5", label: "F5 — Editor selection", short: "F5" },
-  { value: "F6", label: "F6 — Review (H-gates)", short: "F6" },
-  { value: "F9", label: "F9 — Pre-Publish (A-gates)", short: "F9" },
+  { value: "F3", label: "F3 — Initial Draft", short: "F3" },
+  { value: "F4", label: "F4 — Interlink", short: "F4" },
+  { value: "F5", label: "F5 — Editor", short: "F5" },
+  { value: "F6", label: "F6 — Final Review (H-gates)", short: "F6" },
+  { value: "F7", label: "F7 — Pre-Flight Check (A-gates)", short: "F7" },
+  { value: "F8", label: "F8 — Publish", short: "F8" },
 ];
 
 export type FailureLogEvent =
@@ -58,7 +73,7 @@ export const FAILURE_LOG_EVENTS: {
   },
   {
     value: "a_check_return",
-    label: "F9 A-check return",
+    label: "F7 A-check return",
     short: "A-RETURN",
     tone: "destructive",
   },
@@ -200,7 +215,7 @@ export function summariseFailureLog(
  */
 export function cleanRunDeclaration(rows: ArticleFailureLogRow[]): string {
   if (rows.length === 0) {
-    return "Clean run — no failure events recorded across F1 / F2 / F3 / F4 / F5 / F6 / F9.";
+    return "Clean run — no failure events recorded across F1 / F2 / F3 / F4 / F5 / F6 / F7 / F8.";
   }
   const overrides = rows.filter((r) => r.override_applied).length;
   if (overrides > 0) {

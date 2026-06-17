@@ -10,27 +10,27 @@ import {
   Zap,
 } from "lucide-react";
 import {
-  setF9Verdict,
-  stampF9Tier1Defaults,
-  type PrePublishActionResult,
-} from "@/lib/actions/pre-publish";
+  setF7Verdict,
+  stampF7Tier1Defaults,
+  type PreFlightActionResult,
+} from "@/lib/actions/pre-flight";
 import {
-  F9_VERDICTS,
-  summarisePrePublish,
-  type ArticlePrePublishRow,
-  type F9Verdict,
-} from "@/lib/spec/f9-pre-publish";
+  F7_VERDICTS,
+  summarisePreFlight,
+  type ArticlePreFlightRow,
+  type F7Verdict,
+} from "@/lib/spec/f7-pre-flight";
 import { cn } from "@/lib/utils";
 
 /**
- * F9 verdict stamp panel.
+ * F7 Pre-Flight Check verdict stamp panel.
  *
  * Renders the live A-check roll-up and seven verdict buttons. HAND TO
  * SENIOR EDITOR is gated client-side on `summary.ready` (zero hard fails,
  * zero pending). The server action re-checks the same invariant.
  */
 
-const VERDICT_ICON: Record<F9Verdict, React.ComponentType<{ className?: string }>> = {
+const VERDICT_ICON: Record<F7Verdict, React.ComponentType<{ className?: string }>> = {
   hand_to_senior_editor: CheckCircle2,
   return_to_f1: RotateCcw,
   return_to_f2: RotateCcw,
@@ -41,13 +41,13 @@ const VERDICT_ICON: Record<F9Verdict, React.ComponentType<{ className?: string }
 };
 
 /**
- * Where each F9 verdict lands the editor next. HAND TO SENIOR EDITOR leaves
- * them on the F9 page so they can assemble the pack in the panel below
+ * Where each F7 verdict lands the editor next. HAND TO SENIOR EDITOR leaves
+ * them on the F7 page so they can assemble the pack in the panel below
  * (the next thing they need to do is right there). Returns route back to
  * the article dossier where the upstream agent owns the fix.
  */
 function destinationFor(
-  verdict: F9Verdict,
+  verdict: F7Verdict,
   articleId: string,
 ): { href: string; label: string } | null {
   switch (verdict) {
@@ -66,13 +66,13 @@ function destinationFor(
 const textareaCls =
   "min-h-[72px] w-full rounded-md border border-border bg-background px-2.5 py-1.5 text-[12px] leading-[1.5] text-foreground placeholder:text-um-muted focus:border-primary/40 focus:outline-none";
 
-export function F9VerdictPanel({
+export function F7VerdictPanel({
   articleId,
   row,
   defamationTier,
 }: {
   articleId: string;
-  row: ArticlePrePublishRow | null;
+  row: ArticlePreFlightRow | null;
   defamationTier: 1 | 2 | 3 | null;
 }) {
   const router = useRouter();
@@ -84,7 +84,7 @@ export function F9VerdictPanel({
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
 
-  const summary = summarisePrePublish(row);
+  const summary = summarisePreFlight(row);
 
   // Tier 1 PR pass-throughs are 90% of routine volume. One-click stamps the
   // 10-check default profile so the editor doesn't have to save each A-row.
@@ -94,7 +94,7 @@ export function F9VerdictPanel({
     const fd = new FormData();
     fd.set("article_id", articleId);
     startStamping(async () => {
-      const res: PrePublishActionResult = await stampF9Tier1Defaults(fd);
+      const res: PreFlightActionResult = await stampF7Tier1Defaults(fd);
       if (!res.ok) {
         setError(res.error);
         return;
@@ -105,7 +105,7 @@ export function F9VerdictPanel({
     });
   }
 
-  function submit(verdict: F9Verdict) {
+  function submit(verdict: F7Verdict) {
     setError(null);
     setNotice(null);
     if (!rationale.trim()) {
@@ -117,7 +117,7 @@ export function F9VerdictPanel({
     fd.set("verdict", verdict);
     fd.set("verdict_rationale", rationale);
     startTransition(async () => {
-      const res: PrePublishActionResult = await setF9Verdict(fd);
+      const res: PreFlightActionResult = await setF7Verdict(fd);
       if (!res.ok) {
         setError(res.error);
         return;
@@ -143,12 +143,12 @@ export function F9VerdictPanel({
         <div className="flex items-center gap-2">
           <Package className="h-3.5 w-3.5 text-um-muted" />
           <h2 className="text-[12.5px] font-semibold text-foreground">
-            F9 verdict
+            F7 verdict
           </h2>
           {current ? (
             <span className="font-mono text-[10.5px] text-fg-2">
               current:{" "}
-              {F9_VERDICTS.find((v) => v.value === current)?.label}
+              {F7_VERDICTS.find((v) => v.value === current)?.label}
               {row?.verdict_at ? (
                 <span className="ml-1 text-um-muted">
                   ·{" "}
@@ -232,13 +232,13 @@ export function F9VerdictPanel({
         <textarea
           value={rationale}
           onChange={(e) => setRationale(e.target.value)}
-          placeholder="One paragraph. Reference the A-checks that drove the decision. Stamps into the audit trail and into the Pre-Publish Pack."
+          placeholder="One paragraph. Reference the A-checks that drove the decision. Stamps into the audit trail and into the Pre-Flight Pack."
           className={textareaCls}
           maxLength={2400}
         />
 
         <div className="mt-2.5 grid grid-cols-2 gap-1.5">
-          {F9_VERDICTS.map((v) => {
+          {F7_VERDICTS.map((v) => {
             const Icon = VERDICT_ICON[v.value];
             const disabled =
               pending ||

@@ -1,7 +1,11 @@
 /**
- * F6 Reviewer constants & types — lifted from spec v3.0 section F6 + C1-C9 +
- * D-Checklist. Single source of truth for the review page, gate rows,
- * H11 checklist, and verdict panel.
+ * F6 Final Review constants & types — lifted from spec v3.0 section F6 +
+ * C1-C9 + D-Checklist. Single source of truth for the review page, gate
+ * rows, H11 checklist, and verdict panel.
+ *
+ * F6 sits between F5 (Editor) and F7 (Pre-Flight Check). H-gates passing
+ * hands off to F7; any hard fail returns the article to the upstream
+ * agent named by the verdict value (return_to_f1 .. return_to_f5).
  */
 
 /* -------------------------------------------------------------------------- */
@@ -264,7 +268,7 @@ export function computeH11Status(
 /* -------------------------------------------------------------------------- */
 
 export type F6Verdict =
-  | "hand_to_f9"
+  | "hand_to_f7"
   | "return_to_f1"
   | "return_to_f2"
   | "return_to_f3"
@@ -279,8 +283,8 @@ export const F6_VERDICTS: {
   tone: "success" | "warn" | "destructive";
 }[] = [
   {
-    value: "hand_to_f9",
-    label: "Hand to F9 Pre-Publish",
+    value: "hand_to_f7",
+    label: "Hand to F7 Pre-Flight Check",
     hint: "All hard gates PASS. Proceed to A1-A10 active checks + Senior Editor pack.",
     tone: "success",
   },
@@ -292,19 +296,19 @@ export const F6_VERDICTS: {
   },
   {
     value: "return_to_f2",
-    label: "Return to F2 Researcher",
-    hint: "Source / quote / date failure. Researcher fixes source pack.",
+    label: "Return to F2 Research",
+    hint: "Source / quote / date failure. Research patches source pack.",
     tone: "warn",
   },
   {
     value: "return_to_f3",
-    label: "Return to F3 Writer",
+    label: "Return to F3 Initial Draft",
     hint: "Draft-level failure (paragraph structure, register, word count).",
     tone: "warn",
   },
   {
     value: "return_to_f4",
-    label: "Return to F4 Interlinker",
+    label: "Return to F4 Interlink",
     hint: "Link integrity failure. Interlinker fixes link pack.",
     tone: "warn",
   },

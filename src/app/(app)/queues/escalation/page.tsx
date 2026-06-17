@@ -19,9 +19,9 @@ export const dynamic = "force-dynamic";
  * Surfaces every article currently parked on a Senior Editor escalation. Per
  * spec, three agents can fire an [ESC] verdict:
  *
- *   - F4 Interlinker          → article_interlinker.verdict = 'escalate'
- *   - F6 Reviewer             → article_review.verdict = 'escalate'
- *   - F9 Pre-Publish Pack     → article_pre_publish.f9_verdict = 'escalate'
+ *   - F4 Interlink             → article_interlinker.verdict = 'escalate'
+ *   - F6 Final Review         → article_review.verdict = 'escalate'
+ *   - F7 Pre-Flight Pack       → article_pre_flight.f7_verdict = 'escalate'
  *
  * The queue merges all three sources, tags each row with the originating
  * agent, and shows the escalation rationale. Editors deep-link to the
@@ -32,7 +32,7 @@ export const dynamic = "force-dynamic";
  * F-agent screen.
  */
 
-type EscalationSource = "f4" | "f6" | "f9";
+type EscalationSource = "f4" | "f6" | "f7";
 
 const SOURCE_META: Record<
   EscalationSource,
@@ -44,21 +44,21 @@ const SOURCE_META: Record<
   }
 > = {
   f4: {
-    label: "F4 Interlinker",
+    label: "F4 Interlink",
     short: "F4 · ESC",
-    hint: "Interlinker cannot resolve — no candidate fits, anchor not natural.",
+    hint: "Interlink cannot resolve — no candidate fits, anchor not natural.",
     icon: Link2,
   },
   f6: {
-    label: "F6 Reviewer",
+    label: "F6 Final Review",
     short: "F6 · ESC",
-    hint: "Reviewer cannot resolve at H-gates — Senior Editor judgement call.",
+    hint: "Final Review cannot resolve at H-gates — Senior Editor judgement call.",
     icon: Gavel,
   },
-  f9: {
-    label: "F9 Pre-Publish",
-    short: "F9 · ESC",
-    hint: "Pre-Publish Pack agent cannot resolve at A-checks — Senior Editor judgement call.",
+  f7: {
+    label: "F7 Pre-Flight",
+    short: "F7 · ESC",
+    hint: "Pre-Flight Pack agent cannot resolve at A-checks — Senior Editor judgement call.",
     icon: Package,
   },
 };
@@ -90,7 +90,7 @@ export default async function EscalationQueuePage() {
     verdict_at: string | null;
     verdict_rationale: string | null;
   };
-  type PrePublishLite = {
+  type PreFlightLite = {
     article_id: string;
     verdict: string | null;
     verdict_at: string | null;
@@ -104,7 +104,7 @@ export default async function EscalationQueuePage() {
   };
 
   // Pull every active [ESC] verdict in parallel.
-  const [f4Res, f6Res, f9Res] = await Promise.all([
+  const [f4Res, f6Res, f7Res] = await Promise.all([
     supabase
       .from("article_interlinker")
       .select("article_id, verdict, verdict_at, verdict_rationale")
@@ -118,22 +118,22 @@ export default async function EscalationQueuePage() {
       .order("verdict_at", { ascending: false })
       .returns<ReviewLite[]>(),
     supabase
-      .from("article_pre_publish")
+      .from("article_pre_flight")
       .select("article_id, verdict, verdict_at, verdict_rationale")
       .eq("verdict", "escalate")
       .order("verdict_at", { ascending: false })
-      .returns<PrePublishLite[]>(),
+      .returns<PreFlightLite[]>(),
   ]);
 
   const f4Rows = f4Res.data ?? [];
   const f6Rows = f6Res.data ?? [];
-  const f9Rows = f9Res.data ?? [];
+  const f7Rows = f7Res.data ?? [];
 
   // Resolve article headlines.
   const articleIds = new Set<string>();
   for (const r of f4Rows) articleIds.add(r.article_id);
   for (const r of f6Rows) articleIds.add(r.article_id);
-  for (const r of f9Rows) articleIds.add(r.article_id);
+  for (const r of f7Rows) articleIds.add(r.article_id);
   const idList = Array.from(articleIds);
 
   const { data: articles } =
@@ -180,11 +180,11 @@ export default async function EscalationQueuePage() {
       deepLink: `/articles/${a.id}/review`,
     });
   }
-  for (const r of f9Rows) {
+  for (const r of f7Rows) {
     const a = articleMap.get(r.article_id);
     if (!a) continue;
     rows.push({
-      source: "f9",
+      source: "f7",
       id: a.id,
       headline: a.headline,
       standfirst: a.standfirst,
@@ -192,7 +192,7 @@ export default async function EscalationQueuePage() {
       verdictLabel: "ESCALATE",
       rationale: r.verdict_rationale,
       verdictAt: r.verdict_at,
-      deepLink: `/articles/${a.id}/pre-publish`,
+      deepLink: `/articles/${a.id}/pre-flight`,
     });
   }
 
@@ -200,7 +200,7 @@ export default async function EscalationQueuePage() {
 
   const countF4 = f4Rows.length;
   const countF6 = f6Rows.length;
-  const countF9 = f9Rows.length;
+  const countF7 = f7Rows.length;
   const countAll = rows.length;
 
   return (
@@ -229,7 +229,7 @@ export default async function EscalationQueuePage() {
           <Siren className="mt-1 h-4 w-4 flex-shrink-0 text-warn" />
           <div className="min-w-0 flex-1">
             <div className="mb-0.5 text-[10.5px] font-semibold uppercase tracking-[0.06em] text-um-muted">
-              D0 escalation channel · F4 · F6 · F9 · senior editor judgement
+              D0 escalation channel · F4 · F6 · F7 · senior editor judgement
             </div>
             <h1 className="text-[18px] font-semibold leading-[1.25] tracking-[-0.02em] text-foreground">
               Articles awaiting Senior Editor [ESC] resolution
@@ -243,7 +243,7 @@ export default async function EscalationQueuePage() {
             <div className="mt-2 flex items-center gap-2">
               <SourceTotal source="f4" count={countF4} />
               <SourceTotal source="f6" count={countF6} />
-              <SourceTotal source="f9" count={countF9} />
+              <SourceTotal source="f7" count={countF7} />
               <span className="ml-1 font-mono text-[10.5px] text-um-muted">
                 · total {countAll}
               </span>
@@ -300,7 +300,7 @@ function EmptyState() {
         No active escalations
       </h2>
       <p className="mt-1 max-w-md text-[12px] leading-[1.5] text-um-muted">
-        F4, F6 and F9 have nothing parked on the Senior Editor channel.
+        F4, F6 and F7 have nothing parked on the Senior Editor channel.
       </p>
     </div>
   );

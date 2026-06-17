@@ -15,9 +15,9 @@ import type { FramingBrief } from "@/lib/spec/f1-triage";
 import type { ArticleCorrectionRow } from "@/lib/spec/stage13-corrections";
 
 /**
- * F9 Pack rendering — produces the 12-section markdown, stores it in
- * pre_publish_packs.archive_markdown + signature, and (in dev) also writes
- * to workspace/pre_publish_packs/<REF>.md so the on-disk archive matches.
+ * F7 Pre-Flight Pack rendering — produces the 12-section markdown, stores it in
+ * pre_flight_packs.archive_markdown + signature, and (in dev) also writes
+ * to workspace/pre_flight_packs/<REF>.md so the on-disk archive matches.
  *
  *   renderPack(fd) — load bundle for pack_ref, render, persist, return text
  *
@@ -147,12 +147,12 @@ async function loadArticleBundle(
       .eq("article_id", articleId)
       .maybeSingle(),
     admin
-      .from("article_pre_publish")
+      .from("article_pre_flight")
       .select("*")
       .eq("article_id", articleId)
       .maybeSingle(),
     admin
-      .from("pre_publish_failures")
+      .from("pre_flight_failures")
       .select("*")
       .eq("article_id", articleId)
       .order("created_at"),
@@ -232,7 +232,7 @@ export async function renderPack(fd: FormData): Promise<RenderPackResult> {
   const uid = await currentUserId();
 
   const { data: pack } = await admin
-    .from("pre_publish_packs")
+    .from("pre_flight_packs")
     .select(
       "pack_ref, article_1_id, article_2_id, article_3_id, origin_sweep_id, archive_path, pub_verdict, pub_verdict_at, pub_verdict_by, pub_verdict_notes",
     )
@@ -293,11 +293,11 @@ export async function renderPack(fd: FormData): Promise<RenderPackResult> {
   const markdown = renderPackMarkdown(bundle);
   const signature = createHash("sha256").update(markdown).digest("hex");
   const archivePath =
-    pack.archive_path ?? `workspace/pre_publish_packs/${pack_ref}.md`;
+    pack.archive_path ?? `workspace/pre_flight_packs/${pack_ref}.md`;
 
   // Persist to DB.
   const { error: upErr } = await admin
-    .from("pre_publish_packs")
+    .from("pre_flight_packs")
     .update({
       archive_markdown: markdown,
       archive_signature: signature,
@@ -319,9 +319,9 @@ export async function renderPack(fd: FormData): Promise<RenderPackResult> {
     /* read-only fs — DB copy is authoritative */
   }
 
-  revalidatePath(`/pre-publish-packs/${pack_ref}`);
+  revalidatePath(`/pre-flight-packs/${pack_ref}`);
   for (const id of articleIds) {
-    revalidatePath(`/articles/${id}/pre-publish`);
+    revalidatePath(`/articles/${id}/pre-flight`);
     revalidatePath(`/articles/${id}`);
   }
 

@@ -230,7 +230,7 @@ function FailureRow({
 
 function AppendForm({ articleId }: { articleId: string }) {
   const [open, setOpen] = useState(false);
-  const [stage, setStage] = useState<FailureLogStage>("F9");
+  const [stage, setStage] = useState<FailureLogStage>("F7");
   const [event, setEvent] = useState<FailureLogEvent>("other");
   const [gateCode, setGateCode] = useState<string>("");
   const [detail, setDetail] = useState<string>("");
@@ -241,7 +241,7 @@ function AppendForm({ articleId }: { articleId: string }) {
   const [pending, startTransition] = useTransition();
 
   function reset() {
-    setStage("F9");
+    setStage("F7");
     setEvent("other");
     setGateCode("");
     setDetail("");

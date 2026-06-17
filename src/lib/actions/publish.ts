@@ -13,7 +13,7 @@ import {
   type ArtefactSweepStatus,
   type ArticleArtefactSweepRow,
   type PublishTarget,
-} from "@/lib/spec/f8-post-publish";
+} from "@/lib/spec/f8-publish";
 import {
   applyApprovedCorrections,
   hasApprovedRetraction,
@@ -27,7 +27,7 @@ import {
 } from "@/lib/publish/markdown-to-html";
 
 /**
- * F8 Post-Publish server actions.
+ * F8 Publish server actions.
  *
  * Four write paths:
  *
@@ -47,7 +47,7 @@ import {
  * cross-agent failure log (pack §0) without the editor needing to.
  */
 
-export type PostPublishActionResult =
+export type PublishActionResult =
   | { ok: true }
   | { ok: true; publish_log_id: string; external_url: string | null }
   | { ok: false; error: string };
@@ -65,7 +65,7 @@ const TARGET_SET = new Set<PublishTarget>(["wordpress", "manual", "draft_only"])
 /*  Auth + helpers                                                            */
 /* -------------------------------------------------------------------------- */
 
-async function requireEditor(): Promise<PostPublishActionResult | null> {
+async function requireEditor(): Promise<PublishActionResult | null> {
   const supabase = await createClient();
   const {
     data: { user },
@@ -82,7 +82,7 @@ async function requireEditor(): Promise<PostPublishActionResult | null> {
   return null;
 }
 
-async function requireSeniorEditor(): Promise<PostPublishActionResult | null> {
+async function requireSeniorEditor(): Promise<PublishActionResult | null> {
   const supabase = await createClient();
   const {
     data: { user },
@@ -132,8 +132,8 @@ function parseTarget(raw: unknown): PublishTarget | null {
 
 function revalidate(articleId: string) {
   revalidatePath(`/articles/${articleId}`);
-  revalidatePath(`/articles/${articleId}/post-publish`);
-  revalidatePath(`/articles/${articleId}/pre-publish`);
+  revalidatePath(`/articles/${articleId}/publish`);
+  revalidatePath(`/articles/${articleId}/pre-flight`);
   revalidatePath(`/pipeline`);
   revalidatePath(`/board`);
 }
@@ -144,7 +144,7 @@ function revalidate(articleId: string) {
 
 export async function saveArtefactRow(
   fd: FormData,
-): Promise<PostPublishActionResult> {
+): Promise<PublishActionResult> {
   const gate = await requireEditor();
   if (gate) return gate;
 
@@ -200,7 +200,7 @@ export async function saveArtefactRow(
   if (status === "contamination_found") {
     await logFailureEventInternal({
       article_id,
-      stage: "F9",
+      stage: "F7",
       event: "standing_rule_check_late",
       gate_code: "B2",
       detail: `F8 final sweep found contamination on artefact ${code}: ${note}`,
@@ -554,7 +554,7 @@ async function pushToWordPress(payload: {
 
 export async function publishArticle(
   fd: FormData,
-): Promise<PostPublishActionResult> {
+): Promise<PublishActionResult> {
   const gate = await requireSeniorEditor();
   if (gate) return gate;
 
@@ -759,7 +759,7 @@ export async function publishArticle(
 
     await logFailureEventInternal({
       article_id,
-      stage: "F9",
+      stage: "F7",
       event: "other",
       gate_code: null,
       detail: `F8 publish push failed: ${pushError}`,
@@ -1001,7 +1001,7 @@ export async function republishWithApprovedCorrections(
   if (pushError) {
     await logFailureEventInternal({
       article_id: articleId,
-      stage: "F9",
+      stage: "F7",
       event: "other",
       gate_code: null,
       detail: `Stage 13 republish failed: ${pushError}`,
@@ -1020,7 +1020,7 @@ export async function republishWithApprovedCorrections(
 
 export async function retractArticle(
   fd: FormData,
-): Promise<PostPublishActionResult> {
+): Promise<PublishActionResult> {
   const gate = await requireSeniorEditor();
   if (gate) return gate;
 
@@ -1052,7 +1052,7 @@ export async function retractArticle(
 
   await logFailureEventInternal({
     article_id,
-    stage: "F9",
+    stage: "F7",
     event: "other",
     gate_code: null,
     detail: `F8 retract: ${reason}`,
@@ -1067,4 +1067,4 @@ export async function retractArticle(
 // modules require every export to be an async function — Next.js wraps each
 // export as a server-action thunk, and a type re-export ends up emitted as a
 // ReferenceError at SSR module-evaluation time (digest 2438283078 case).
-// Consumers should import types directly from `@/lib/spec/f8-post-publish`.
+// Consumers should import types directly from `@/lib/spec/f8-publish`.

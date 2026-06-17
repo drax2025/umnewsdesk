@@ -25,7 +25,7 @@ export const dynamic = "force-dynamic";
  *   1. Tier 3 candidates routed straight here from F1 (no production).
  *   2. F6 verdict = 'return_to_f1' on H11 failures — defamation triage failed
  *      (NO to Q3-Q9 or YES to Q10) and the spec routes these to Reject Queue.
- *   3. F9 article_pre_publish.pub_verdict = 'reject' — Senior Editor REJECT.
+ *   3. F7 article_pre_flight.pub_verdict = 'reject' — Senior Editor REJECT.
  *   4. articles.state = 'rejected' — terminal reject state.
  *
  * Each row labels which agent stamped the rejection and the rationale. Editors
@@ -38,7 +38,7 @@ const TABS: { key: TabKey; label: string; hint: string }[] = [
   {
     key: "live",
     label: "Active rejects",
-    hint: "Articles currently rejected by F6 H11 fail, F9 [PUB] REJECT, or article.state.",
+    hint: "Articles currently rejected by F6 H11 fail, F7 [PUB] REJECT, or article.state.",
   },
   {
     key: "tier3",
@@ -78,8 +78,8 @@ const SOURCE_META: Record<RejectSource, SourceMeta> = {
     icon: Gavel,
   },
   f9_pub_reject: {
-    label: "F9 [PUB] reject",
-    short: "F9 · PUB",
+    label: "F7 [PUB] reject",
+    short: "F7 · PUB",
     hint: "Senior Editor stamped REJECT on the Pre-Publish Pack.",
     tone: "destructive",
     icon: Package,
@@ -197,7 +197,7 @@ export default async function DRejectQueuePage({
       .order("verdict_at", { ascending: false })
       .returns<ReviewLite[]>(),
     supabase
-      .from("article_pre_publish")
+      .from("article_pre_flight")
       .select("article_id, pub_verdict, pub_verdict_at, pub_verdict_notes")
       .eq("pub_verdict", "reject")
       .order("pub_verdict_at", { ascending: false })
@@ -446,7 +446,7 @@ export default async function DRejectQueuePage({
             <p className="mt-1 max-w-[760px] text-[12.5px] leading-[1.5] text-fg-2">
               Combines four sources: <span className="font-mono">articles.state=&apos;rejected&apos;</span>,
               F6 verdict <span className="font-mono">return_to_f1</span> (H11 fail),
-              F9 [PUB] verdict <span className="font-mono">reject</span>, and F1
+              F7 [PUB] verdict <span className="font-mono">reject</span>, and F1
               candidates classified D-Tier 3. Per Reasonable Steps Doctrine,
               rejected work is preserved in audit — never silently deleted.
             </p>
@@ -525,7 +525,7 @@ function EmptyState({ tab }: { tab: TabKey }) {
       </h2>
       <p className="mt-1 max-w-md text-[12px] leading-[1.5] text-um-muted">
         {tab === "live"
-          ? "Nothing is currently sitting in articles.state=rejected, F6 H11 fail, or F9 [PUB] REJECT."
+          ? "Nothing is currently sitting in articles.state=rejected, F6 H11 fail, or F7 [PUB] REJECT."
           : tab === "tier3"
             ? "F1 has not classified any candidates D-Tier 3 in the last 100 candidates."
             : "Nothing rejected anywhere in the pipeline."}
@@ -644,11 +644,11 @@ function RejectRowCard({
                   F6 Review
                 </Link>
                 <Link
-                  href={`/articles/${row.id}/pre-publish`}
+                  href={`/articles/${row.id}/pre-flight`}
                   className="flex h-6 items-center gap-1.5 rounded-md border border-border bg-background px-2 text-[11px] font-medium text-fg-2 hover:bg-secondary"
                 >
                   <Package className="h-3 w-3" />
-                  F9 Pre-Publish
+                  F7 Pre-Flight
                 </Link>
               </>
             ) : null}

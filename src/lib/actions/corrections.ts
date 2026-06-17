@@ -8,7 +8,7 @@ import {
   defaultPublicNotice,
   type CorrectionKind,
 } from "@/lib/spec/stage13-corrections";
-import { republishWithApprovedCorrections } from "@/lib/actions/post-publish";
+import { republishWithApprovedCorrections } from "@/lib/actions/publish";
 
 /**
  * Stage 13 corrections — server actions.
@@ -105,7 +105,7 @@ function parseFieldsChangedJson(
 
 function revalidateArticle(articleId: string) {
   revalidatePath(`/articles/${articleId}`);
-  revalidatePath(`/articles/${articleId}/post-publish`);
+  revalidatePath(`/articles/${articleId}/publish`);
   revalidatePath(`/corrections`);
 }
 

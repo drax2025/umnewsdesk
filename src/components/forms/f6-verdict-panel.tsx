@@ -26,13 +26,13 @@ import { cn } from "@/lib/utils";
 /**
  * F6 verdict stamp panel.
  *
- * Renders the live gate-roll summary and seven verdict buttons. HAND-TO-F9
+ * Renders the live gate-roll summary and seven verdict buttons. HAND-TO-F7
  * is gated client-side on "ready" (all gates non-pending, zero hard fails);
  * the server action re-checks the same invariant.
  */
 
 const VERDICT_ICON: Record<F6Verdict, React.ComponentType<{ className?: string }>> = {
-  hand_to_f9: CheckCircle2,
+  hand_to_f7: CheckCircle2,
   return_to_f1: RotateCcw,
   return_to_f2: RotateCcw,
   return_to_f3: RotateCcw,
@@ -51,10 +51,10 @@ function destinationFor(
   articleId: string,
 ): { href: string; label: string } {
   switch (verdict) {
-    case "hand_to_f9":
+    case "hand_to_f7":
       return {
-        href: `/articles/${articleId}/pre-publish`,
-        label: "F9 Pre-Publish",
+        href: `/articles/${articleId}/pre-flight`,
+        label: "F7 Pre-Flight Check",
       };
     case "escalate":
       return { href: `/queues/escalation`, label: "escalation queue" };
@@ -183,7 +183,7 @@ export function F6VerdictPanel({
             <span>
               {summary.pending > 0
                 ? `${summary.pending} gate${summary.pending === 1 ? "" : "s"} still pending.`
-                : `${summary.hardFails} hard-gate fail${summary.hardFails === 1 ? "" : "s"} — cannot HAND TO F9.`}
+                : `${summary.hardFails} hard-gate fail${summary.hardFails === 1 ? "" : "s"} — cannot HAND TO F7.`}
             </span>
           </div>
         ) : null}
@@ -216,7 +216,7 @@ export function F6VerdictPanel({
         <textarea
           value={rationale}
           onChange={(e) => setRationale(e.target.value)}
-          placeholder="One paragraph. Reference the failing or passing gates by code. This stamps into the audit trail and into the F9 pack."
+          placeholder="One paragraph. Reference the failing or passing gates by code. This stamps into the audit trail and into the F7 Pre-Flight Pack."
           className={textareaCls}
           maxLength={2400}
         />
@@ -226,7 +226,7 @@ export function F6VerdictPanel({
             const Icon = VERDICT_ICON[v.value];
             const disabled =
               pending ||
-              (v.value === "hand_to_f9" && !summary.ready);
+              (v.value === "hand_to_f7" && !summary.ready);
             const tone =
               v.tone === "success"
                 ? "border-success/45 bg-success/10 text-success hover:bg-success/15"

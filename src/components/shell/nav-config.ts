@@ -97,7 +97,7 @@ export const NAV_SECTIONS: NavSection[] = [
     label: "Management",
     items: [
       { key: "approvals", label: "Approvals", href: "/approvals", iconName: "CheckSquare" },
-      { key: "pre_publish", label: "Pre-Publish [PUB]", href: "/approvals/pre-publish", iconName: "Package" },
+      { key: "pre_publish", label: "Pre-Flight [PUB]", href: "/approvals/pre-flight", iconName: "Package" },
       { key: "d_reject_queue", label: "D-Reject Queue", href: "/queues/reject", iconName: "ShieldAlert" },
       { key: "corrections", label: "Corrections (Stage 13)", href: "/corrections", iconName: "FileWarning" },
       { key: "d0_escalation", label: "D0 Escalation [ESC]", href: "/queues/escalation", iconName: "Siren" },

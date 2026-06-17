@@ -4,13 +4,13 @@ import { useState, useTransition } from "react";
 import { Layers, ShieldX, ThumbsUp } from "lucide-react";
 import {
   setPubVerdict,
-  type PrePublishActionResult,
-} from "@/lib/actions/pre-publish";
+  type PreFlightActionResult,
+} from "@/lib/actions/pre-flight";
 import { cn } from "@/lib/utils";
 
 /**
  * Compact inline [PUB] verdict capture for the approvals queue. Renders a
- * notes textarea and three buttons. Used per-article on /approvals/pre-publish.
+ * notes textarea and three buttons. Used per-article on /approvals/pre-flight.
  */
 
 const textareaCls =
@@ -40,7 +40,7 @@ export function PubVerdictButtons({
     fd.set("pub_verdict", verdict);
     fd.set("pub_verdict_notes", notes);
     startTransition(async () => {
-      const res: PrePublishActionResult = await setPubVerdict(fd);
+      const res: PreFlightActionResult = await setPubVerdict(fd);
       if (!res.ok) setError(res.error);
       else setNotice("Stamped.");
     });
