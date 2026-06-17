@@ -1,11 +1,15 @@
 "use client";
 
+import Link from "next/link";
 import { useState, useTransition } from "react";
 import {
   AlertTriangle,
   CheckCircle2,
   ExternalLink,
+  Gavel,
   Loader2,
+  Lock,
+  Package,
   Radio,
   RotateCcw,
   Send,
@@ -62,6 +66,14 @@ export function PublishPanel({
   const summary = summariseSweep(sweepRow);
   const lastPublished = latestPublishedLog(publishLog);
   const isLive = articleState === "live";
+  // Mirror the server guard in publishArticle: a push (incl. WP Draft) is only
+  // allowed once F6 Final Review has handed off (state 'legal') or F7
+  // Pre-Flight has scheduled it ('scheduled'). Anything earlier means the
+  // article hasn't cleared the gates yet; anything terminal can't publish.
+  const isPublishable =
+    articleState === "scheduled" || articleState === "legal";
+  const isTerminal =
+    articleState === "rejected" || articleState === "killed";
 
   return (
     <section className="overflow-hidden rounded-md border border-border bg-card">
@@ -115,13 +127,19 @@ export function PublishPanel({
           log={lastPublished}
           readOnly={readOnly}
         />
-      ) : (
+      ) : isPublishable ? (
         <PushForm
           articleId={articleId}
           defaultSlug={defaultSlug}
           backdate={backdate}
           canPush={summary.cleanForPush && !readOnly}
           wordpressConfigured={wordpressConfigured}
+        />
+      ) : (
+        <NotReadyNotice
+          articleId={articleId}
+          state={articleState}
+          isTerminal={isTerminal}
         />
       )}
 
@@ -289,6 +307,69 @@ function PushForm({
           {error}
         </div>
       ) : null}
+    </div>
+  );
+}
+
+/**
+ * Shown when the article hasn't reached a publishable state ('legal' or
+ * 'scheduled'). Replaces the push form so the senior editor never clicks a
+ * dead button — the publishArticle server guard would reject it anyway. Points
+ * them at the two gates they still owe: F6 Final Review (→ 'legal') and F7
+ * Pre-Flight Check (→ 'scheduled').
+ */
+function NotReadyNotice({
+  articleId,
+  state,
+  isTerminal,
+}: {
+  articleId: string;
+  state: string;
+  isTerminal: boolean;
+}) {
+  if (isTerminal) {
+    return (
+      <div className="flex items-start gap-2 border-b border-border bg-um-muted/5 px-3 py-3 text-[11.5px] text-fg-2">
+        <Lock className="mt-0.5 h-3.5 w-3.5 flex-shrink-0 text-um-muted" />
+        <p>
+          This article is{" "}
+          <span className="font-semibold text-foreground">{state}</span> and
+          cannot be published. Reopen it from the pipeline if this was in error.
+        </p>
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-3 border-b border-border bg-warn/5 px-3 py-3">
+      <div className="flex items-start gap-2 text-[11.5px] text-warn">
+        <Lock className="mt-0.5 h-3.5 w-3.5 flex-shrink-0" />
+        <p className="leading-[1.5]">
+          Not ready to publish — the article is in{" "}
+          <span className="font-mono font-semibold">{state}</span>. Publishing
+          unlocks once it clears{" "}
+          <span className="font-semibold">F6 Final Review</span> (→{" "}
+          <span className="font-mono">legal</span>) and{" "}
+          <span className="font-semibold">F7 Pre-Flight Check</span> (→{" "}
+          <span className="font-mono">scheduled</span>).
+        </p>
+      </div>
+      <div className="flex flex-wrap gap-1.5">
+        <Link
+          href={`/articles/${articleId}/review`}
+          className="flex h-7 items-center gap-1.5 rounded-md border border-border bg-background px-2.5 text-[11px] font-medium text-fg-2 hover:bg-secondary"
+        >
+          <Gavel className="h-3.5 w-3.5" />
+          Go to F6 Final Review
+        </Link>
+        <Link
+          href={`/articles/${articleId}/pre-flight`}
+          className="flex h-7 items-center gap-1.5 rounded-md border border-border bg-background px-2.5 text-[11px] font-medium text-fg-2 hover:bg-secondary"
+        >
+          <Package className="h-3.5 w-3.5" />
+          Go to F7 Pre-Flight Check
+        </Link>
+      </div>
     </div>
   );
 }
