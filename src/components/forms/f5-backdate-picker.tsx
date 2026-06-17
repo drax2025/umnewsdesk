@@ -67,12 +67,19 @@ export function BackdatePicker({
 }: Props) {
   const tier3Locked = defamationTier === 3;
 
+  // Default to the source's own date — most PR/submitted pieces should carry
+  // the date the source published, and it's a safe, defensible default the
+  // editor can override. Only applied when nothing is on file yet.
   const [kind, setKind] = useState<BackdateKind | null>(
-    tier3Locked ? null : initialKind,
+    tier3Locked ? null : (initialKind ?? "source_date"),
   );
-  const [dateStr, setDateStr] = useState<string>(
-    tier3Locked ? "" : (initialBackdate ?? ""),
-  );
+  const [dateStr, setDateStr] = useState<string>(() => {
+    if (tier3Locked) return "";
+    if (initialBackdate) return initialBackdate;
+    // Defaulting to source_date: prefill the source's published date if known.
+    if (!initialKind && eventDate) return eventDate;
+    return "";
+  });
   const [rationale, setRationale] = useState<string>(initialRationale ?? "");
   const [status, setStatus] = useState<SaveStatus>("idle");
   const [error, setError] = useState<string | null>(null);

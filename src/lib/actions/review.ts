@@ -10,6 +10,7 @@ import {
   type HGateStatus,
 } from "@/lib/spec/f6-review";
 import { logFailureEventInternal } from "@/lib/actions/failure-log";
+import { isPrPiece } from "@/lib/actions/pr-piece";
 
 /**
  * F6 Reviewer server actions.
@@ -318,7 +319,9 @@ export async function setReviewVerdict(
   if (!verdict) return { ok: false, error: "Pick a verdict" };
 
   const rationale = trimOrNull(fd.get("verdict_rationale"), 2400);
-  if (!rationale) {
+  // PR pieces (production option 1/2) are routine pass-throughs — no rationale
+  // required. Everything else must carry one for the audit trail.
+  if (!rationale && !(await isPrPiece(article_id))) {
     return { ok: false, error: "Rationale is required to stamp a verdict." };
   }
 
@@ -394,7 +397,7 @@ export async function setReviewVerdict(
       stage: "F6",
       event: "hard_gate_return",
       gate_code: null,
-      detail: `F6 escalated to D0: ${rationale}`,
+      detail: `F6 escalated to D0: ${rationale ?? "(no rationale)"}`,
       created_by: uid,
     });
   } else if (verdict.startsWith("return_to_")) {
@@ -409,7 +412,7 @@ export async function setReviewVerdict(
       stage: "F6",
       event: "hard_gate_return",
       gate_code: null,
-      detail: `F6 returned to ${targetStage}: ${rationale}`,
+      detail: `F6 returned to ${targetStage}: ${rationale ?? "(no rationale)"}`,
       remediation: `Re-run ${targetStage} with the H-gate issues above resolved.`,
       created_by: uid,
     });

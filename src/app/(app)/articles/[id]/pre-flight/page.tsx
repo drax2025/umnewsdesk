@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { ChevronLeft, Compass, Gavel, Package, Pencil } from "lucide-react";
+import { ChevronLeft, Compass, Gavel, Globe2, Package, Pencil } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { F7CheckRow } from "@/components/forms/f7-check-row";
 import { F7FailureLog } from "@/components/forms/f7-failure-log";
@@ -122,14 +122,22 @@ export default async function F7PreFlightPage({
 
   // Resolve defamation tier via candidate (canonical pattern).
   let defamationTier: 1 | 2 | 3 | null = null;
+  // PR pieces (production option 1/2 — submitted content) don't require a
+  // verdict rationale at F7.
+  let isPrPiece = false;
   if (commission?.candidate_id) {
     const { data: cand } = await supabase
       .from("candidates")
-      .select("defamation_tier")
+      .select("defamation_tier, production_option")
       .eq("id", commission.candidate_id)
-      .maybeSingle<{ defamation_tier: number | null }>();
+      .maybeSingle<{
+        defamation_tier: number | null;
+        production_option: number | null;
+      }>();
     const t = cand?.defamation_tier;
     if (t === 1 || t === 2 || t === 3) defamationTier = t;
+    isPrPiece =
+      cand?.production_option === 1 || cand?.production_option === 2;
   }
 
   let pack: PreFlightPackRow | null = null;
@@ -214,6 +222,13 @@ export default async function F7PreFlightPage({
               <Pencil className="h-3.5 w-3.5" />
               Open in editor
             </Link>
+            <Link
+              href={`/articles/${article.id}/publish`}
+              className="flex h-7 items-center gap-1.5 rounded-md border border-primary/45 bg-primary/10 px-2.5 text-[11.5px] font-medium text-primary hover:bg-primary/15"
+            >
+              <Globe2 className="h-3.5 w-3.5" />
+              F8 Publish
+            </Link>
           </div>
         </div>
       </div>
@@ -226,6 +241,7 @@ export default async function F7PreFlightPage({
             articleId={article.id}
             row={row ?? null}
             defamationTier={defamationTier}
+            isPrPiece={isPrPiece}
           />
 
           {/* Hard checks A1-A6 */}

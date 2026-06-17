@@ -23,6 +23,7 @@ import {
 import { DEFENCES, type DefamationDefence } from "@/lib/spec/f7-reasonable-steps";
 import { logFailureEventInternal } from "@/lib/actions/failure-log";
 import { renderPack } from "@/lib/actions/pack-render";
+import { isPrPiece } from "@/lib/actions/pr-piece";
 
 /**
  * F7 Pre-Flight Check server actions.
@@ -426,7 +427,9 @@ export async function setF7Verdict(
   if (!verdict) return { ok: false, error: "Pick a verdict" };
 
   const rationale = trimOrNull(fd.get("verdict_rationale"), 2400);
-  if (!rationale) {
+  // PR pieces (production option 1/2) are routine pass-throughs — no rationale
+  // required. Everything else must carry one for the audit trail.
+  if (!rationale && !(await isPrPiece(article_id))) {
     return { ok: false, error: "Rationale is required to stamp a verdict." };
   }
 
@@ -504,7 +507,7 @@ export async function setF7Verdict(
       stage: "F7",
       event: "a_check_return",
       gate_code: null,
-      detail: `F7 returned to ${targetStage}: ${rationale}`,
+      detail: `F7 returned to ${targetStage}: ${rationale ?? "(no rationale)"}`,
       remediation: `Re-run ${targetStage} with the issues above resolved.`,
       created_by: uid,
     });

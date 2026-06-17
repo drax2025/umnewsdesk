@@ -74,10 +74,13 @@ export function F6VerdictPanel({
   articleId,
   review,
   defamationTier,
+  isPrPiece = false,
 }: {
   articleId: string;
   review: ArticleReviewRow | null;
   defamationTier: 1 | 2 | 3 | null;
+  /** PR pieces (production option 1/2) don't require a verdict rationale. */
+  isPrPiece?: boolean;
 }) {
   const router = useRouter();
   const [rationale, setRationale] = useState<string>(
@@ -114,7 +117,7 @@ export function F6VerdictPanel({
   function submit(verdict: F6Verdict) {
     setError(null);
     setNotice(null);
-    if (!rationale.trim()) {
+    if (!isPrPiece && !rationale.trim()) {
       setError("Rationale is required to stamp a verdict.");
       return;
     }
@@ -216,7 +219,11 @@ export function F6VerdictPanel({
         <textarea
           value={rationale}
           onChange={(e) => setRationale(e.target.value)}
-          placeholder="One paragraph. Reference the failing or passing gates by code. This stamps into the audit trail and into the F7 Pre-Flight Pack."
+          placeholder={
+            isPrPiece
+              ? "Optional for PR pieces. Reference any gates by code if you want a note in the audit trail + F7 pack."
+              : "One paragraph. Reference the failing or passing gates by code. This stamps into the audit trail and into the F7 Pre-Flight Pack."
+          }
           className={textareaCls}
           maxLength={2400}
         />

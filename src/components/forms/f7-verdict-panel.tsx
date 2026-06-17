@@ -70,10 +70,13 @@ export function F7VerdictPanel({
   articleId,
   row,
   defamationTier,
+  isPrPiece = false,
 }: {
   articleId: string;
   row: ArticlePreFlightRow | null;
   defamationTier: 1 | 2 | 3 | null;
+  /** PR pieces (production option 1/2) don't require a verdict rationale. */
+  isPrPiece?: boolean;
 }) {
   const router = useRouter();
   const [rationale, setRationale] = useState<string>(
@@ -108,7 +111,7 @@ export function F7VerdictPanel({
   function submit(verdict: F7Verdict) {
     setError(null);
     setNotice(null);
-    if (!rationale.trim()) {
+    if (!isPrPiece && !rationale.trim()) {
       setError("Rationale is required to stamp a verdict.");
       return;
     }
@@ -232,7 +235,11 @@ export function F7VerdictPanel({
         <textarea
           value={rationale}
           onChange={(e) => setRationale(e.target.value)}
-          placeholder="One paragraph. Reference the A-checks that drove the decision. Stamps into the audit trail and into the Pre-Flight Pack."
+          placeholder={
+            isPrPiece
+              ? "Optional for PR pieces. Note the A-checks that drove the decision if you want a record in the Pre-Flight Pack."
+              : "One paragraph. Reference the A-checks that drove the decision. Stamps into the audit trail and into the Pre-Flight Pack."
+          }
           className={textareaCls}
           maxLength={2400}
         />

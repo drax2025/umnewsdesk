@@ -55,13 +55,21 @@ export default async function F6ReviewPage({
     .maybeSingle<{ candidate_id: string | null }>();
 
   let defamationTier: DefamationTier | null = null;
+  // PR pieces (production option 1 Direct Publish / 2 AI Rewrite) are routine
+  // submitted content — F6 doesn't force a verdict rationale on them.
+  let isPrPiece = false;
   if (commission?.candidate_id) {
     const { data: cand } = await supabase
       .from("candidates")
-      .select("defamation_tier")
+      .select("defamation_tier, production_option")
       .eq("id", commission.candidate_id)
-      .maybeSingle<{ defamation_tier: DefamationTier | null }>();
+      .maybeSingle<{
+        defamation_tier: DefamationTier | null;
+        production_option: number | null;
+      }>();
     defamationTier = cand?.defamation_tier ?? null;
+    isPrPiece =
+      cand?.production_option === 1 || cand?.production_option === 2;
   }
 
   // Review row (one per article)
@@ -135,6 +143,7 @@ export default async function F6ReviewPage({
             articleId={article.id}
             review={review ?? null}
             defamationTier={defamationTier}
+            isPrPiece={isPrPiece}
           />
 
           {/* H1-H10 sequence */}
