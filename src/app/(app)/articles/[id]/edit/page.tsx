@@ -49,7 +49,7 @@ type CommissionRow = {
 type CandidateRow = {
   framing_brief: unknown | null;
   defamation_tier: number | null;
-  source_published_at: string | null;
+  published_at: string | null;
   image_url: string | null;
   attachments: unknown | null;
 };
@@ -214,23 +214,22 @@ export default async function ArticleEditPage({
 
   if (!article) notFound();
 
-  const [{ data: revs }, { data: commission, error: commissionErr }] =
-    await Promise.all([
-      supabase
-        .from("article_revisions")
-        .select("id, revision_no, summary, headline, created_at")
-        .eq("article_id", id)
-        .order("revision_no", { ascending: false })
-        .limit(20),
-      supabase
-        .from("commissions")
-        .select("candidate_id, framing_brief")
-        .eq("article_id", id)
-        .maybeSingle<CommissionRow>(),
-    ]);
+  const [{ data: revs }, { data: commission }] = await Promise.all([
+    supabase
+      .from("article_revisions")
+      .select("id, revision_no, summary, headline, created_at")
+      .eq("article_id", id)
+      .order("revision_no", { ascending: false })
+      .limit(20),
+    supabase
+      .from("commissions")
+      .select("candidate_id, framing_brief")
+      .eq("article_id", id)
+      .maybeSingle<CommissionRow>(),
+  ]);
 
   // Resolve framing brief: prefer commission, fall back to candidate.
-  // We also need the candidate row for defamation_tier + source_published_at
+  // We also need the candidate row for defamation_tier + published_at
   // (drives the BackdatePicker tier-lock and the friday_after suggestion).
   let framingBrief: FramingBrief | null = coerceFramingBrief(
     commission?.framing_brief,
@@ -242,23 +241,21 @@ export default async function ArticleEditPage({
   let eventDate: string | null = null;
   let candidateImageUrl: string | null = null;
   let candidateAttachments: CandidateAttachment[] = [];
-  let candidateErrMsg: string | null = null;
 
   if (commission?.candidate_id) {
-    const { data: candidate, error: candidateErr } = await supabase
+    const { data: candidate } = await supabase
       .from("candidates")
-      .select("framing_brief, defamation_tier, source_published_at, image_url, attachments")
+      .select("framing_brief, defamation_tier, published_at, image_url, attachments")
       .eq("id", commission.candidate_id)
       .maybeSingle<CandidateRow>();
-    candidateErrMsg = candidateErr?.message ?? null;
     if (!framingBrief) {
       framingBrief = coerceFramingBrief(candidate?.framing_brief);
       framingSource = framingBrief ? "candidate" : null;
     }
     const t = candidate?.defamation_tier;
     if (t === 1 || t === 2 || t === 3) defamationTier = t;
-    eventDate = candidate?.source_published_at
-      ? String(candidate.source_published_at).slice(0, 10)
+    eventDate = candidate?.published_at
+      ? String(candidate.published_at).slice(0, 10)
       : null;
     candidateImageUrl = candidate?.image_url ?? null;
     candidateAttachments = coerceAttachments(candidate?.attachments);
@@ -341,12 +338,6 @@ export default async function ArticleEditPage({
                 candidate's source image_url (best-effort — external URLs
                 go stale). Locked once the article enters the approvals
                 pipeline. */}
-            {/* DEBUG — remove once thumbnails confirmed. */}
-            <div className="rounded-sm border border-warn/40 bg-warn/10 px-2 py-1 font-mono text-[10.5px] leading-[1.5] text-warn">
-              debug · commission={commission ? "row" : "null"} · candidate_id={commission?.candidate_id ?? "null"} · attachments.length={candidateAttachments.length} · imageUrl={candidateImageUrl ? "set" : "null"}
-              <br />
-              commissionErr={commissionErr?.message ?? "none"} · candidateErr={candidateErrMsg ?? "none"}
-            </div>
             <FeaturedImagePanel
               articleId={article.id}
               initialUrl={article.featured_image_url}
