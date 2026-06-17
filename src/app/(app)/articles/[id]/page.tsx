@@ -14,6 +14,10 @@ import { createServiceClient } from "@/lib/supabase/service";
 import { cn } from "@/lib/utils";
 import type { ArticleCorrectionRow } from "@/lib/spec/stage13-corrections";
 import { CorrectionsPanel } from "@/components/forms/stage13-corrections-panel";
+import {
+  FeaturedImagePanel,
+  type CandidateAttachment,
+} from "@/components/forms/featured-image-panel";
 
 export const dynamic = "force-dynamic";
 
@@ -30,7 +34,66 @@ type ArticleDetail = {
   created_at: string;
   updated_at: string;
   published_at: string | null;
+  featured_image_url: string | null;
+  featured_image_alt: string | null;
+  featured_image_credit: string | null;
 };
+
+function coerceAttachments(raw: unknown): CandidateAttachment[] {
+  if (!Array.isArray(raw)) return [];
+  const out: CandidateAttachment[] = [];
+  for (const item of raw) {
+    if (!item || typeof item !== "object") continue;
+    const o = item as Record<string, unknown>;
+    const url =
+      typeof o.url === "string"
+        ? o.url
+        : typeof (o as { publicUrl?: unknown }).publicUrl === "string"
+          ? ((o as { publicUrl: string }).publicUrl)
+          : null;
+    if (!url) continue;
+    const name =
+      typeof o.name === "string"
+        ? o.name
+        : typeof (o as { Name?: unknown }).Name === "string"
+          ? ((o as { Name: string }).Name)
+          : typeof (o as { filename?: unknown }).filename === "string"
+            ? ((o as { filename: string }).filename)
+            : url.split("/").pop() ?? "attachment";
+    const contentType =
+      typeof o.content_type === "string"
+        ? o.content_type
+        : typeof (o as { contentType?: unknown }).contentType === "string"
+          ? ((o as { contentType: string }).contentType)
+          : typeof (o as { mime?: unknown }).mime === "string"
+            ? ((o as { mime: string }).mime)
+            : guessMimeFromUrl(url);
+    const sizeRaw =
+      typeof o.size === "number"
+        ? o.size
+        : typeof (o as { bytes?: unknown }).bytes === "number"
+          ? ((o as { bytes: number }).bytes)
+          : typeof o.size === "string"
+            ? Number(o.size)
+            : 0;
+    out.push({
+      name,
+      url,
+      content_type: contentType,
+      size: Number.isFinite(sizeRaw) ? sizeRaw : 0,
+    });
+  }
+  return out;
+}
+
+function guessMimeFromUrl(url: string): string {
+  const ext = url.split("?")[0].split(".").pop()?.toLowerCase() ?? "";
+  if (ext === "jpg" || ext === "jpeg") return "image/jpeg";
+  if (ext === "png") return "image/png";
+  if (ext === "webp") return "image/webp";
+  if (ext === "gif") return "image/gif";
+  return "application/octet-stream";
+}
 
 const TIMELINE: { state: string; label: string }[] = [
   { state: "pitched", label: "Pitched" },
@@ -94,7 +157,7 @@ export default async function ArticleDossierPage({
   const { data: article } = await supabase
     .from("articles")
     .select(
-      "id, slug, headline, standfirst, body, state, primary_frame, geo_tier, sectors, created_at, updated_at, published_at",
+      "id, slug, headline, standfirst, body, state, primary_frame, geo_tier, sectors, created_at, updated_at, published_at, featured_image_url, featured_image_alt, featured_image_credit",
     )
     .eq("id", id)
     .maybeSingle();
@@ -128,6 +191,27 @@ export default async function ArticleDossierPage({
     .order("sequence", { ascending: false })
     .returns<ArticleCorrectionRow[]>();
   const corrections: ArticleCorrectionRow[] = correctionsRaw ?? [];
+
+  // Featured image — pull candidate image + attachments via commission join.
+  let candidateImageUrl: string | null = null;
+  let candidateAttachments: CandidateAttachment[] = [];
+  const { data: comm } = await supabase
+    .from("commissions")
+    .select("candidate_id")
+    .eq("article_id", a.id)
+    .maybeSingle<{ candidate_id: string | null }>();
+  if (comm?.candidate_id) {
+    const { data: cand } = await supabase
+      .from("candidates")
+      .select("image_url, attachments")
+      .eq("id", comm.candidate_id)
+      .maybeSingle<{
+        image_url: string | null;
+        attachments: unknown | null;
+      }>();
+    candidateImageUrl = cand?.image_url ?? null;
+    candidateAttachments = coerceAttachments(cand?.attachments);
+  }
 
   const currentIdx = TIMELINE.findIndex((s) => s.state === a.state);
   const isTerminal = a.state === "rejected" || a.state === "killed";
@@ -305,6 +389,18 @@ export default async function ArticleDossierPage({
                 Body copy not yet filed.
               </p>
             )}
+          </Section>
+
+          <Section title="Featured Image">
+            <FeaturedImagePanel
+              articleId={a.id}
+              initialUrl={a.featured_image_url}
+              initialAlt={a.featured_image_alt}
+              initialCredit={a.featured_image_credit}
+              candidateImageUrl={candidateImageUrl}
+              candidateAttachments={candidateAttachments}
+              readOnly={!isEditor || a.state === "live"}
+            />
           </Section>
 
           {a.state === "live" || a.published_at || corrections.length > 0 ? (

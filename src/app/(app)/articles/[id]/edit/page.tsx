@@ -60,21 +60,58 @@ function coerceAttachments(raw: unknown): CandidateAttachment[] {
   for (const item of raw) {
     if (!item || typeof item !== "object") continue;
     const o = item as Record<string, unknown>;
-    if (
-      typeof o.name === "string" &&
-      typeof o.url === "string" &&
-      typeof o.content_type === "string" &&
+    // URL is the only hard requirement — without it the thumbnail can't render.
+    const url =
+      typeof o.url === "string"
+        ? o.url
+        : typeof o.publicUrl === "string"
+          ? (o.publicUrl as string)
+          : null;
+    if (!url) continue;
+    // Best-effort field fallbacks: writers across the history of this column
+    // have used name/Name/filename, content_type/contentType/mime, size/bytes.
+    const name =
+      typeof o.name === "string"
+        ? o.name
+        : typeof (o as { Name?: unknown }).Name === "string"
+          ? ((o as { Name: string }).Name)
+          : typeof (o as { filename?: unknown }).filename === "string"
+            ? ((o as { filename: string }).filename)
+            : url.split("/").pop() ?? "attachment";
+    const contentType =
+      typeof o.content_type === "string"
+        ? o.content_type
+        : typeof (o as { contentType?: unknown }).contentType === "string"
+          ? ((o as { contentType: string }).contentType)
+          : typeof (o as { mime?: unknown }).mime === "string"
+            ? ((o as { mime: string }).mime)
+            : // Last-resort: infer from extension so the image/* filter still works.
+              guessMimeFromUrl(url);
+    const sizeRaw =
       typeof o.size === "number"
-    ) {
-      out.push({
-        name: o.name,
-        url: o.url,
-        content_type: o.content_type,
-        size: o.size,
-      });
-    }
+        ? o.size
+        : typeof (o as { bytes?: unknown }).bytes === "number"
+          ? ((o as { bytes: number }).bytes)
+          : typeof o.size === "string"
+            ? Number(o.size)
+            : 0;
+    out.push({
+      name,
+      url,
+      content_type: contentType,
+      size: Number.isFinite(sizeRaw) ? sizeRaw : 0,
+    });
   }
   return out;
+}
+
+function guessMimeFromUrl(url: string): string {
+  const ext = url.split("?")[0].split(".").pop()?.toLowerCase() ?? "";
+  if (ext === "jpg" || ext === "jpeg") return "image/jpeg";
+  if (ext === "png") return "image/png";
+  if (ext === "webp") return "image/webp";
+  if (ext === "gif") return "image/gif";
+  return "application/octet-stream";
 }
 
 function coerceFramingBrief(raw: unknown): FramingBrief | null {
@@ -301,6 +338,10 @@ export default async function ArticleEditPage({
                 candidate's source image_url (best-effort — external URLs
                 go stale). Locked once the article enters the approvals
                 pipeline. */}
+            {/* DEBUG — remove once thumbnails confirmed. */}
+            <div className="rounded-sm border border-warn/40 bg-warn/10 px-2 py-1 font-mono text-[10.5px] text-warn">
+              debug · candidateImageUrl={candidateImageUrl ? "set" : "null"} · candidateAttachments.length={candidateAttachments.length} · readOnly={String(readOnly)} · state={article.state}
+            </div>
             <FeaturedImagePanel
               articleId={article.id}
               initialUrl={article.featured_image_url}

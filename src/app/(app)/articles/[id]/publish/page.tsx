@@ -55,21 +55,54 @@ function coerceAttachments(raw: unknown): CandidateAttachment[] {
   for (const item of raw) {
     if (!item || typeof item !== "object") continue;
     const o = item as Record<string, unknown>;
-    if (
-      typeof o.name === "string" &&
-      typeof o.url === "string" &&
-      typeof o.content_type === "string" &&
+    const url =
+      typeof o.url === "string"
+        ? o.url
+        : typeof (o as { publicUrl?: unknown }).publicUrl === "string"
+          ? ((o as { publicUrl: string }).publicUrl)
+          : null;
+    if (!url) continue;
+    const name =
+      typeof o.name === "string"
+        ? o.name
+        : typeof (o as { Name?: unknown }).Name === "string"
+          ? ((o as { Name: string }).Name)
+          : typeof (o as { filename?: unknown }).filename === "string"
+            ? ((o as { filename: string }).filename)
+            : url.split("/").pop() ?? "attachment";
+    const contentType =
+      typeof o.content_type === "string"
+        ? o.content_type
+        : typeof (o as { contentType?: unknown }).contentType === "string"
+          ? ((o as { contentType: string }).contentType)
+          : typeof (o as { mime?: unknown }).mime === "string"
+            ? ((o as { mime: string }).mime)
+            : guessMimeFromUrl(url);
+    const sizeRaw =
       typeof o.size === "number"
-    ) {
-      out.push({
-        name: o.name,
-        url: o.url,
-        content_type: o.content_type,
-        size: o.size,
-      });
-    }
+        ? o.size
+        : typeof (o as { bytes?: unknown }).bytes === "number"
+          ? ((o as { bytes: number }).bytes)
+          : typeof o.size === "string"
+            ? Number(o.size)
+            : 0;
+    out.push({
+      name,
+      url,
+      content_type: contentType,
+      size: Number.isFinite(sizeRaw) ? sizeRaw : 0,
+    });
   }
   return out;
+}
+
+function guessMimeFromUrl(url: string): string {
+  const ext = url.split("?")[0].split(".").pop()?.toLowerCase() ?? "";
+  if (ext === "jpg" || ext === "jpeg") return "image/jpeg";
+  if (ext === "png") return "image/png";
+  if (ext === "webp") return "image/webp";
+  if (ext === "gif") return "image/gif";
+  return "application/octet-stream";
 }
 
 export default async function F8PublishPage({
