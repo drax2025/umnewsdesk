@@ -214,19 +214,20 @@ export default async function ArticleEditPage({
 
   if (!article) notFound();
 
-  const [{ data: revs }, { data: commission }] = await Promise.all([
-    supabase
-      .from("article_revisions")
-      .select("id, revision_no, summary, headline, created_at")
-      .eq("article_id", id)
-      .order("revision_no", { ascending: false })
-      .limit(20),
-    supabase
-      .from("commissions")
-      .select("candidate_id, framing_brief")
-      .eq("article_id", id)
-      .maybeSingle<CommissionRow>(),
-  ]);
+  const [{ data: revs }, { data: commission, error: commissionErr }] =
+    await Promise.all([
+      supabase
+        .from("article_revisions")
+        .select("id, revision_no, summary, headline, created_at")
+        .eq("article_id", id)
+        .order("revision_no", { ascending: false })
+        .limit(20),
+      supabase
+        .from("commissions")
+        .select("candidate_id, framing_brief")
+        .eq("article_id", id)
+        .maybeSingle<CommissionRow>(),
+    ]);
 
   // Resolve framing brief: prefer commission, fall back to candidate.
   // We also need the candidate row for defamation_tier + source_published_at
@@ -241,13 +242,15 @@ export default async function ArticleEditPage({
   let eventDate: string | null = null;
   let candidateImageUrl: string | null = null;
   let candidateAttachments: CandidateAttachment[] = [];
+  let candidateErrMsg: string | null = null;
 
   if (commission?.candidate_id) {
-    const { data: candidate } = await supabase
+    const { data: candidate, error: candidateErr } = await supabase
       .from("candidates")
       .select("framing_brief, defamation_tier, source_published_at, image_url, attachments")
       .eq("id", commission.candidate_id)
       .maybeSingle<CandidateRow>();
+    candidateErrMsg = candidateErr?.message ?? null;
     if (!framingBrief) {
       framingBrief = coerceFramingBrief(candidate?.framing_brief);
       framingSource = framingBrief ? "candidate" : null;
@@ -339,8 +342,10 @@ export default async function ArticleEditPage({
                 go stale). Locked once the article enters the approvals
                 pipeline. */}
             {/* DEBUG — remove once thumbnails confirmed. */}
-            <div className="rounded-sm border border-warn/40 bg-warn/10 px-2 py-1 font-mono text-[10.5px] text-warn">
-              debug · candidateImageUrl={candidateImageUrl ? "set" : "null"} · candidateAttachments.length={candidateAttachments.length} · readOnly={String(readOnly)} · state={article.state}
+            <div className="rounded-sm border border-warn/40 bg-warn/10 px-2 py-1 font-mono text-[10.5px] leading-[1.5] text-warn">
+              debug · commission={commission ? "row" : "null"} · candidate_id={commission?.candidate_id ?? "null"} · attachments.length={candidateAttachments.length} · imageUrl={candidateImageUrl ? "set" : "null"}
+              <br />
+              commissionErr={commissionErr?.message ?? "none"} · candidateErr={candidateErrMsg ?? "none"}
             </div>
             <FeaturedImagePanel
               articleId={article.id}
