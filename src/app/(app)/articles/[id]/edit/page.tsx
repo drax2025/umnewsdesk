@@ -49,6 +49,7 @@ type CommissionRow = {
 type CandidateRow = {
   framing_brief: unknown | null;
   defamation_tier: number | null;
+  production_option: number | null;
   published_at: string | null;
   image_url: string | null;
   attachments: unknown | null;
@@ -241,11 +242,15 @@ export default async function ArticleEditPage({
   let eventDate: string | null = null;
   let candidateImageUrl: string | null = null;
   let candidateAttachments: CandidateAttachment[] = [];
+  // PR pieces (production option 1 Direct Publish / 2 AI Rewrite — submitted
+  // content) don't need the F3 three-headline set, so we collapse it by
+  // default. Option 3 (Value Added / sourced) keeps it open.
+  let isPrPiece = false;
 
   if (commission?.candidate_id) {
     const { data: candidate } = await supabase
       .from("candidates")
-      .select("framing_brief, defamation_tier, published_at, image_url, attachments")
+      .select("framing_brief, defamation_tier, production_option, published_at, image_url, attachments")
       .eq("id", commission.candidate_id)
       .maybeSingle<CandidateRow>();
     if (!framingBrief) {
@@ -259,6 +264,8 @@ export default async function ArticleEditPage({
       : null;
     candidateImageUrl = candidate?.image_url ?? null;
     candidateAttachments = coerceAttachments(candidate?.attachments);
+    isPrPiece =
+      candidate?.production_option === 1 || candidate?.production_option === 2;
   }
 
   const headlineOptions = normaliseHeadlineOptions(article.headline_options);
@@ -322,6 +329,7 @@ export default async function ArticleEditPage({
               initialOptions={headlineOptions}
               initialSelectedIdx={headlineSelectedIdx}
               readOnly={!canEditHeadlines}
+              defaultCollapsed={isPrPiece}
             />
 
             <DraftEditor

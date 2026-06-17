@@ -4,6 +4,8 @@ import { useState, useTransition } from "react";
 import {
   AlertTriangle,
   Check,
+  ChevronDown,
+  ChevronRight,
   CircleDot,
   Loader2,
   Save,
@@ -39,6 +41,12 @@ type Props = {
   initialOptions: HeadlineOption[];
   initialSelectedIdx: 0 | 1 | 2 | null;
   readOnly?: boolean;
+  /**
+   * Start collapsed. Used for PR pieces (production option 1/2 — submitted
+   * content) where the three-headline set isn't required. The panel stays on
+   * screen so the editor can expand it if they do want to author options.
+   */
+  defaultCollapsed?: boolean;
 };
 
 type SaveStatus = "idle" | "saving" | "saved" | "error";
@@ -58,6 +66,7 @@ export function HeadlineOptionsEditor({
   initialOptions,
   initialSelectedIdx,
   readOnly = false,
+  defaultCollapsed = false,
 }: Props) {
   const [options, setOptions] = useState<HeadlineOption[]>(
     padOptions(initialOptions),
@@ -67,6 +76,7 @@ export function HeadlineOptionsEditor({
   );
   const [status, setStatus] = useState<SaveStatus>("idle");
   const [error, setError] = useState<string | null>(null);
+  const [collapsed, setCollapsed] = useState(defaultCollapsed);
   const [pending, startTransition] = useTransition();
 
   const summary = summariseHeadlines({ options, selected_idx: selectedIdx });
@@ -129,13 +139,30 @@ export function HeadlineOptionsEditor({
   return (
     <section className="overflow-hidden rounded-md border border-border bg-card">
       <header className="flex flex-wrap items-center gap-2 border-b border-border px-3 py-2">
-        <Type className="h-3.5 w-3.5 text-primary" />
-        <h2 className="text-[11px] font-semibold uppercase tracking-[0.06em] text-foreground">
-          Headlines · three options
-        </h2>
+        <button
+          type="button"
+          onClick={() => setCollapsed((c) => !c)}
+          aria-expanded={!collapsed}
+          className="flex items-center gap-1.5 text-foreground hover:text-primary"
+        >
+          {collapsed ? (
+            <ChevronRight className="h-3.5 w-3.5 text-um-muted" />
+          ) : (
+            <ChevronDown className="h-3.5 w-3.5 text-um-muted" />
+          )}
+          <Type className="h-3.5 w-3.5 text-primary" />
+          <h2 className="text-[11px] font-semibold uppercase tracking-[0.06em] text-foreground">
+            Headlines · three options
+          </h2>
+        </button>
         <span className="ml-1 font-mono text-[10px] text-um-muted">
           F3 · B6.1 · soft cap {HEADLINE_CHAR_SOFT_CAP} chars
         </span>
+        {collapsed ? (
+          <span className="font-mono text-[10px] text-um-muted">
+            · collapsed (not required for PR — click to expand)
+          </span>
+        ) : null}
         <div className="ml-auto flex items-center gap-2">
           <StatusPill
             status={status}
@@ -145,7 +172,7 @@ export function HeadlineOptionsEditor({
             overCap={summary.overCap}
             hasSelection={summary.hasSelection}
           />
-          {!readOnly ? (
+          {!readOnly && !collapsed ? (
             <button
               type="button"
               onClick={saveAll}
@@ -161,32 +188,36 @@ export function HeadlineOptionsEditor({
         </div>
       </header>
 
-      <p className="border-b border-border bg-background/40 px-3 py-2 text-[10.5px] leading-[1.5] text-um-muted">
-        F3 produces three options, each ≤{HEADLINE_CHAR_SOFT_CAP} chars,
-        click-bait-leaning per B6.1. F5 selects one — or writes a fourth in
-        the main headline field if all three fail the policy. Rationale lines
-        feed the NFP footer (H9 / C9).
-      </p>
+      {!collapsed ? (
+        <>
+          <p className="border-b border-border bg-background/40 px-3 py-2 text-[10.5px] leading-[1.5] text-um-muted">
+            F3 produces three options, each ≤{HEADLINE_CHAR_SOFT_CAP} chars,
+            click-bait-leaning per B6.1. F5 selects one — or writes a fourth in
+            the main headline field if all three fail the policy. Rationale lines
+            feed the NFP footer (H9 / C9).
+          </p>
 
-      <div className="divide-y divide-border">
-        {options.map((opt, i) => (
-          <OptionRow
-            key={i}
-            idx={i as 0 | 1 | 2}
-            label={SLOT_LABELS[i]}
-            option={opt}
-            selected={selectedIdx === i}
-            readOnly={readOnly || pending}
-            onChange={(field, value) => patch(i, field, value)}
-            onSelect={() => pickHeadline(i as 0 | 1 | 2)}
-          />
-        ))}
-      </div>
+          <div className="divide-y divide-border">
+            {options.map((opt, i) => (
+              <OptionRow
+                key={i}
+                idx={i as 0 | 1 | 2}
+                label={SLOT_LABELS[i]}
+                option={opt}
+                selected={selectedIdx === i}
+                readOnly={readOnly || pending}
+                onChange={(field, value) => patch(i, field, value)}
+                onSelect={() => pickHeadline(i as 0 | 1 | 2)}
+              />
+            ))}
+          </div>
 
-      {error ? (
-        <div className="border-t border-border bg-destructive/5 px-3 py-2 text-[11px] text-destructive">
-          {error}
-        </div>
+          {error ? (
+            <div className="border-t border-border bg-destructive/5 px-3 py-2 text-[11px] text-destructive">
+              {error}
+            </div>
+          ) : null}
+        </>
       ) : null}
     </section>
   );

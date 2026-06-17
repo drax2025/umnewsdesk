@@ -51,40 +51,17 @@ function starterBrief(cand: {
 }
 
 /**
- * Derive a usable standfirst from the lede paragraph of a press release.
- *
- * Press releases reliably front-load the news in the first paragraph —
- * 1–3 sentences capping under ~280 chars. We pull that lede off the
- * extracted body so the article opens with a draft standfirst rather
- * than a blank field. The editor edits or replaces it.
- *
- * Skips markdown headings (lines starting with #) and short orphan lines
- * (titles, datelines like "EDINBURGH, 12 JUNE 2026 –") that aren't the
- * lede sentence.
+ * Strip the reply / forward prefixes that ride along on the subject line of
+ * forwarded press emails — "Fwd:", "FWD:", "Fw:", "Re:" — including repeated
+ * stacks ("Fwd: Re: …"). Candidates ingested from Postmark inbound carry the
+ * raw email subject as their working_headline, so without this the article
+ * opens with "Fwd: …" in the headline field.
  */
-function deriveStandfirstFromBody(body: string | null): string | null {
-  if (!body) return null;
-  const lines = body.split(/\n+/).map((l) => l.trim());
-  for (const line of lines) {
-    if (!line) continue;
-    if (line.startsWith("#")) continue; // markdown heading
-    // Skip ALL-CAPS datelines and short orphan lines (< 60 chars) — usually
-    // dateline or contact block, not the lede.
-    if (line.length < 60) continue;
-    if (/^[A-Z0-9 ,.\-–—]{20,}$/.test(line)) continue;
-    // Take the first ~2 sentences, cap at 280 chars (Twitter-ish, fits the
-    // standfirst column on most templates).
-    const sentences = line.match(/[^.!?]+[.!?]+/g) ?? [line];
-    let out = "";
-    for (const s of sentences) {
-      const next = (out ? out + " " : "") + s.trim();
-      if (next.length > 280) break;
-      out = next;
-      if (out.length >= 180) break; // two solid sentences is plenty
-    }
-    if (out.length >= 60) return out.slice(0, 280);
-  }
-  return null;
+function stripForwardPrefix(headline: string): string {
+  let h = headline.trim();
+  const re = /^(fwd?|re)\s*:\s*/i;
+  while (re.test(h)) h = h.replace(re, "").trim();
+  return h;
 }
 
 function nextCode(prefix: string, last: string | null): string {
@@ -186,22 +163,23 @@ export async function commissionFromCandidate(formData: FormData) {
 
   // Create article in 'commissioned' state.
   //
-  // Seed body + standfirst from the candidate's extracted text where we have
-  // it. body_text was populated at ingestion (Postmark inbound for emails,
-  // RSS body for feeds, attachment extraction for press releases delivered
-  // as PDF/DOCX). Without this the writer would open the editor to a blank
-  // page even though we already pulled the full release text on the way in.
-  // deriveStandfirstFromBody picks a usable lede from the first solid
-  // paragraph so the standfirst column isn't empty either — the editor
-  // edits or replaces it.
+  // Seed body from the candidate's extracted text where we have it. body_text
+  // was populated at ingestion (Postmark inbound for emails, RSS body for
+  // feeds, attachment extraction for press releases delivered as PDF/DOCX).
+  // Without this the writer would open the editor to a blank page even though
+  // we already pulled the full release text on the way in.
+  //
+  // Headline: strip any "Fwd:" / "Re:" prefix off the forwarded-email subject.
+  // Standfirst: seeded blank — the editor writes the standfirst themselves
+  // rather than inheriting a machine-picked lede that usually needs rewriting.
   const articleBody = cand.body_text ?? null;
   const { data: article, error: artErr } = await supabase
     .from("articles")
     .insert({
       title_id: titleId,
-      headline: cand.working_headline,
+      headline: stripForwardPrefix(cand.working_headline),
       body: articleBody,
-      standfirst: deriveStandfirstFromBody(articleBody),
+      standfirst: null,
       state: "commissioned",
       created_by: userId,
       updated_by: userId,
