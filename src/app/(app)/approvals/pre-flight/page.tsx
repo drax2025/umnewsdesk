@@ -25,16 +25,16 @@ import { cn } from "@/lib/utils";
 export const dynamic = "force-dynamic";
 
 /**
- * /approvals/pre-flight — Admin [PUB] queue.
+ * /approvals/pre-flight — Editor [PUB] queue.
  *
- * Lists every Pre-Flight Pack that F7 has handed to the Admin. Each
+ * Lists every Pre-Flight Pack that F7 has handed to the Editor. Each
  * pack card shows the 1-3 article(s) inside, the F7 verdict + A-check roll-up,
  * and an inline APPROVE / MODIFY / REJECT verdict stamp.
  *
  * Default tab: PENDING (pub_verdict='pending' on the pack). Switch to
  * DECIDED to see recent verdicts (last 14 days).
  *
- * Admin gates the verdict form. Editors see read-only roll-ups +
+ * Editor / Admin gate the verdict form. Reviewers + viewers see read-only roll-ups +
  * deep-link to the article's /pre-flight page.
  */
 
@@ -180,7 +180,7 @@ export default async function PreFlightApprovalsPage({
           Role: <span className="font-medium text-fg-2">{role}</span>
           {canStamp ? null : (
             <span className="ml-2 rounded-md border border-warn/35 bg-warn/10 px-2 py-0.5 font-mono text-[10.5px] uppercase tracking-[0.05em] text-warn">
-              Read-only — Admin stamps verdicts
+              Read-only — Editor stamps verdicts
             </span>
           )}
         </span>
@@ -245,12 +245,12 @@ function EmptyState({ tab }: { tab: TabKey }) {
       <Package className="mb-3 h-7 w-7 text-um-muted/70" />
       <h2 className="text-[13px] font-semibold text-foreground">
         {tab === "pending"
-          ? "No packs awaiting Admin"
+          ? "No packs awaiting approval"
           : "No recent decisions"}
       </h2>
       <p className="mt-1 max-w-md text-[12px] leading-[1.5] text-um-muted">
         {tab === "pending"
-          ? "Packs land here when F7 stamps HAND TO SENIOR EDITOR. Hard cap of three articles per pack."
+          ? "Packs land here when F7 stamps HAND TO EDITOR. Hard cap of three articles per pack."
           : "Decisions stamped in the last 14 days will appear here."}
       </p>
     </div>

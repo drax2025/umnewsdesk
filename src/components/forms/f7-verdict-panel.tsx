@@ -27,7 +27,7 @@ import { cn } from "@/lib/utils";
  * F7 Pre-Flight Check verdict stamp panel.
  *
  * Renders the live A-check roll-up and seven verdict buttons. HAND TO
- * SENIOR EDITOR is gated client-side on `summary.ready` (zero hard fails,
+ * HAND TO EDITOR is gated client-side on `summary.ready` (zero hard fails,
  * zero pending). The server action re-checks the same invariant.
  */
 
@@ -42,7 +42,7 @@ const VERDICT_ICON: Record<F7Verdict, React.ComponentType<{ className?: string }
 };
 
 /**
- * Where each F7 verdict lands the editor next. HAND TO SENIOR EDITOR leaves
+ * Where each F7 verdict lands the editor next. HAND TO EDITOR leaves
  * them on the F7 page so they can assemble the pack in the panel below
  * (the next thing they need to do is right there). Returns route back to
  * the article dossier where the upstream agent owns the fix.
@@ -187,7 +187,7 @@ export function F7VerdictPanel({
             <span className="flex items-center gap-1.5">
               <CheckCircle2 className="h-3.5 w-3.5 flex-shrink-0" />
               <span>
-                Handed to Admin. Next step: stamp the{" "}
+                Handed to Editor. Next step: stamp the{" "}
                 <strong>[PUB] APPROVE</strong> in the Pre-Flight Pack at the
                 bottom of this page.
               </span>
@@ -205,7 +205,7 @@ export function F7VerdictPanel({
               <AlertTriangle className="mt-0.5 h-3 w-3 flex-shrink-0" />
               <span className="font-semibold">
                 {summary.blockers.length} blocker
-                {summary.blockers.length === 1 ? "" : "s"} — cannot hand to Admin.
+                {summary.blockers.length === 1 ? "" : "s"} — cannot hand to Editor.
               </span>
             </div>
             <ul className="ml-5 list-disc space-y-0.5 text-warn/90">
@@ -222,7 +222,7 @@ export function F7VerdictPanel({
         ) : (
           <div className="mb-3 rounded-md border border-success/40 bg-success/10 px-2.5 py-1.5 text-[11px] text-success">
             <CheckCircle2 className="mr-1 inline h-3 w-3" />
-            All A-checks clear. Article is ready for the Admin pack.
+            All A-checks clear. Article is ready for the Editor pack.
           </div>
         )}
 

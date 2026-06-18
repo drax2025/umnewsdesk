@@ -193,7 +193,7 @@ export default async function CorrectionsIndexPage({
           and (for retractions) flips state to <code>killed</code>. Open
           the dossier link for full action controls.
           {isSenior
-            ? " You are a Admin — your queue is the DRAFT lane."
+            ? " You are an Admin — your queue is the DRAFT lane."
             : null}
         </p>
 

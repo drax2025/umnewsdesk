@@ -523,7 +523,7 @@ export async function assemblePack(
   const passedRef = trimOrNull(fd.get("pack_ref"), 64);
   if (!article_id) return { ok: false, error: "Missing article_id" };
 
-  // Pre-flight: F7 verdict must already be HAND TO SENIOR EDITOR.
+  // Pre-flight: F7 verdict must already be HAND TO EDITOR.
   const admin = createServiceClient();
   const { data: pp } = await admin
     .from("article_pre_flight")
@@ -534,7 +534,7 @@ export async function assemblePack(
     return {
       ok: false,
       error:
-        "F7 verdict must be HAND TO SENIOR EDITOR before the article can join a pack.",
+        "F7 verdict must be HAND TO EDITOR before the article can join a pack.",
     };
   }
   if (pp.pack_ref) {

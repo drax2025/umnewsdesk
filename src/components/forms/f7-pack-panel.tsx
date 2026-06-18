@@ -30,10 +30,10 @@ import { cn } from "@/lib/utils";
  *
  *   - Top half: pack assembly. If the article has no pack_ref, expose two
  *     mint/join controls (origin sweep ID, optional existing pack ref).
- *   - Bottom half: Admin [PUB] APPROVE / MODIFY / REJECT stamp.
+ *   - Bottom half: Editor [PUB] APPROVE / MODIFY / REJECT stamp.
  *
  * The [PUB] section only renders for admin and only once the F7
- * verdict is HAND TO SENIOR EDITOR and a pack_ref is bound.
+ * verdict is HAND TO EDITOR and a pack_ref is bound.
  */
 
 const labelCls =
@@ -80,7 +80,7 @@ export function F7PackPanel({ articleId, row, pack, canStampPub }: Props) {
             reason={
               f7Ready
                 ? null
-                : "F7 verdict must be HAND TO SENIOR EDITOR before the article can join a pack."
+                : "F7 verdict must be HAND TO EDITOR before the article can join a pack."
             }
           />
         )}
@@ -91,8 +91,7 @@ export function F7PackPanel({ articleId, row, pack, canStampPub }: Props) {
 
         {!canStampPub && hasPack ? (
           <p className="rounded-md border border-dashed border-border bg-background/40 px-3 py-2 text-[11px] text-um-muted">
-            Admin verdict is signed off in the [PUB] channel by a
-            admin role.
+            The [PUB] verdict is signed off by an editor or admin.
           </p>
         ) : null}
       </div>
@@ -378,7 +377,7 @@ function PubVerdictForm({
     setError(null);
     setNotice(null);
     if (!notes.trim()) {
-      setError("Notes are required for the Admin stamp.");
+      setError("Notes are required for the Editor stamp.");
       return;
     }
     const fd = new FormData();
@@ -395,10 +394,10 @@ function PubVerdictForm({
       // staring at a stamped pill on a dead page. Route to the next stage.
       const dest = pubDestination(verdict, articleId);
       if (dest) {
-        setNotice(`Admin verdict stamped — routing to ${dest.label}…`);
+        setNotice(`Editor verdict stamped — routing to ${dest.label}…`);
         router.push(dest.href);
       } else {
-        setNotice("Admin verdict stamped.");
+        setNotice("Editor verdict stamped.");
         router.refresh();
       }
     });
@@ -410,7 +409,7 @@ function PubVerdictForm({
     <div className="space-y-2.5 border-t border-border pt-4">
       <div className="flex items-baseline justify-between">
         <h3 className="text-[11px] font-semibold uppercase tracking-[0.06em] text-um-muted">
-          Admin verdict — [PUB]
+          Editor verdict — [PUB]
         </h3>
         <span className="font-mono text-[10.5px] text-fg-2">
           current:{" "}

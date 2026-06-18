@@ -1,7 +1,7 @@
 /**
  * F7 Pre-Flight Check constants & types — lifted from spec v3.0 section F7
  * (was F9) + A1–A10 active-check matrix + D-Steps Reasonable Steps doctrine +
- * the Admin [PUB] channel.
+ * the Editor [PUB] channel.
  *
  * Single source of truth for the F7 page + components + server actions.
  * Mirrors the SQL columns in 0020_article_pre_publish_f9.sql + rename in
@@ -206,7 +206,7 @@ export const F7_VERDICTS: {
 }[] = [
   {
     value: "hand_to_senior_editor",
-    label: "Hand to Admin",
+    label: "Hand to Editor",
     hint: "All A-checks PASS / SOFT-FAIL / N/A. Pack assembles and posts to [PUB] for F8 Publish.",
     tone: "success",
   },
@@ -263,7 +263,7 @@ export function defaultVerdictForFailure(code: ACheckCode): F7Verdict {
 }
 
 /* -------------------------------------------------------------------------- */
-/*  [PUB] Admin verdict                                               */
+/*  [PUB] Editor verdict                                               */
 /* -------------------------------------------------------------------------- */
 
 export type PubVerdict = "pending" | "approve" | "modify" | "reject";
@@ -279,7 +279,7 @@ export const PUB_VERDICTS: {
     value: "pending",
     label: "Pending",
     short: "—",
-    hint: "Admin has not yet stamped.",
+    hint: "Editor has not yet stamped.",
     tone: "muted",
   },
   {
