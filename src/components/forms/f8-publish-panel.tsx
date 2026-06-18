@@ -67,13 +67,16 @@ export function PublishPanel({
   const summary = summariseSweep(sweepRow);
   const lastPublished = latestPublishedLog(publishLog);
   const isLive = articleState === "live";
-  // Mirror the server guard in publishArticle: a push (incl. WP Draft) is only
-  // allowed once the Editor [PUB] PASS on F7 has moved the article to
-  // 'scheduled'. 'legal' means it's handed to the senior but not yet PUB-PASSed.
-  const isPublishable = articleState === "scheduled";
+  // 'wp_draft' = already pushed to WordPress as a draft. Still publishable —
+  // a fresh "WordPress publish" push promotes it to live.
+  const isWpDraft = articleState === "wp_draft";
+  // Mirror the server guard in publishArticle: a push is allowed from
+  // 'scheduled' (Editor [PUB] PASS done) or 'wp_draft' (promote draft → live).
+  // 'legal' means it's handed for [PUB] but not yet PASSed.
+  const isPublishable = articleState === "scheduled" || isWpDraft;
   const isTerminal =
     articleState === "rejected" || articleState === "killed";
-  // 'legal' = awaiting the senior [PUB] PASS (F7 done, sign-off pending).
+  // 'legal' = awaiting the [PUB] PASS (F7 done, sign-off pending).
   const awaitingPubPass = articleState === "legal";
 
   return (
@@ -121,6 +124,16 @@ export function PublishPanel({
           at /system/titles.
         </div>
       )}
+
+      {isWpDraft ? (
+        <div className="border-b border-border bg-primary/5 px-3 py-2 text-[11px] text-primary">
+          <CheckCircle2 className="mr-1 inline-block h-3 w-3" />
+          Pushed to WordPress as a <span className="font-semibold">draft</span> —
+          not publicly live yet. Run a <span className="font-semibold">WordPress
+          publish</span> below to promote it to live, or publish it from the WP
+          dashboard.
+        </div>
+      ) : null}
 
       {isLive && lastPublished ? (
         <LivePanel

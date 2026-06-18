@@ -36,6 +36,7 @@
   --s-sub:          #7c3aed;
   --s-legal:        #d97706;
   --s-sched:        #0d9488;
+  --s-wpdraft:      #6366f1;
   --s-live:         #16a34a;
 
   /* Layout */
@@ -104,6 +105,7 @@
   --s-sub:          #a78bfa;
   --s-legal:        #f59e0b;
   --s-sched:        #14b8a6;
+  --s-wpdraft:      #818cf8;
   --s-live:         #22c55e;
 
   /* shadcn mappings — dark */
@@ -186,6 +188,7 @@
   --color-state-sub: var(--s-sub);
   --color-state-legal: var(--s-legal);
   --color-state-sched: var(--s-sched);
+  --color-state-wpdraft: var(--s-wpdraft);
   --color-state-live: var(--s-live);
 
   --font-sans: var(--font-inter), Inter, "Helvetica Neue", system-ui, sans-serif;

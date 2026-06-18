@@ -613,10 +613,13 @@ export async function publishArticle(
     }
   }
 
-  if (article.state !== "scheduled") {
+  // 'scheduled' = cleared for release. 'wp_draft' = already pushed to WordPress
+  // as a draft; a fresh push promotes it to a live publish. Anything else hasn't
+  // earned its way to a push yet.
+  if (article.state !== "scheduled" && article.state !== "wp_draft") {
     return {
       ok: false,
-      error: `Article must be in 'scheduled' state to publish (currently '${article.state}'). A Admin [PUB] PASS on the F7 Pre-Flight pack moves it to scheduled.`,
+      error: `Article must be in 'scheduled' state to publish (currently '${article.state}'). An Editor [PUB] PASS on the F7 Pre-Flight pack moves it to scheduled.`,
     };
   }
 
@@ -771,7 +774,25 @@ export async function publishArticle(
     })
     .eq("id", logRow.id);
 
-  if (target !== "draft_only") {
+  // Stamp the final sweep as completed on any successful push (draft or live).
+  await admin
+    .from("article_artefact_sweep")
+    .update({
+      completed_at: now,
+      completed_by: uid,
+    })
+    .eq("article_id", article_id);
+
+  if (target === "draft_only") {
+    // Released to WordPress as a draft — handed off but NOT publicly live.
+    // Move to the 'wp_draft' state; deliberately do NOT set published_at or
+    // write the master inventory (those mean "publicly published"). A later
+    // "Publish to WordPress" push promotes wp_draft → live.
+    await admin
+      .from("articles")
+      .update({ state: "wp_draft" })
+      .eq("id", article_id);
+  } else {
     await admin
       .from("articles")
       .update({
@@ -779,15 +800,6 @@ export async function publishArticle(
         published_at: now,
       })
       .eq("id", article_id);
-
-    // Stamp the sweep as completed.
-    await admin
-      .from("article_artefact_sweep")
-      .update({
-        completed_at: now,
-        completed_by: uid,
-      })
-      .eq("article_id", article_id);
 
     // A2 master content inventory write-back (E7 mitigation, F8 step 5).
     // Best-effort — failure here must not unwind the publish; the editor

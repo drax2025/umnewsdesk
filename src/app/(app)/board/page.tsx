@@ -28,6 +28,7 @@ const COLUMNS: ColumnDef[] = [
   { state: "subbed",       label: "Subbed",       dot: "var(--s-sub)" },
   { state: "legal",        label: "Legal",        dot: "var(--s-legal)" },
   { state: "scheduled",    label: "Scheduled",    dot: "var(--s-sched)" },
+  { state: "wp_draft",     label: "WP Draft",     dot: "var(--s-wpdraft)" },
   { state: "live",         label: "Live",         dot: "var(--s-live)" },
 ];
 

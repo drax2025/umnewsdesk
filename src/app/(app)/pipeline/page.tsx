@@ -26,6 +26,7 @@ const STAGES: StageDef[] = [
   { state: "subbed", label: "Sub-editing" },
   { state: "legal", label: "Legal" },
   { state: "scheduled", label: "Scheduled" },
+  { state: "wp_draft", label: "WP Draft" },
   { state: "live", label: "Live" },
 ];
 
@@ -36,6 +37,7 @@ const PILL: Record<string, string> = {
   subbed: "border-state-sub/35 bg-state-sub/12 text-state-sub",
   legal: "border-state-legal/35 bg-state-legal/10 text-state-legal",
   scheduled: "border-state-sched/35 bg-state-sched/10 text-state-sched",
+  wp_draft: "border-state-wpdraft/35 bg-state-wpdraft/10 text-state-wpdraft",
   live: "border-state-live/35 bg-state-live/10 text-state-live",
   rejected: "border-destructive/30 bg-destructive/10 text-destructive",
   killed: "border-um-muted/30 bg-um-muted/10 text-um-muted",
@@ -48,6 +50,7 @@ const STATE_LABEL: Record<string, string> = {
   subbed: "Sub-editing",
   legal: "Legal",
   scheduled: "Scheduled",
+  wp_draft: "WP Draft",
   live: "Live",
   rejected: "Rejected",
   killed: "Killed",
@@ -62,9 +65,10 @@ const STAGE_ORDER: Record<string, number> = {
   subbed: 3,
   legal: 4,
   scheduled: 5,
-  live: 6,
-  rejected: 7,
-  killed: 8,
+  wp_draft: 6,
+  live: 7,
+  rejected: 8,
+  killed: 9,
 };
 
 type SortColumn = "article" | "stage" | "sectors" | "geo" | "instage" | "updated";
@@ -381,5 +385,6 @@ function stateDotKey(state: string): string {
   if (state === "commissioned") return "comm";
   if (state === "subbed") return "sub";
   if (state === "scheduled") return "sched";
+  if (state === "wp_draft") return "wpdraft";
   return state;
 }

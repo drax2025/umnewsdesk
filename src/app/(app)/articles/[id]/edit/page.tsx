@@ -155,6 +155,7 @@ const STATE_PILL: Record<string, string> = {
   subbed: "border-state-sub/35 bg-state-sub/10 text-state-sub",
   legal: "border-state-legal/35 bg-state-legal/10 text-state-legal",
   scheduled: "border-state-sched/35 bg-state-sched/10 text-state-sched",
+  wp_draft: "border-state-wpdraft/35 bg-state-wpdraft/10 text-state-wpdraft",
   live: "border-state-live/35 bg-state-live/10 text-state-live",
   rejected: "border-destructive/30 bg-destructive/10 text-destructive",
   killed: "border-um-muted/30 bg-um-muted/10 text-um-muted",
@@ -167,6 +168,7 @@ const STATE_LABEL: Record<string, string> = {
   subbed: "Sub-edit",
   legal: "Legal",
   scheduled: "Scheduled",
+  wp_draft: "WP Draft",
   live: "Live",
   rejected: "Rejected",
   killed: "Killed",
@@ -175,7 +177,7 @@ const STATE_LABEL: Record<string, string> = {
 // Once an article enters the review pipeline it's read-only here —
 // further changes flow through approvals or sub-edit, not free writes.
 const WRITER_STATES = new Set(["commissioned", "filed"]);
-const READONLY_STATES = new Set(["subbed", "legal", "scheduled", "live", "rejected", "killed"]);
+const READONLY_STATES = new Set(["subbed", "legal", "scheduled", "wp_draft", "live", "rejected", "killed"]);
 
 function fmtAge(iso: string): string {
   const mins = Math.floor((Date.now() - new Date(iso).getTime()) / 60_000);
