@@ -53,6 +53,59 @@ const STATE_LABEL: Record<string, string> = {
   killed: "Killed",
 };
 
+// Pipeline order, so "Stage" sorts by where a story sits in the flow rather
+// than alphabetically. Terminal states sort to the end.
+const STAGE_ORDER: Record<string, number> = {
+  pitched: 0,
+  commissioned: 1,
+  filed: 2,
+  subbed: 3,
+  legal: 4,
+  scheduled: 5,
+  live: 6,
+  rejected: 7,
+  killed: 8,
+};
+
+type SortColumn = "article" | "stage" | "sectors" | "geo" | "instage" | "updated";
+type SortDir = "asc" | "desc";
+
+const SORTABLE_COLUMNS: ReadonlySet<SortColumn> = new Set<SortColumn>([
+  "article",
+  "stage",
+  "sectors",
+  "geo",
+  "instage",
+  "updated",
+]);
+
+const DEFAULT_SORT: SortColumn = "updated";
+const DEFAULT_DIR: SortDir = "desc";
+
+// Text columns read best ascending on first click; time / order columns
+// descending (newest, longest-in-stage, furthest-down-pipeline first).
+function defaultDirFor(col: SortColumn): SortDir {
+  return col === "article" || col === "sectors" || col === "geo" ? "asc" : "desc";
+}
+
+function sortKey(r: ArticleRow, col: SortColumn): string | number | null {
+  switch (col) {
+    case "article":
+      return r.headline.toLowerCase();
+    case "stage":
+      return STAGE_ORDER[r.state] ?? 99;
+    case "sectors":
+      return (r.sectors[0] ?? "").toLowerCase();
+    case "geo":
+      return r.geo_tier ?? "";
+    case "instage":
+      // Age in stage — larger = longer since last update.
+      return Date.now() - new Date(r.updated_at).getTime();
+    case "updated":
+      return new Date(r.updated_at).getTime();
+  }
+}
+
 function ageInStage(updatedAt: string): { text: string; tone: "ok" | "warn" | "danger" } {
   const hours = Math.floor((Date.now() - new Date(updatedAt).getTime()) / 3_600_000);
   if (hours < 24) return { text: `${Math.max(hours, 0)}h`, tone: "ok" };
@@ -67,10 +120,15 @@ function ageInStage(updatedAt: string): { text: string; tone: "ok" | "warn" | "d
 export default async function PipelinePage({
   searchParams,
 }: {
-  searchParams: Promise<{ stage?: string }>;
+  searchParams: Promise<{ stage?: string; sort?: string; dir?: string }>;
 }) {
   const sp = await searchParams;
   const active = sp.stage ?? "all";
+  const activeSort: SortColumn = SORTABLE_COLUMNS.has(sp.sort as SortColumn)
+    ? (sp.sort as SortColumn)
+    : DEFAULT_SORT;
+  const activeDir: SortDir =
+    sp.dir === "asc" || sp.dir === "desc" ? sp.dir : DEFAULT_DIR;
 
   const supabase = await createClient();
   const { data: articles } = await supabase
@@ -84,7 +142,24 @@ export default async function PipelinePage({
   const counts = new Map<string, number>([["all", all.length]]);
   for (const r of all) counts.set(r.state, (counts.get(r.state) ?? 0) + 1);
 
-  const visible = active === "all" ? all : all.filter((r) => r.state === active);
+  const filtered = active === "all" ? all : all.filter((r) => r.state === active);
+
+  const sortMul = activeDir === "asc" ? 1 : -1;
+  const visible = [...filtered].sort((a, b) => {
+    const av = sortKey(a, activeSort);
+    const bv = sortKey(b, activeSort);
+    if (av === null && bv === null) return 0;
+    if (av === null) return 1; // nulls last
+    if (bv === null) return -1;
+    if (typeof av === "number" && typeof bv === "number") {
+      return (av - bv) * sortMul;
+    }
+    return String(av).localeCompare(String(bv), undefined, { numeric: true }) * sortMul;
+  });
+
+  // Query string carried onto every sort link so the active stage tab sticks.
+  const preserve = new URLSearchParams();
+  if (active !== "all") preserve.set("stage", active);
 
   return (
     <div className="flex h-full flex-col">
@@ -144,12 +219,12 @@ export default async function PipelinePage({
           <table className="w-full border-collapse">
             <thead>
               <tr>
-                <Th>Article</Th>
-                <Th>Stage</Th>
-                <Th>Sectors</Th>
-                <Th>Geo</Th>
-                <Th className="text-right">In stage</Th>
-                <Th className="text-right">Updated</Th>
+                <SortHeader column="article" label="Article" activeSort={activeSort} activeDir={activeDir} preserve={preserve} />
+                <SortHeader column="stage" label="Stage" activeSort={activeSort} activeDir={activeDir} preserve={preserve} />
+                <SortHeader column="sectors" label="Sectors" activeSort={activeSort} activeDir={activeDir} preserve={preserve} />
+                <SortHeader column="geo" label="Geo" activeSort={activeSort} activeDir={activeDir} preserve={preserve} />
+                <SortHeader column="instage" label="In stage" activeSort={activeSort} activeDir={activeDir} preserve={preserve} className="text-right" alignRight />
+                <SortHeader column="updated" label="Updated" activeSort={activeSort} activeDir={activeDir} preserve={preserve} className="text-right" alignRight />
               </tr>
             </thead>
             <tbody>
@@ -230,6 +305,75 @@ function Th({ children, className }: { children: React.ReactNode; className?: st
     >
       {children}
     </th>
+  );
+}
+
+function SortHeader({
+  column,
+  label,
+  activeSort,
+  activeDir,
+  preserve,
+  className,
+  alignRight,
+}: {
+  column: SortColumn;
+  label: string;
+  activeSort: SortColumn;
+  activeDir: SortDir;
+  preserve: URLSearchParams;
+  className?: string;
+  alignRight?: boolean;
+}) {
+  const isActive = activeSort === column;
+  const nextDir: SortDir = isActive
+    ? activeDir === "asc"
+      ? "desc"
+      : "asc"
+    : defaultDirFor(column);
+
+  const params = new URLSearchParams(preserve);
+  const isDefault = column === DEFAULT_SORT && nextDir === DEFAULT_DIR;
+  if (isDefault) {
+    params.delete("sort");
+    params.delete("dir");
+  } else {
+    params.set("sort", column);
+    params.set("dir", nextDir);
+  }
+  const qs = params.toString();
+  const href = qs ? `/pipeline?${qs}` : "/pipeline";
+
+  const indicator = isActive ? (activeDir === "asc" ? "▲" : "▼") : "↕";
+
+  return (
+    <Th className={className}>
+      <Link
+        href={href}
+        scroll={false}
+        title={
+          isActive
+            ? `Sorted ${activeDir === "asc" ? "ascending" : "descending"} — click to flip`
+            : `Sort by ${label.toLowerCase()}`
+        }
+        className={cn(
+          "inline-flex items-center gap-1 transition-colors hover:text-foreground",
+          alignRight && "w-full justify-end",
+          isActive && "text-foreground",
+        )}
+      >
+        <span>{label}</span>
+        <span
+          aria-hidden
+          className={cn(
+            "font-mono text-[9px] leading-none tabular-nums",
+            isActive ? "text-primary" : "text-um-muted/60",
+          )}
+        >
+          {indicator}
+        </span>
+      </Link>
+    </Th>
   );
 }
 
