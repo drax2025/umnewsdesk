@@ -30,9 +30,9 @@ import { cn } from "@/lib/utils";
  *
  *   - Top half: pack assembly. If the article has no pack_ref, expose two
  *     mint/join controls (origin sweep ID, optional existing pack ref).
- *   - Bottom half: Senior Editor [PUB] APPROVE / MODIFY / REJECT stamp.
+ *   - Bottom half: Admin [PUB] APPROVE / MODIFY / REJECT stamp.
  *
- * The [PUB] section only renders for senior_editor and only once the F7
+ * The [PUB] section only renders for admin and only once the F7
  * verdict is HAND TO SENIOR EDITOR and a pack_ref is bound.
  */
 
@@ -91,8 +91,8 @@ export function F7PackPanel({ articleId, row, pack, canStampPub }: Props) {
 
         {!canStampPub && hasPack ? (
           <p className="rounded-md border border-dashed border-border bg-background/40 px-3 py-2 text-[11px] text-um-muted">
-            Senior Editor verdict is signed off in the [PUB] channel by a
-            senior_editor role.
+            Admin verdict is signed off in the [PUB] channel by a
+            admin role.
           </p>
         ) : null}
       </div>
@@ -378,7 +378,7 @@ function PubVerdictForm({
     setError(null);
     setNotice(null);
     if (!notes.trim()) {
-      setError("Notes are required for the Senior Editor stamp.");
+      setError("Notes are required for the Admin stamp.");
       return;
     }
     const fd = new FormData();
@@ -395,10 +395,10 @@ function PubVerdictForm({
       // staring at a stamped pill on a dead page. Route to the next stage.
       const dest = pubDestination(verdict, articleId);
       if (dest) {
-        setNotice(`Senior Editor verdict stamped — routing to ${dest.label}…`);
+        setNotice(`Admin verdict stamped — routing to ${dest.label}…`);
         router.push(dest.href);
       } else {
-        setNotice("Senior Editor verdict stamped.");
+        setNotice("Admin verdict stamped.");
         router.refresh();
       }
     });
@@ -410,7 +410,7 @@ function PubVerdictForm({
     <div className="space-y-2.5 border-t border-border pt-4">
       <div className="flex items-baseline justify-between">
         <h3 className="text-[11px] font-semibold uppercase tracking-[0.06em] text-um-muted">
-          Senior Editor verdict — [PUB]
+          Admin verdict — [PUB]
         </h3>
         <span className="font-mono text-[10.5px] text-fg-2">
           current:{" "}

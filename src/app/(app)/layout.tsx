@@ -16,7 +16,7 @@ function initialsFromName(name: string | null | undefined, fallback: string) {
 }
 
 const ROLE_SET = new Set<Role>([
-  "senior_editor",
+  "admin",
   "editor",
   "reviewer",
   "viewer",

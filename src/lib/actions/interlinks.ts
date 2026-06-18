@@ -25,7 +25,7 @@ import {
  *   - deleteInterlink(fd)  — remove a candidate
  *   - setInterlinkerVerdict(fd) — stamp the F4 verdict (hand to F5 / back to F3 / escalate)
  *
- * All gated to editor + senior_editor. C7 banned-domain detection runs on
+ * All gated to editor + admin. C7 banned-domain detection runs on
  * insert and update. Verdict HAND-TO-F5 server-side re-checks the C7 counts.
  */
 
@@ -50,7 +50,7 @@ async function requireEditor(): Promise<InterlinkActionResult | null> {
     .eq("id", user.id)
     .single();
 
-  if (me?.role !== "editor" && me?.role !== "senior_editor") {
+  if (me?.role !== "editor" && me?.role !== "admin") {
     return { ok: false, error: "Editors only" };
   }
   return null;

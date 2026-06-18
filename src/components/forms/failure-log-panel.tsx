@@ -36,7 +36,7 @@ import { cn } from "@/lib/utils";
  * Middle: chronological row list (newest first).
  * Bottom: inline append form.
  *
- * Visible to editor + senior_editor; SK-OPS override toggle additionally
+ * Visible to editor + admin; SK-OPS override toggle additionally
  * surfaces the override-reason field.
  */
 

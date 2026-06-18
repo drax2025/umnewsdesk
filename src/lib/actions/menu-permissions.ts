@@ -20,8 +20,8 @@ import {
  *   setMenuPermission(fd)         — update one (role, menu_key) cell
  *   resetMenuPermissionsToDefaults — wipe and re-seed everything
  *
- * Both require senior_editor on top of the DB-side service_role gate so a
- * lesser role can't escalate by forging the form post. Senior Editor's own
+ * Both require admin on top of the DB-side service_role gate so a
+ * lesser role can't escalate by forging the form post. Admin's own
  * rows can be edited too, but the code-side resolver in resolveAccess()
  * always overrides them to 'full' — so there's no way to get permanently
  * locked out from the very screen you'd need to fix it from.
@@ -42,8 +42,8 @@ async function requireSeniorEditor(): Promise<MenuPermissionsActionResult | null
     .select("role")
     .eq("id", user.id)
     .single<{ role: string | null }>();
-  if (me?.role !== "senior_editor") {
-    return { ok: false, error: "Senior Editor only" };
+  if (me?.role !== "admin") {
+    return { ok: false, error: "Admin only" };
   }
   return null;
 }

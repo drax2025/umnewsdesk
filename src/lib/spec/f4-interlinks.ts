@@ -203,7 +203,7 @@ export const F4_VERDICTS: {
   {
     value: "escalate",
     label: "ESCALATE",
-    hint: "Interlinker cannot resolve — Senior Editor [ESC] channel.",
+    hint: "Interlinker cannot resolve — Admin [ESC] channel.",
     tone: "destructive",
   },
 ];

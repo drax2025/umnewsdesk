@@ -49,7 +49,7 @@ export default async function DashboardPage() {
         .eq("id", user.id)
         .single<{ role: string | null }>()
     : { data: null };
-  const isSenior = meRow?.role === "senior_editor";
+  const isSenior = meRow?.role === "editor" || meRow?.role === "admin";
 
   const [articlesRes, correctionsDraftRes] = await Promise.all([
     supabase
@@ -126,14 +126,14 @@ export default async function DashboardPage() {
             href="/corrections?status=draft"
             value={counts.correctionsDraft.toString()}
             label="Corrections to review"
-            sub="Stage 13 · Senior approval"
+            sub="Stage 13 · Approval"
             tone={counts.correctionsDraft > 0 ? "warn" : undefined}
           />
         ) : (
           <StatTile
             value={counts.escalations.toString()}
             label="Escalations"
-            sub="Senior Editor only"
+            sub="Admin only"
             tone={counts.escalations > 0 ? "danger" : undefined}
           />
         )}

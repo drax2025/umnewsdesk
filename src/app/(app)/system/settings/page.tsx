@@ -8,7 +8,7 @@ import { HighlightColourEditor } from "@/components/forms/highlight-colour-edito
 export const dynamic = "force-dynamic";
 
 /**
- * /system/settings — app-wide settings. Senior-Editor only (gated here and in
+ * /system/settings — app-wide settings. Admin only (gated here and in
  * every branding action). Currently houses the custom login-screen wallpaper.
  */
 export default async function SettingsPage() {
@@ -22,7 +22,7 @@ export default async function SettingsPage() {
     .select("role")
     .eq("id", user.id)
     .single<{ role: string | null }>();
-  if (meRow?.role !== "senior_editor") {
+  if (meRow?.role !== "admin") {
     redirect("/");
   }
 
@@ -37,7 +37,7 @@ export default async function SettingsPage() {
         <Settings className="h-4 w-4 text-primary" />
         <span className="text-[13px] font-semibold text-foreground">Settings</span>
         <span className="rounded-full border border-border bg-secondary px-2 py-0.5 font-mono text-[10px] text-um-muted">
-          Senior Editor
+          Admin
         </span>
       </div>
 

@@ -32,7 +32,7 @@ export function PubVerdictButtons({
     setError(null);
     setNotice(null);
     if (!notes.trim()) {
-      setError("Notes are required for the Senior Editor stamp.");
+      setError("Notes are required for the Admin stamp.");
       return;
     }
     const fd = new FormData();
@@ -51,7 +51,7 @@ export function PubVerdictButtons({
       <textarea
         value={notes}
         onChange={(e) => setNotes(e.target.value)}
-        placeholder="Senior Editor notes — APPROVE / MODIFY changes / REJECT reason."
+        placeholder="Admin notes — APPROVE / MODIFY changes / REJECT reason."
         className={textareaCls}
         maxLength={2400}
       />

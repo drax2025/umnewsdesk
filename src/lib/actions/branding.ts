@@ -6,7 +6,7 @@ import { createServiceClient } from "@/lib/supabase/service";
 import { DEFAULT_WALLPAPER_OVERLAY } from "@/lib/branding";
 
 /**
- * Branding settings actions (Senior-Editor only). Currently just the custom
+ * Branding settings actions (Admin only). Currently just the custom
  * login-screen wallpaper. The browser uploads the image straight to the
  * public `branding` storage bucket; these actions persist the resulting URL
  * (plus the scrim overlay) into app_settings under the 'login_wallpaper' key.
@@ -25,8 +25,8 @@ async function requireSeniorEditor(): Promise<BrandingActionResult | null> {
     .select("role")
     .eq("id", user.id)
     .single<{ role: string | null }>();
-  if (me?.role !== "senior_editor") {
-    return { ok: false, error: "Only senior editors can change branding" };
+  if (me?.role !== "admin") {
+    return { ok: false, error: "Only admins can change branding" };
   }
   return null;
 }

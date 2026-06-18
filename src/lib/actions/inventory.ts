@@ -20,7 +20,7 @@ import {
  *                                          legacy-backfill insert.
  *   updateInventoryRow(fd)               — editor edit of headline /
  *                                          silo / notes / sectors.
- *   deleteInventoryRow(fd)               — senior_editor only — removes
+ *   deleteInventoryRow(fd)               — admin only — removes
  *                                          a row (typo / duplicate
  *                                          cleanup).
  *
@@ -44,7 +44,7 @@ async function requireEditor(): Promise<InventoryActionResult | null> {
     .select("role")
     .eq("id", user.id)
     .single<{ role: string | null }>();
-  if (me?.role !== "editor" && me?.role !== "senior_editor") {
+  if (me?.role !== "editor" && me?.role !== "admin") {
     return { ok: false, error: "Editors only" };
   }
   return null;
@@ -61,8 +61,8 @@ async function requireSeniorEditor(): Promise<InventoryActionResult | null> {
     .select("role")
     .eq("id", user.id)
     .single<{ role: string | null }>();
-  if (me?.role !== "senior_editor") {
-    return { ok: false, error: "Senior Editor only" };
+  if (me?.role !== "admin") {
+    return { ok: false, error: "Admin only" };
   }
   return null;
 }

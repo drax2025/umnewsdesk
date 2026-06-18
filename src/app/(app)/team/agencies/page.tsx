@@ -56,7 +56,7 @@ export default async function AgenciesPage() {
     .select("role")
     .eq("id", user!.id)
     .single();
-  const canManage = meRow?.role === "senior_editor";
+  const canManage = meRow?.role === "admin";
 
   const admin = createServiceClient();
   const [{ data: agencies }, { data: sources }] = await Promise.all([
@@ -94,7 +94,7 @@ export default async function AgenciesPage() {
         </span>
         {!canManage ? (
           <span className="rounded-full border border-warn/30 bg-warn/10 px-2 py-0.5 text-[10px] font-medium text-warn">
-            Read-only — senior editors can edit
+            Read-only — admins can edit
           </span>
         ) : null}
       </div>

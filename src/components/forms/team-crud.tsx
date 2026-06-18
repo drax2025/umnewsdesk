@@ -10,10 +10,10 @@ import {
 } from "@/lib/actions/team";
 import { cn } from "@/lib/utils";
 
-type Role = "senior_editor" | "editor" | "reviewer" | "viewer";
+type Role = "admin" | "editor" | "reviewer" | "viewer";
 
 const ROLES: { value: Role; label: string }[] = [
-  { value: "senior_editor", label: "Senior Editor" },
+  { value: "admin", label: "Admin" },
   { value: "editor", label: "Editor" },
   { value: "reviewer", label: "Reviewer" },
   { value: "viewer", label: "Viewer" },

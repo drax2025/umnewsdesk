@@ -136,7 +136,7 @@ export function renderPackMarkdown(bundle: PackBundle): string {
   }
   if (bundle.senior_verdict) {
     lines.push(
-      `> Senior Editor verdict · **${bundle.senior_verdict.toUpperCase()}**${bundle.senior_verdict_at ? ` at ${bundle.senior_verdict_at}` : ""}`,
+      `> Admin verdict · **${bundle.senior_verdict.toUpperCase()}**${bundle.senior_verdict_at ? ` at ${bundle.senior_verdict_at}` : ""}`,
     );
   }
   lines.push("");
@@ -172,7 +172,7 @@ export function renderPackMarkdown(bundle: PackBundle): string {
   });
 
   if (bundle.senior_verdict_notes) {
-    lines.push("## Senior Editor verdict notes");
+    lines.push("## Admin verdict notes");
     lines.push("");
     lines.push(quoteBlock(bundle.senior_verdict_notes));
     lines.push("");

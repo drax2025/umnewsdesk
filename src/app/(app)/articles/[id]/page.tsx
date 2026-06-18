@@ -177,8 +177,8 @@ export default async function ArticleDossierPage({
         .single<{ role: string | null }>()
     : { data: null };
   const isEditor =
-    meRow?.role === "editor" || meRow?.role === "senior_editor";
-  const isSenior = meRow?.role === "senior_editor";
+    meRow?.role === "editor" || meRow?.role === "admin";
+  const isSenior = meRow?.role === "editor" || meRow?.role === "admin";
 
   // Stage 13 — corrections register rows, newest sequence first.
   const admin = createServiceClient();

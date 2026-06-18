@@ -8,7 +8,7 @@ import { createServiceClient } from "@/lib/supabase/service";
  * Press-agency CRUD. The press_agencies table maps inbound email domains to
  * a press_agencies.id + an optional discovery_sources.id (so the inbox source
  * filter can split agencies out separately). Every action gates on
- * senior_editor first, then switches to the service-role client because the
+ * admin first, then switches to the service-role client because the
  * agencies UI is on the management side and shouldn't have to chase RLS.
  */
 
@@ -31,8 +31,8 @@ async function requireSeniorEditor(): Promise<AgencyActionResult | null> {
     .eq("id", user.id)
     .single();
 
-  if (me?.role !== "senior_editor") {
-    return { ok: false, error: "Only senior editors can manage agencies" };
+  if (me?.role !== "admin") {
+    return { ok: false, error: "Only admins can manage agencies" };
   }
   return null;
 }

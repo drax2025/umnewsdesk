@@ -21,7 +21,7 @@ import {
  * framing-feasibility verdict, NFP footer draft (B8/C9), B7 pipeline
  * opportunities, and the final F2 verdict (hand to F3 / back to F1 / reject).
  *
- * All write paths are gated to editor + senior_editor. The verbatim ledger
+ * All write paths are gated to editor + admin. The verbatim ledger
  * (article_quotes.quote_text) preserves paragraph structure with \n\n —
  * the C1 / C3 / F7 audit chain depends on byte-exact retention.
  */
@@ -47,7 +47,7 @@ async function requireEditor(): Promise<ResearchActionResult | null> {
     .eq("id", user.id)
     .single();
 
-  if (me?.role !== "editor" && me?.role !== "senior_editor") {
+  if (me?.role !== "editor" && me?.role !== "admin") {
     return { ok: false, error: "Editors only" };
   }
   return null;

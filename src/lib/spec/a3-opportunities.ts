@@ -4,7 +4,7 @@
  * The opportunities ledger is the title-scoped rolling list of future
  * story possibilities surfaced by F2 Researcher (and manually by
  * editors). Each row sits in one of five sections and carries a K5
- * verdict that the Senior Editor stamps in the Friday weekly sweep.
+ * verdict that the Admin stamps in the Friday weekly sweep.
  *
  * K5 verdict policy (from spec K5):
  *   - 'pending' rows live in the active list

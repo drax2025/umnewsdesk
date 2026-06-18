@@ -149,7 +149,7 @@ async function requireWriter(): Promise<ArticleWriteActionResult | null> {
     .select("role")
     .eq("id", user.id)
     .single<{ role: string | null }>();
-  if (me?.role !== "editor" && me?.role !== "senior_editor") {
+  if (me?.role !== "editor" && me?.role !== "admin") {
     return { ok: false, error: "Editors only" };
   }
   return null;

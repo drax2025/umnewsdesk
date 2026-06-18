@@ -23,7 +23,7 @@ import { cn } from "@/lib/utils";
  * by section header), columns are the four roles. Each cell is a tiny
  * select that submits the change to the server action on change.
  *
- * Senior Editor's column renders as a read-only "Full" badge — the
+ * Admin's column renders as a read-only "Full" badge — the
  * resolver hardcodes that role to 'full' anyway, so allowing edits would
  * just be confusing theatre.
  *
@@ -213,7 +213,7 @@ export function RolePermissionsEditor({ initial }: Props) {
                     {ALL_ROLES.map((role) => {
                       const value = local[role][entry.key] ?? "hidden";
                       const cellBusy = busy === `${role}:${entry.key}`;
-                      const seniorLocked = role === "senior_editor";
+                      const seniorLocked = role === "admin";
                       return (
                         <td key={role} className="px-3 py-2">
                           <div className="flex items-center gap-1.5">
@@ -236,7 +236,7 @@ export function RolePermissionsEditor({ initial }: Props) {
                               )}
                               title={
                                 seniorLocked
-                                  ? "Senior Editor is always full access (lockout safety)"
+                                  ? "Admin is always full access (lockout safety)"
                                   : undefined
                               }
                             >

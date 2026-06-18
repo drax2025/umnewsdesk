@@ -67,8 +67,8 @@ async function getNavForRoleInner(
   // get here, so this is really just a safety fallback.
   const effective: Role = role ?? "viewer";
 
-  // Senior Editor always sees everything — skip the DB hop entirely.
-  if (effective === "senior_editor") {
+  // Admin always sees everything — skip the DB hop entirely.
+  if (effective === "admin") {
     return fullAccessSections();
   }
 

@@ -25,7 +25,7 @@ export const dynamic = "force-dynamic";
  *   1. Tier 3 candidates routed straight here from F1 (no production).
  *   2. F6 verdict = 'return_to_f1' on H11 failures — defamation triage failed
  *      (NO to Q3-Q9 or YES to Q10) and the spec routes these to Reject Queue.
- *   3. F7 article_pre_flight.pub_verdict = 'reject' — Senior Editor REJECT.
+ *   3. F7 article_pre_flight.pub_verdict = 'reject' — Admin REJECT.
  *   4. articles.state = 'rejected' — terminal reject state.
  *
  * Each row labels which agent stamped the rejection and the rationale. Editors
@@ -80,7 +80,7 @@ const SOURCE_META: Record<RejectSource, SourceMeta> = {
   f9_pub_reject: {
     label: "F7 [PUB] reject",
     short: "F7 · PUB",
-    hint: "Senior Editor stamped REJECT on the Pre-Publish Pack.",
+    hint: "Admin stamped REJECT on the Pre-Publish Pack.",
     tone: "destructive",
     icon: Package,
   },
@@ -143,7 +143,7 @@ export default async function DRejectQueuePage({
     .select("role")
     .eq("id", user!.id)
     .single<{ role: string | null }>();
-  const isSenior = meRow?.role === "senior_editor";
+  const isSenior = meRow?.role === "editor" || meRow?.role === "admin";
 
   /* ----------------------------------------------------------------------- */
   /*  Live rejects                                                           */
@@ -438,7 +438,7 @@ export default async function DRejectQueuePage({
           <ShieldAlert className="mt-1 h-4 w-4 flex-shrink-0 text-destructive" />
           <div className="min-w-0 flex-1">
             <div className="mb-0.5 text-[10.5px] font-semibold uppercase tracking-[0.06em] text-um-muted">
-              D-Reject queue · defamation triage failures · Senior Editor rejects · Tier 3 holds
+              D-Reject queue · defamation triage failures · Admin rejects · Tier 3 holds
             </div>
             <h1 className="text-[18px] font-semibold leading-[1.25] tracking-[-0.02em] text-foreground">
               Articles held back on D-Steps grounds

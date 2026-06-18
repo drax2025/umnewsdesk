@@ -62,8 +62,8 @@ export default async function OpportunitiesPage({
     .eq("id", user!.id)
     .single<{ role: string | null }>();
   const isEditor =
-    meRow?.role === "editor" || meRow?.role === "senior_editor";
-  const isSenior = meRow?.role === "senior_editor";
+    meRow?.role === "editor" || meRow?.role === "admin";
+  const isSenior = meRow?.role === "editor" || meRow?.role === "admin";
 
   const admin = createServiceClient();
 

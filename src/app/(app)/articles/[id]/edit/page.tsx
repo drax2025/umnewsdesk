@@ -357,7 +357,7 @@ export default async function ArticleEditPage({
             />
 
             {/* F5 step 2 — backdate selection. Tier 3 articles have it
-                disabled by D-rule. Editor + senior_editor only. */}
+                disabled by D-rule. Editor + admin only. */}
             <BackdatePicker
               articleId={article.id}
               initialBackdate={article.backdate}

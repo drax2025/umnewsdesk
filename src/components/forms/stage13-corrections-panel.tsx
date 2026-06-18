@@ -84,7 +84,7 @@ export function CorrectionsPanel({
       {rows.length === 0 ? (
         <p className="px-3 py-6 text-center text-[11.5px] text-um-muted">
           Once an article publishes, factual fixes, clarifications, and
-          updates are filed here. Editors file drafts; Senior Editor
+          updates are filed here. Editors file drafts; Admin
           approves.
         </p>
       ) : (

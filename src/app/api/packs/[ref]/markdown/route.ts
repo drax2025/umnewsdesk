@@ -6,7 +6,7 @@ import { createServiceClient } from "@/lib/supabase/service";
  * GET /api/packs/[ref]/markdown
  *
  * Returns the canonical 12-section pack archive (rendered by renderPack).
- * Editor + senior_editor gated. The DB copy is authoritative — the on-disk
+ * Editor + admin gated. The DB copy is authoritative — the on-disk
  * `workspace/pre_flight_packs/<REF>.md` is only present in dev.
  *
  * Query string `?download=1` switches the Content-Disposition to attachment
@@ -31,7 +31,7 @@ export async function GET(
     .select("role")
     .eq("id", user.id)
     .single<{ role: string | null }>();
-  if (me?.role !== "editor" && me?.role !== "senior_editor") {
+  if (me?.role !== "editor" && me?.role !== "admin") {
     return NextResponse.json({ error: "Editors only" }, { status: 403 });
   }
 

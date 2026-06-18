@@ -76,25 +76,8 @@ async function requireEditor(): Promise<PublishActionResult | null> {
     .select("role")
     .eq("id", user.id)
     .single<{ role: string | null }>();
-  if (me?.role !== "editor" && me?.role !== "senior_editor") {
+  if (me?.role !== "editor" && me?.role !== "admin") {
     return { ok: false, error: "Editors only" };
-  }
-  return null;
-}
-
-async function requireSeniorEditor(): Promise<PublishActionResult | null> {
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) return { ok: false, error: "Not signed in" };
-  const { data: me } = await supabase
-    .from("profiles")
-    .select("role")
-    .eq("id", user.id)
-    .single<{ role: string | null }>();
-  if (me?.role !== "senior_editor") {
-    return { ok: false, error: "Senior Editor only" };
   }
   return null;
 }
@@ -555,7 +538,7 @@ async function pushToWordPress(payload: {
 export async function publishArticle(
   fd: FormData,
 ): Promise<PublishActionResult> {
-  const gate = await requireSeniorEditor();
+  const gate = await requireEditor();
   if (gate) return gate;
 
   const article_id = String(fd.get("article_id") ?? "").trim();
@@ -633,7 +616,7 @@ export async function publishArticle(
   if (article.state !== "scheduled") {
     return {
       ok: false,
-      error: `Article must be in 'scheduled' state to publish (currently '${article.state}'). A Senior Editor [PUB] PASS on the F7 Pre-Flight pack moves it to scheduled.`,
+      error: `Article must be in 'scheduled' state to publish (currently '${article.state}'). A Admin [PUB] PASS on the F7 Pre-Flight pack moves it to scheduled.`,
     };
   }
 
@@ -838,7 +821,7 @@ export async function publishArticle(
 /* -------------------------------------------------------------------------- */
 /*  republishWithApprovedCorrections — Stage 13 hook                          */
 /*                                                                            */
-/*  When a Senior Editor approves, withdraws, or deletes a correction, we     */
+/*  When a Admin approves, withdraws, or deletes a correction, we     */
 /*  push an updated post body back to WordPress that includes every currently */
 /*  approved correction. A retraction flips the WP post to `draft` so it is   */
 /*  no longer publicly readable while still preserved in the WP archive.      */
@@ -1021,7 +1004,7 @@ export async function republishWithApprovedCorrections(
 export async function retractArticle(
   fd: FormData,
 ): Promise<PublishActionResult> {
-  const gate = await requireSeniorEditor();
+  const gate = await requireEditor();
   if (gate) return gate;
 
   const article_id = String(fd.get("article_id") ?? "").trim();

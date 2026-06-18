@@ -10,13 +10,13 @@ import { createServiceClient } from "@/lib/supabase/service";
  * accepted. So we use the service-role admin API to invite/delete users
  * and write through to profiles for role + display name.
  *
- * Every action gates on senior_editor first using the user-context
+ * Every action gates on admin first using the user-context
  * client so RLS proves the caller, then switches to the service-role
  * client for the mutation that needs to touch other people's rows.
  */
 
-type Role = "senior_editor" | "editor" | "reviewer" | "viewer";
-const ROLES: Role[] = ["senior_editor", "editor", "reviewer", "viewer"];
+type Role = "admin" | "editor" | "reviewer" | "viewer";
+const ROLES: Role[] = ["admin", "editor", "reviewer", "viewer"];
 
 export type TeamActionResult =
   | { ok: true; id?: string }
@@ -35,8 +35,8 @@ async function requireSeniorEditor(): Promise<TeamActionResult | null> {
     .eq("id", user.id)
     .single();
 
-  if (me?.role !== "senior_editor") {
-    return { ok: false, error: "Only senior editors can manage the team" };
+  if (me?.role !== "admin") {
+    return { ok: false, error: "Only admins can manage the team" };
   }
   return null;
 }

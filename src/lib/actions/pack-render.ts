@@ -21,7 +21,7 @@ import type { ArticleCorrectionRow } from "@/lib/spec/stage13-corrections";
  *
  *   renderPack(fd) — load bundle for pack_ref, render, persist, return text
  *
- * Editor + senior_editor gated. Successful render bumps rendered_at /
+ * Editor + admin gated. Successful render bumps rendered_at /
  * rendered_by on the pack row.
  */
 
@@ -40,7 +40,7 @@ async function requireEditor(): Promise<RenderPackResult | null> {
     .select("role")
     .eq("id", user.id)
     .single<{ role: string | null }>();
-  if (me?.role !== "editor" && me?.role !== "senior_editor") {
+  if (me?.role !== "editor" && me?.role !== "admin") {
     return { ok: false, error: "Editors only" };
   }
   return null;

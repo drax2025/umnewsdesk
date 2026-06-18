@@ -22,7 +22,7 @@ import { isPrPiece } from "@/lib/actions/pr-piece";
  *   - setReviewVerdict(fd) — stamp the verdict + rationale + transition state
  *
  * All three are upserts on article_review (PK = article_id). All gated on
- * editor + senior_editor. Stamping HAND-TO-F7 requires zero hard-gate fails
+ * editor + admin. Stamping HAND-TO-F7 requires zero hard-gate fails
  * and zero pending gates.
  */
 
@@ -57,7 +57,7 @@ async function requireEditor(): Promise<ReviewActionResult | null> {
     .select("role")
     .eq("id", user.id)
     .single();
-  if (me?.role !== "editor" && me?.role !== "senior_editor") {
+  if (me?.role !== "editor" && me?.role !== "admin") {
     return { ok: false, error: "Editors only" };
   }
   return null;

@@ -19,9 +19,9 @@ import {
 import { cn } from "@/lib/utils";
 
 /**
- * Senior-Editor control for the custom login-screen wallpaper. The browser
+ * Admin control for the custom login-screen wallpaper. The browser
  * uploads the file straight to the public `branding` Supabase Storage bucket
- * (RLS gates writes to senior_editor), then the resulting public URL is
+ * (RLS gates writes to admin), then the resulting public URL is
  * persisted via saveLoginWallpaper. The overlay slider tunes the dark scrim
  * that keeps the sign-in card legible over the image.
  */

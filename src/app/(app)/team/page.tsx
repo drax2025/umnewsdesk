@@ -10,7 +10,7 @@ import {
 
 export const dynamic = "force-dynamic";
 
-type Role = "senior_editor" | "editor" | "reviewer" | "viewer";
+type Role = "admin" | "editor" | "reviewer" | "viewer";
 
 type ProfileRow = {
   id: string;
@@ -21,14 +21,14 @@ type ProfileRow = {
 };
 
 const ROLE_LABEL: Record<Role, string> = {
-  senior_editor: "Senior Editor",
+  admin: "Admin",
   editor: "Editor",
   reviewer: "Reviewer",
   viewer: "Viewer",
 };
 
 const ROLE_TONE: Record<Role, string> = {
-  senior_editor: "border-primary/35 bg-primary/10 text-primary",
+  admin: "border-primary/35 bg-primary/10 text-primary",
   editor: "border-state-comm/35 bg-state-comm/10 text-state-comm",
   reviewer: "border-warn/35 bg-warn/10 text-warn",
   viewer: "border-border bg-secondary text-um-muted",
@@ -62,7 +62,7 @@ export default async function TeamPage() {
     .eq("id", user!.id)
     .single();
   const myRole = (meRow?.role ?? "viewer") as Role;
-  const canManage = myRole === "senior_editor";
+  const canManage = myRole === "admin";
 
   // Service-role for emails (auth.users isn't reachable via RLS client).
   const admin = createServiceClient();
@@ -98,7 +98,7 @@ export default async function TeamPage() {
         </span>
         {!canManage ? (
           <span className="rounded-full border border-warn/30 bg-warn/10 px-2 py-0.5 text-[10px] font-medium text-warn">
-            Read-only — senior editors can edit
+            Read-only — admins can edit
           </span>
         ) : null}
       </div>
@@ -110,12 +110,12 @@ export default async function TeamPage() {
             {canManage ? <InviteMemberButton /> : null}
           </div>
           <p className="text-[12px] leading-[1.5] text-um-muted">
-            Roles edit in place — Senior Editors and Editors can be set as
+            Roles edit in place — Admins and Editors can be set as
             commissioning assignees. Inviting sends a one-time sign-in link via
             Supabase Auth.
           </p>
           <div className="mt-3 flex flex-wrap gap-3 text-[11px] text-um-muted">
-            <RoleCount label="Senior" n={counts.senior_editor ?? 0} tone="primary" />
+            <RoleCount label="Admin" n={counts.admin ?? 0} tone="primary" />
             <RoleCount label="Editor" n={counts.editor ?? 0} tone="comm" />
             <RoleCount label="Reviewer" n={counts.reviewer ?? 0} tone="warn" />
             <RoleCount label="Viewer" n={counts.viewer ?? 0} tone="muted" />

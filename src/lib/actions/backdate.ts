@@ -22,7 +22,7 @@ import {
  *   - D4 (friday-after > 6 weeks) raises a soft warning, not a block.
  *   - Future-dated backdate blocks.
  *
- * Gated on editor + senior_editor. Defamation tier is resolved by the
+ * Gated on editor + admin. Defamation tier is resolved by the
  * commission → candidate join (the canonical pattern in this codebase).
  */
 
@@ -56,7 +56,7 @@ async function requireEditor(): Promise<BackdateActionResult | null> {
     .select("role")
     .eq("id", user.id)
     .single<{ role: string | null }>();
-  if (me?.role !== "editor" && me?.role !== "senior_editor") {
+  if (me?.role !== "editor" && me?.role !== "admin") {
     return { ok: false, error: "Editors only" };
   }
   return null;

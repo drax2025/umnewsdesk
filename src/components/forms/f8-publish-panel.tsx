@@ -68,7 +68,7 @@ export function PublishPanel({
   const lastPublished = latestPublishedLog(publishLog);
   const isLive = articleState === "live";
   // Mirror the server guard in publishArticle: a push (incl. WP Draft) is only
-  // allowed once the Senior Editor [PUB] PASS on F7 has moved the article to
+  // allowed once the Admin [PUB] PASS on F7 has moved the article to
   // 'scheduled'. 'legal' means it's handed to the senior but not yet PUB-PASSed.
   const isPublishable = articleState === "scheduled";
   const isTerminal =
@@ -324,7 +324,7 @@ function PushForm({
  * publishArticle server guard would reject it anyway.
  *
  *   - awaitingPubPass ('legal'): F6 + F7 checks are done; the only thing left
- *     is the Senior Editor [PUB] PASS on the F7 pack, which flips it to
+ *     is the Admin [PUB] PASS on the F7 pack, which flips it to
  *     'scheduled'. This is the common "ready but blocked" case.
  *   - otherwise: still upstream of F7 — needs F6 Final Review then F7.
  */
@@ -358,10 +358,10 @@ function NotReadyNotice({
         <div className="flex items-start gap-2 text-[11.5px] text-warn">
           <Lock className="mt-0.5 h-3.5 w-3.5 flex-shrink-0" />
           <p className="leading-[1.5]">
-            Awaiting the Senior Editor{" "}
+            Awaiting the Admin{" "}
             <span className="font-semibold">[PUB] PASS</span>. F6 and F7 checks
             are done — the B2 sweep above can be clean, but publishing stays
-            locked until a Senior Editor stamps the{" "}
+            locked until a Admin stamps the{" "}
             <span className="font-semibold">APPROVE</span> verdict on the F7
             Pre-Flight pack. That flips the article to{" "}
             <span className="font-mono">scheduled</span> and unlocks the push.
@@ -390,7 +390,7 @@ function NotReadyNotice({
           unlocks after{" "}
           <span className="font-semibold">F6 Final Review</span>, then the{" "}
           <span className="font-semibold">F7 Pre-Flight Check</span> and the
-          Senior Editor [PUB] PASS (→{" "}
+          Admin [PUB] PASS (→{" "}
           <span className="font-mono">scheduled</span>).
         </p>
       </div>

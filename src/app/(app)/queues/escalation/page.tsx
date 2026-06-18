@@ -16,7 +16,7 @@ export const dynamic = "force-dynamic";
 /**
  * /queues/escalation — D0 Escalation [ESC] channel.
  *
- * Surfaces every article currently parked on a Senior Editor escalation. Per
+ * Surfaces every article currently parked on a Admin escalation. Per
  * spec, three agents can fire an [ESC] verdict:
  *
  *   - F4 Interlink             → article_interlinker.verdict = 'escalate'
@@ -27,7 +27,7 @@ export const dynamic = "force-dynamic";
  * agent, and shows the escalation rationale. Editors deep-link to the
  * relevant agent screen to resolve.
  *
- * D0 (D-Steps doctrine) treats unresolvable cases as the Senior Editor's
+ * D0 (D-Steps doctrine) treats unresolvable cases as the Admin's
  * call — never silently demoted. Read-only here; resolution happens on the
  * F-agent screen.
  */
@@ -52,13 +52,13 @@ const SOURCE_META: Record<
   f6: {
     label: "F6 Final Review",
     short: "F6 · ESC",
-    hint: "Final Review cannot resolve at H-gates — Senior Editor judgement call.",
+    hint: "Final Review cannot resolve at H-gates — Admin judgement call.",
     icon: Gavel,
   },
   f7: {
     label: "F7 Pre-Flight",
     short: "F7 · ESC",
-    hint: "Pre-Flight Pack agent cannot resolve at A-checks — Senior Editor judgement call.",
+    hint: "Pre-Flight Pack agent cannot resolve at A-checks — Admin judgement call.",
     icon: Package,
   },
 };
@@ -219,7 +219,7 @@ export default async function EscalationQueuePage() {
           D0 Escalation [ESC]
         </span>
         <span className="ml-auto rounded-md border border-warn/35 bg-warn/10 px-2 py-0.5 font-mono text-[10.5px] uppercase tracking-[0.05em] text-warn">
-          Senior Editor channel
+          Admin channel
         </span>
       </div>
 
@@ -229,10 +229,10 @@ export default async function EscalationQueuePage() {
           <Siren className="mt-1 h-4 w-4 flex-shrink-0 text-warn" />
           <div className="min-w-0 flex-1">
             <div className="mb-0.5 text-[10.5px] font-semibold uppercase tracking-[0.06em] text-um-muted">
-              D0 escalation channel · F4 · F6 · F7 · senior editor judgement
+              D0 escalation channel · F4 · F6 · F7 · admin judgement
             </div>
             <h1 className="text-[18px] font-semibold leading-[1.25] tracking-[-0.02em] text-foreground">
-              Articles awaiting Senior Editor [ESC] resolution
+              Articles awaiting Admin [ESC] resolution
             </h1>
             <p className="mt-1 max-w-[760px] text-[12.5px] leading-[1.5] text-fg-2">
               D-Steps doctrine: cases an F-agent cannot resolve are escalated
@@ -300,7 +300,7 @@ function EmptyState() {
         No active escalations
       </h2>
       <p className="mt-1 max-w-md text-[12px] leading-[1.5] text-um-muted">
-        F4, F6 and F7 have nothing parked on the Senior Editor channel.
+        F4, F6 and F7 have nothing parked on the Admin channel.
       </p>
     </div>
   );

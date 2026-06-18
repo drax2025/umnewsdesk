@@ -33,7 +33,7 @@ export const dynamic = "force-dynamic";
  *   A7-A9 soft  · interlink / footer
  *   A10 hard    · standing-rule sweep + numeric positive trace
  *   Failure Log · append rows for SOFT/HARD fails
- *   Pack panel  · assembly + [PUB] Senior Editor verdict
+ *   Pack panel  · assembly + [PUB] Admin verdict
  *
  * F7 sits between F6 and F8. Per spec sections F7, A1-A10, D-Steps.
  */
@@ -75,7 +75,7 @@ export default async function F7PreFlightPage({
       .maybeSingle<ProfileRow>();
     role = me?.role ?? null;
   }
-  const canStampPub = role === "senior_editor";
+  const canStampPub = role === "editor" || role === "admin";
 
   // The pre-flight row, failures and (optionally) the pack.
   const [
@@ -343,8 +343,8 @@ export default async function F7PreFlightPage({
               [PUB]" pointer in the verdict panel above. */}
           <div id="pub-approval" className="flex scroll-mt-4 flex-col gap-3">
             <SectionHeader
-              label="Pre-Flight Pack — Senior Editor [PUB] APPROVE"
-              hint="Hard cap of 3 articles per pack. Stamped to [PUB] for Senior Editor APPROVE / MODIFY / REJECT — APPROVE moves the article to scheduled and unlocks F8 Publish."
+              label="Pre-Flight Pack — Admin [PUB] APPROVE"
+              hint="Hard cap of 3 articles per pack. Stamped to [PUB] for Admin APPROVE / MODIFY / REJECT — APPROVE moves the article to scheduled and unlocks F8 Publish."
             />
             <F7PackPanel
               articleId={article.id}

@@ -18,7 +18,7 @@ export const dynamic = "force-dynamic";
  * Stage 13 — `/corrections` global register.
  *
  * Cross-title view of every correction filed, draft-or-live, with title /
- * kind / status filters. Senior Editors triage from here; editors see
+ * kind / status filters. Admins triage from here; editors see
  * the queue of their own drafts awaiting review.
  */
 
@@ -52,7 +52,7 @@ export default async function CorrectionsIndexPage({
         .eq("id", user.id)
         .single<{ role: string | null }>()
     : { data: null };
-  const isSenior = meRow?.role === "senior_editor";
+  const isSenior = meRow?.role === "editor" || meRow?.role === "admin";
 
   const admin = createServiceClient();
   let titleId: string | null = null;
@@ -109,7 +109,7 @@ export default async function CorrectionsIndexPage({
             </h1>
           </div>
           <span className="font-mono text-[11px] text-um-muted">
-            {summary.total} total · {summary.draft} awaiting Senior ·{" "}
+            {summary.total} total · {summary.draft} awaiting approval ·{" "}
             {summary.approved} live · {summary.withdrawn} withdrawn
             {summary.retractions > 0
               ? ` · ${summary.retractions} retraction${summary.retractions === 1 ? "" : "s"}`
@@ -193,7 +193,7 @@ export default async function CorrectionsIndexPage({
           and (for retractions) flips state to <code>killed</code>. Open
           the dossier link for full action controls.
           {isSenior
-            ? " You are a Senior Editor — your queue is the DRAFT lane."
+            ? " You are a Admin — your queue is the DRAFT lane."
             : null}
         </p>
 

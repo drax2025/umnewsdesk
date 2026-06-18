@@ -11,23 +11,23 @@ import { NAV_SECTIONS } from "@/components/shell/nav-config";
  *   - provides resolveAccess() — the single function any page / sidebar
  *     should call when asking "can this user see/edit this menu item?".
  *
- * The senior_editor → 'full' fallback is hardcoded here, in code, on top
- * of the DB seed. That's the lockout safety net: even if a Senior Editor
+ * The admin → 'full' fallback is hardcoded here, in code, on top
+ * of the DB seed. That's the lockout safety net: even if a Admin
  * sets their own row to 'hidden' from /system/permissions, the resolver
  * still hands back 'full'. Without this guarantee a single bad save
  * could lock the publisher out of fixing it.
  */
 
-export type Role = "senior_editor" | "editor" | "reviewer" | "viewer";
+export type Role = "admin" | "editor" | "reviewer" | "viewer";
 export const ALL_ROLES: Role[] = [
-  "senior_editor",
+  "admin",
   "editor",
   "reviewer",
   "viewer",
 ];
 
 export const ROLE_LABEL: Record<Role, string> = {
-  senior_editor: "Senior Editor",
+  admin: "Admin",
   editor: "Editor",
   reviewer: "Reviewer",
   viewer: "Viewer",
@@ -72,7 +72,7 @@ export const MENU_KEY_SET = new Set(MENU_KEYS);
  * both fresh installs and runtime defaults agree.
  */
 export const DEFAULT_PERMISSIONS: Record<Role, Record<string, AccessLevel>> = {
-  senior_editor: Object.fromEntries(MENU_KEYS.map((k) => [k, "full"])),
+  admin: Object.fromEntries(MENU_KEYS.map((k) => [k, "full"])),
   editor: Object.fromEntries(
     MENU_KEYS.map((k) => [
       k,
@@ -120,7 +120,7 @@ export const DEFAULT_PERMISSIONS: Record<Role, Record<string, AccessLevel>> = {
 
 /**
  * Resolve the effective access for a (role, menu_key) pair, applying
- * the senior_editor full-access override and falling back to DEFAULT_PERMISSIONS
+ * the admin full-access override and falling back to DEFAULT_PERMISSIONS
  * for any key the DB hasn't supplied yet.
  *
  * Pass `permissionMap` as the map of menu_key → AccessLevel returned for the
@@ -133,8 +133,8 @@ export function resolveAccess(
   menuKey: string,
   permissionMap: Map<string, AccessLevel> | Record<string, AccessLevel> | null,
 ): AccessLevel {
-  // Lockout safety net — Senior Editor is always full regardless of the row.
-  if (role === "senior_editor") return "full";
+  // Lockout safety net — Admin is always full regardless of the row.
+  if (role === "admin") return "full";
 
   if (permissionMap) {
     const fromMap =

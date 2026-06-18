@@ -51,7 +51,7 @@ async function requireEditor(): Promise<TriageActionResult | null> {
     .eq("id", user.id)
     .single();
 
-  if (me?.role !== "editor" && me?.role !== "senior_editor") {
+  if (me?.role !== "editor" && me?.role !== "admin") {
     return { ok: false, error: "Editors only" };
   }
   return null;

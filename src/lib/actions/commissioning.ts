@@ -191,7 +191,7 @@ export async function commissionFromCandidate(formData: FormData) {
     throw new Error(
       `Could not create article (${artErr?.code ?? "?"}): ${
         artErr?.message ?? "insert returned no row"
-      }. Most likely cause: signed-in user lacks editor/senior_editor role for RLS.`,
+      }. Most likely cause: signed-in user lacks editor/admin role for RLS.`,
     );
   }
 

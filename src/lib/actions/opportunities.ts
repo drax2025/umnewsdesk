@@ -22,7 +22,7 @@ import {
  *                                    park / drop) + sweep_count bump
  *   updateOpportunity(fd)          — edit headline / section / category /
  *                                    priority / notes
- *   deleteOpportunity(fd)          — senior_editor cleanup
+ *   deleteOpportunity(fd)          — admin cleanup
  *   bumpOpportunitySweep(fd)       — bumps sweep_count without verdict
  *                                    (used by 'mark as reviewed' button)
  *   setRejectSweepVerdict(fd)      — K5 PURSUE / HOLD / DROP on a rejected
@@ -55,7 +55,7 @@ async function requireEditor(): Promise<OpportunityActionResult | null> {
     .select("role")
     .eq("id", user.id)
     .single<{ role: string | null }>();
-  if (me?.role !== "editor" && me?.role !== "senior_editor") {
+  if (me?.role !== "editor" && me?.role !== "admin") {
     return { ok: false, error: "Editors only" };
   }
   return null;
@@ -72,8 +72,8 @@ async function requireSeniorEditor(): Promise<OpportunityActionResult | null> {
     .select("role")
     .eq("id", user.id)
     .single<{ role: string | null }>();
-  if (me?.role !== "senior_editor") {
-    return { ok: false, error: "Senior Editor only" };
+  if (me?.role !== "admin") {
+    return { ok: false, error: "Admin only" };
   }
   return null;
 }
@@ -347,7 +347,7 @@ export async function deleteOpportunityRow(
 export async function setRejectSweepVerdict(
   fd: FormData,
 ): Promise<OpportunityActionResult> {
-  const gate = await requireSeniorEditor();
+  const gate = await requireEditor();
   if (gate) return gate;
 
   const article_id = String(fd.get("article_id") ?? "").trim();

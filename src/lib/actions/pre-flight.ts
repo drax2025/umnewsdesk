@@ -35,11 +35,11 @@ import { isPrPiece } from "@/lib/actions/pr-piece";
  *   - deleteFailure(fd)          — remove a Failure Log row
  *   - setF7Verdict(fd)           — stamp the F7 verdict + rationale
  *   - assemblePack(fd)           — assemble a new Pre-Flight Pack ref
- *   - setPubVerdict(fd)          — Senior Editor APPROVE / MODIFY / REJECT
+ *   - setPubVerdict(fd)          — Admin APPROVE / MODIFY / REJECT
  *
- * All gated on editor + senior_editor roles. Pack assembly requires the
+ * All gated on editor + admin roles. Pack assembly requires the
  * article to be in the HAND-TO-SENIOR state; senior editor verdict additionally
- * requires the role be 'senior_editor'.
+ * requires the role be 'admin'.
  */
 
 export type PreFlightActionResult =
@@ -92,28 +92,12 @@ async function requireEditor(): Promise<PreFlightActionResult | null> {
     .select("role")
     .eq("id", user.id)
     .single();
-  if (me?.role !== "editor" && me?.role !== "senior_editor") {
+  if (me?.role !== "editor" && me?.role !== "admin") {
     return { ok: false, error: "Editors only" };
   }
   return null;
 }
 
-async function requireSeniorEditor(): Promise<PreFlightActionResult | null> {
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) return { ok: false, error: "Not signed in" };
-  const { data: me } = await supabase
-    .from("profiles")
-    .select("role")
-    .eq("id", user.id)
-    .single();
-  if (me?.role !== "senior_editor") {
-    return { ok: false, error: "Senior Editor only" };
-  }
-  return null;
-}
 
 async function currentUserId(): Promise<string | null> {
   const supabase = await createClient();
@@ -447,7 +431,7 @@ export async function setF7Verdict(
       return {
         ok: false,
         error:
-          "No A-check audit on file. Save the check rows before handing to Senior Editor.",
+          "No A-check audit on file. Save the check rows before handing to Admin.",
       };
     }
     for (const code of A_CHECK_CODES) {
@@ -457,13 +441,13 @@ export async function setF7Verdict(
       if (st === "pending") {
         return {
           ok: false,
-          error: `Cannot hand to Senior Editor — ${code} is still PENDING.`,
+          error: `Cannot hand to Admin — ${code} is still PENDING.`,
         };
       }
       if (st === "fail" && def?.kind === "hard") {
         return {
           ok: false,
-          error: `Cannot hand to Senior Editor — ${code} (${def.label}) is a hard FAIL.`,
+          error: `Cannot hand to Admin — ${code} (${def.label}) is a hard FAIL.`,
         };
       }
     }
@@ -641,13 +625,13 @@ export async function assemblePack(
 }
 
 /* -------------------------------------------------------------------------- */
-/*  setPubVerdict — Senior Editor APPROVE / MODIFY / REJECT                   */
+/*  setPubVerdict — Admin APPROVE / MODIFY / REJECT                   */
 /* -------------------------------------------------------------------------- */
 
 export async function setPubVerdict(
   fd: FormData,
 ): Promise<PreFlightActionResult> {
-  const gate = await requireSeniorEditor();
+  const gate = await requireEditor();
   if (gate) return gate;
 
   const article_id = String(fd.get("article_id") ?? "").trim();
@@ -658,7 +642,7 @@ export async function setPubVerdict(
     return { ok: false, error: "Pick APPROVE / MODIFY / REJECT" };
   }
   if (!notes) {
-    return { ok: false, error: "Senior-Editor notes are required." };
+    return { ok: false, error: "Admin notes are required." };
   }
 
   const uid = await currentUserId();
@@ -726,7 +710,7 @@ export async function setPubVerdict(
       stage: "F7",
       event: "hard_gate_return",
       gate_code: null,
-      detail: `Senior Editor [PUB-REJECT]: ${notes}`,
+      detail: `Admin [PUB-REJECT]: ${notes}`,
       created_by: uid,
     });
   } else if (verdict === "modify") {
@@ -735,7 +719,7 @@ export async function setPubVerdict(
       stage: "F7",
       event: "rework",
       gate_code: null,
-      detail: `Senior Editor [PUB-MODIFY]: ${notes}`,
+      detail: `Admin [PUB-MODIFY]: ${notes}`,
       remediation: "Article routed back through agent loop for modification.",
       created_by: uid,
     });

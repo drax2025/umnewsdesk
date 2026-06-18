@@ -37,7 +37,7 @@ export default async function TitleConfigPage({
     .select("role")
     .eq("id", user.id)
     .single<{ role: string | null }>();
-  if (meRow?.role !== "senior_editor") {
+  if (meRow?.role !== "admin") {
     redirect("/");
   }
 

@@ -51,8 +51,8 @@ async function requireSeniorEditor(): Promise<TitleConfigActionResult | null> {
     .select("role")
     .eq("id", user.id)
     .single<{ role: string | null }>();
-  if (me?.role !== "senior_editor") {
-    return { ok: false, error: "Senior Editor only" };
+  if (me?.role !== "admin") {
+    return { ok: false, error: "Admin only" };
   }
   return null;
 }

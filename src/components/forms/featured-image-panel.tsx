@@ -16,7 +16,7 @@ import { cn } from "@/lib/utils";
  * a swap affordance) on F8 Post-Publish.
  *
  * The browser uploads the file directly to the `article-images` Supabase
- * Storage bucket (RLS gates writes to editor / senior_editor). On success
+ * Storage bucket (RLS gates writes to editor / admin). On success
  * the public URL is sent to saveFeaturedImage, which writes it to the
  * articles row plus alt + credit metadata. Alt text is required for
  * accessibility; credit is optional.

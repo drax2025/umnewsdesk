@@ -42,7 +42,7 @@ async function requireEditor(): Promise<CorrectionActionResult | null> {
     .select("role")
     .eq("id", user.id)
     .single<{ role: string | null }>();
-  if (me?.role !== "editor" && me?.role !== "senior_editor") {
+  if (me?.role !== "editor" && me?.role !== "admin") {
     return { ok: false, error: "Editors only" };
   }
   return null;
@@ -59,8 +59,8 @@ async function requireSeniorEditor(): Promise<CorrectionActionResult | null> {
     .select("role")
     .eq("id", user.id)
     .single<{ role: string | null }>();
-  if (me?.role !== "senior_editor") {
-    return { ok: false, error: "Senior Editor only" };
+  if (me?.role !== "admin") {
+    return { ok: false, error: "Admin only" };
   }
   return null;
 }
@@ -233,11 +233,11 @@ export async function updateCorrection(
     .select("role")
     .eq("id", uid ?? "")
     .single<{ role: string | null }>();
-  const isSenior = me?.role === "senior_editor";
-  if (!isSenior && existing.filed_by !== uid) {
+  const isEditor = me?.role === "editor" || me?.role === "admin";
+  if (!isEditor && existing.filed_by !== uid) {
     return {
       ok: false,
-      error: "You can only edit corrections you filed (or ask a Senior).",
+      error: "You can only edit corrections you filed (or ask an editor or admin).",
     };
   }
 
@@ -278,7 +278,7 @@ export async function updateCorrection(
 export async function approveCorrection(
   fd: FormData,
 ): Promise<CorrectionActionResult> {
-  const gate = await requireSeniorEditor();
+  const gate = await requireEditor();
   if (gate) return gate;
 
   const id = trimOrNull(fd.get("id"), 40);
@@ -359,7 +359,7 @@ export async function approveCorrection(
 export async function withdrawCorrection(
   fd: FormData,
 ): Promise<CorrectionActionResult> {
-  const gate = await requireSeniorEditor();
+  const gate = await requireEditor();
   if (gate) return gate;
 
   const id = trimOrNull(fd.get("id"), 40);

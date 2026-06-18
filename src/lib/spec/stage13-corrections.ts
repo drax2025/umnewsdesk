@@ -43,7 +43,7 @@ export type CorrectionKind = (typeof CORRECTION_KINDS)[number]["value"];
 export const CORRECTION_STATUSES = [
   {
     value: "draft" as const,
-    label: "Awaiting Senior",
+    label: "Awaiting approval",
     short: "DRAFT",
     tone: "warn" as const,
   },

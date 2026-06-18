@@ -10,7 +10,7 @@ import { createServiceClient } from "@/lib/supabase/service";
  * The client uploads the binary directly to the `article-images` Supabase
  * Storage bucket (so the request never bounces through this server action),
  * then calls saveFeaturedImage with the resulting public URL plus alt + credit
- * metadata. The bucket's RLS policy gates writes to editor / senior_editor
+ * metadata. The bucket's RLS policy gates writes to editor / admin
  * roles; this action re-checks the role server-side so a forged form post
  * with a doctored URL still has to belong to a real editor.
  *
@@ -51,7 +51,7 @@ async function requireEditor(): Promise<FeaturedImageActionResult | null> {
     .select("role")
     .eq("id", user.id)
     .single<{ role: string | null }>();
-  if (me?.role !== "editor" && me?.role !== "senior_editor") {
+  if (me?.role !== "editor" && me?.role !== "admin") {
     return { ok: false, error: "Editors only" };
   }
   return null;

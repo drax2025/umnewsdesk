@@ -32,7 +32,7 @@ export default async function TitlesIndexPage() {
     .select("role")
     .eq("id", user.id)
     .single<{ role: string | null }>();
-  if (meRow?.role !== "senior_editor") {
+  if (meRow?.role !== "admin") {
     redirect("/");
   }
 

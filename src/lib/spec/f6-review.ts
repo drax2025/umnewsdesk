@@ -285,7 +285,7 @@ export const F6_VERDICTS: {
   {
     value: "hand_to_f7",
     label: "Hand to F7 Pre-Flight Check",
-    hint: "All hard gates PASS. Proceed to A1-A10 active checks + Senior Editor pack.",
+    hint: "All hard gates PASS. Proceed to A1-A10 active checks + Admin pack.",
     tone: "success",
   },
   {
@@ -321,7 +321,7 @@ export const F6_VERDICTS: {
   {
     value: "escalate",
     label: "Escalate [ESC]",
-    hint: "Cannot resolve at F6. Routes to Senior Editor via [ESC] channel.",
+    hint: "Cannot resolve at F6. Routes to Admin via [ESC] channel.",
     tone: "destructive",
   },
 ];

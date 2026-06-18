@@ -16,8 +16,8 @@ export const dynamic = "force-dynamic";
 /**
  * /system/permissions — grid editor for per-role left-nav access.
  *
- * Senior-Editor-only (gated both here at page render and inside the
- * server actions). Senior Editor's own column is locked to 'Full' in the
+ * Admin-only (gated both here at page render and inside the
+ * server actions). Admin's own column is locked to 'Full' in the
  * UI because the code-side resolver overrides it to 'full' anyway — see
  * resolveAccess() in src/lib/spec/menu-permissions.ts for the lockout
  * safety rationale.
@@ -37,7 +37,7 @@ export default async function PermissionsPage() {
     .select("role")
     .eq("id", user.id)
     .single<{ role: string | null }>();
-  if (meRow?.role !== "senior_editor") {
+  if (meRow?.role !== "admin") {
     redirect("/");
   }
 
@@ -51,7 +51,7 @@ export default async function PermissionsPage() {
   // way the grid never has empty cells even if the DB hasn't seen a row
   // for a particular pair yet (e.g. after adding a new menu item).
   const initial: Record<Role, Record<string, AccessLevel>> = {
-    senior_editor: { ...DEFAULT_PERMISSIONS.senior_editor },
+    admin: { ...DEFAULT_PERMISSIONS.admin },
     editor: { ...DEFAULT_PERMISSIONS.editor },
     reviewer: { ...DEFAULT_PERMISSIONS.reviewer },
     viewer: { ...DEFAULT_PERMISSIONS.viewer },
@@ -91,7 +91,7 @@ export default async function PermissionsPage() {
         <p className="rounded-md border border-dashed border-border bg-background/40 px-3 py-2 text-[10.5px] leading-[1.5] text-um-muted">
           <strong className="text-fg-2">Policy:</strong> each cell controls
           whether the role sees that menu item, sees it as read-only, or has
-          full access. <strong className="text-fg-2">Senior Editor</strong>{" "}
+          full access. <strong className="text-fg-2">Admin</strong>{" "}
           is always resolved to full access in code regardless of what&apos;s
           saved here — a lockout safety net so you can never block yourself
           out of this very page. Changes save instantly; the affected

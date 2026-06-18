@@ -5,7 +5,7 @@ import { Loader2, Palette, RotateCcw } from "lucide-react";
 import { saveHighlightColour } from "@/lib/actions/branding";
 
 /**
- * Senior-Editor control for the global "highlight colour" — the background
+ * Admin control for the global "highlight colour" — the background
  * applied to selected options (e.g. the F1 triage scorecard pills). Stored in
  * app_settings and surfaced app-wide via the --um-highlight CSS variable set
  * in the (app) layout.

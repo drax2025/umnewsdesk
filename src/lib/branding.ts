@@ -3,7 +3,7 @@ import { createClient } from "@/lib/supabase/server";
 /**
  * Login-screen branding. Read on the unauthenticated /login page (anon read is
  * allowed for the 'login_wallpaper' key — see migration 0037) and on the
- * Senior-Editor settings page.
+ * Admin settings page.
  *
  * `overlay` is a 0–0.9 scrim opacity laid over the wallpaper so the sign-in
  * card and text stay legible over a busy photo.

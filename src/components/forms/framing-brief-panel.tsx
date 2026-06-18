@@ -12,7 +12,7 @@ import { cn } from "@/lib/utils";
  * The brief is authored upstream (F1) and refined at commissioning. On the
  * edit surface the Writer sees it but does not edit it — per spec it is set
  * before drafting. If F7 reframes the article the brief can be modified at
- * the Senior Editor verdict step.
+ * the Admin verdict step.
  *
  * Renders all five axes:
  *   - Geographic tier   (B9.1 axis 1)

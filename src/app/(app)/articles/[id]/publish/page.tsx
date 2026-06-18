@@ -145,7 +145,7 @@ export default async function F8PublishPage({
     candidateAttachments = coerceAttachments(cand?.attachments);
   }
 
-  // Current user's role (publish push restricted to senior_editor).
+  // Current user's role (publish push restricted to admin).
   const {
     data: { user },
   } = await supabase.auth.getUser();
@@ -158,8 +158,7 @@ export default async function F8PublishPage({
       .maybeSingle<ProfileRow>();
     role = me?.role ?? null;
   }
-  const isSenior = role === "senior_editor";
-  const isEditor = role === "editor" || role === "senior_editor";
+  const isEditor = role === "editor" || role === "admin";
 
   const [{ data: sweepRow }, { data: publishLog }, { data: titleWp }] =
     await Promise.all([
@@ -256,7 +255,7 @@ export default async function F8PublishPage({
           />
 
           {/* Featured image — last-chance hero swap before push. Editor +
-              senior_editor can still upload here in case the writer left it
+              admin can still upload here in case the writer left it
               empty or a better image arrived after F5. Read-only once live. */}
           <FeaturedImagePanel
             articleId={article.id}
@@ -277,7 +276,7 @@ export default async function F8PublishPage({
             publishLog={publishLog ?? []}
             wordpressCredSource={wordpressCredSource}
             titleName={titleWp?.name ?? null}
-            readOnly={!isSenior}
+            readOnly={!isEditor}
           />
         </div>
       </div>
