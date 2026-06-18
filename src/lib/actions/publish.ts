@@ -613,10 +613,10 @@ export async function publishArticle(
     }
   }
 
-  // 'scheduled' = cleared for release. 'wp_draft' = already pushed to WordPress
-  // as a draft; a fresh push promotes it to a live publish. Anything else hasn't
-  // earned its way to a push yet.
-  if (article.state !== "scheduled" && article.state !== "wp_draft") {
+  // Only 'scheduled' goes through the create-a-new-WP-post path. A 'wp_draft'
+  // article already has a WP post, so it's promoted to live via markWpDraftLive
+  // (below) instead — pushing again here would create a duplicate WP post.
+  if (article.state !== "scheduled") {
     return {
       ok: false,
       error: `Article must be in 'scheduled' state to publish (currently '${article.state}'). An Editor [PUB] PASS on the F7 Pre-Flight pack moves it to scheduled.`,
@@ -828,6 +828,101 @@ export async function publishArticle(
     publish_log_id: logRow.id,
     external_url: externalUrl,
   };
+}
+
+/* -------------------------------------------------------------------------- */
+/*  markWpDraftLive — reflect a WP-draft going public                          */
+/* -------------------------------------------------------------------------- */
+
+/**
+ * Promote a 'wp_draft' article to 'live' once it has actually been published on
+ * the WordPress site (typically published from the WP dashboard).
+ *
+ * This is a record sync, not a new push: the WP post already exists (it was
+ * created by the earlier draft push), so we do NOT call WordPress again — that
+ * would create a duplicate post. We flip the newsroom state to live, stamp
+ * published_at, mark the draft publish-log row as published, and write the A2
+ * master content inventory (using the URL the draft push recorded).
+ *
+ * Editor + admin only.
+ */
+export async function markWpDraftLive(
+  fd: FormData,
+): Promise<PublishActionResult> {
+  const gate = await requireEditor();
+  if (gate) return gate;
+
+  const article_id = String(fd.get("article_id") ?? "").trim();
+  if (!article_id) return { ok: false, error: "Missing article_id" };
+
+  const admin = createServiceClient();
+  const { data: article } = await admin
+    .from("articles")
+    .select("id, state, title_id, headline, primary_frame, sectors, backdate")
+    .eq("id", article_id)
+    .maybeSingle<{
+      id: string;
+      state: string;
+      title_id: string;
+      headline: string;
+      primary_frame: string | null;
+      sectors: string[] | null;
+      backdate: string | null;
+    }>();
+  if (!article) return { ok: false, error: "Article not found" };
+  if (article.state !== "wp_draft") {
+    return {
+      ok: false,
+      error: `Only WP-draft articles can be marked live (currently '${article.state}').`,
+    };
+  }
+
+  // The most recent publish-log row is the draft push — it carries the WP URL.
+  const { data: lastLog } = await admin
+    .from("article_publish_log")
+    .select("id, external_url")
+    .eq("article_id", article_id)
+    .order("attempted_at", { ascending: false })
+    .limit(1)
+    .maybeSingle<{ id: string; external_url: string | null }>();
+
+  const now = new Date().toISOString();
+  const uid = await currentUserId();
+
+  const { error: artErr } = await admin
+    .from("articles")
+    .update({ state: "live", published_at: now })
+    .eq("id", article_id);
+  if (artErr) return { ok: false, error: artErr.message };
+
+  // Flip the draft log row to 'published' so the F8 Live panel renders.
+  if (lastLog) {
+    await admin
+      .from("article_publish_log")
+      .update({ status: "published", completed_at: now })
+      .eq("id", lastLog.id);
+  }
+
+  // A2 master content inventory write-back — best-effort.
+  if (lastLog?.external_url) {
+    try {
+      await recordPublishedToInventory({
+        title_id: article.title_id,
+        article_id,
+        headline: article.headline,
+        url: lastLog.external_url,
+        silo: article.primary_frame ?? null,
+        sectors: article.sectors ?? [],
+        published_at: article.backdate ?? now,
+        created_by: uid,
+      });
+    } catch {
+      /* inventory drift will be visible at /inventory */
+    }
+  }
+
+  revalidate(article_id);
+  return { ok: true, publish_log_id: lastLog?.id ?? "", external_url: lastLog?.external_url ?? null };
 }
 
 /* -------------------------------------------------------------------------- */

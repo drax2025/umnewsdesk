@@ -26,6 +26,7 @@ import {
   type PublishTarget,
 } from "@/lib/spec/f8-publish";
 import {
+  markWpDraftLive,
   publishArticle,
   retractArticle,
 } from "@/lib/actions/publish";
@@ -67,17 +68,17 @@ export function PublishPanel({
   const summary = summariseSweep(sweepRow);
   const lastPublished = latestPublishedLog(publishLog);
   const isLive = articleState === "live";
-  // 'wp_draft' = already pushed to WordPress as a draft. Still publishable —
-  // a fresh "WordPress publish" push promotes it to live.
+  // 'wp_draft' = already pushed to WordPress as a draft. It has its own panel
+  // (mark-live), NOT the create-a-new-post push form.
   const isWpDraft = articleState === "wp_draft";
-  // Mirror the server guard in publishArticle: a push is allowed from
-  // 'scheduled' (Editor [PUB] PASS done) or 'wp_draft' (promote draft → live).
-  // 'legal' means it's handed for [PUB] but not yet PASSed.
-  const isPublishable = articleState === "scheduled" || isWpDraft;
+  // Only 'scheduled' goes through the create-post push form.
+  const isPublishable = articleState === "scheduled";
   const isTerminal =
     articleState === "rejected" || articleState === "killed";
   // 'legal' = awaiting the [PUB] PASS (F7 done, sign-off pending).
   const awaitingPubPass = articleState === "legal";
+  // The latest log row carries the WP URL recorded by the draft push.
+  const lastLog = publishLog[0] ?? null;
 
   return (
     <section className="overflow-hidden rounded-md border border-border bg-card">
@@ -125,20 +126,16 @@ export function PublishPanel({
         </div>
       )}
 
-      {isWpDraft ? (
-        <div className="border-b border-border bg-primary/5 px-3 py-2 text-[11px] text-primary">
-          <CheckCircle2 className="mr-1 inline-block h-3 w-3" />
-          Pushed to WordPress as a <span className="font-semibold">draft</span> —
-          not publicly live yet. Run a <span className="font-semibold">WordPress
-          publish</span> below to promote it to live, or publish it from the WP
-          dashboard.
-        </div>
-      ) : null}
-
       {isLive && lastPublished ? (
         <LivePanel
           articleId={articleId}
           log={lastPublished}
+          readOnly={readOnly}
+        />
+      ) : isWpDraft ? (
+        <WpDraftPanel
+          articleId={articleId}
+          draftUrl={lastLog?.external_url ?? null}
           readOnly={readOnly}
         />
       ) : isPublishable ? (
@@ -423,6 +420,94 @@ function NotReadyNotice({
           Go to F7 Pre-Flight Check
         </Link>
       </div>
+    </div>
+  );
+}
+
+/**
+ * Shown for a 'wp_draft' article — it was pushed to WordPress as a draft and is
+ * not publicly live yet. Once it's published on the WP site, "Mark as live"
+ * syncs the newsroom record (state → live + published_at + inventory) without
+ * creating a second WP post.
+ */
+function WpDraftPanel({
+  articleId,
+  draftUrl,
+  readOnly,
+}: {
+  articleId: string;
+  draftUrl: string | null;
+  readOnly: boolean;
+}) {
+  const router = useRouter();
+  const [pending, startTransition] = useTransition();
+  const [error, setError] = useState<string | null>(null);
+
+  function markLive() {
+    setError(null);
+    startTransition(async () => {
+      const fd = new FormData();
+      fd.set("article_id", articleId);
+      const res = await markWpDraftLive(fd);
+      if (!res.ok) {
+        setError(res.error);
+        return;
+      }
+      router.refresh();
+    });
+  }
+
+  return (
+    <div className="space-y-3 border-b border-border bg-primary/5 px-3 py-3">
+      <div className="flex items-start gap-2 text-[11.5px] text-primary">
+        <CheckCircle2 className="mt-0.5 h-3.5 w-3.5 flex-shrink-0" />
+        <p className="leading-[1.5]">
+          Pushed to WordPress as a <span className="font-semibold">draft</span> —
+          not publicly live yet. Publish it on the WordPress site, then mark it
+          live here to flip the pipeline to{" "}
+          <span className="font-mono">live</span> and record it in the master
+          inventory.
+        </p>
+      </div>
+
+      {draftUrl ? (
+        <a
+          href={draftUrl}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="inline-flex items-center gap-1 text-[11px] text-primary underline"
+        >
+          {draftUrl}
+          <ExternalLink className="h-3 w-3" />
+        </a>
+      ) : null}
+
+      {!readOnly ? (
+        <div className="flex flex-wrap items-center gap-2">
+          <button
+            type="button"
+            onClick={markLive}
+            disabled={pending}
+            className="flex h-8 items-center gap-1.5 rounded-md border border-success/50 bg-success/10 px-3 text-[12px] font-semibold text-success hover:bg-success/15 disabled:opacity-50"
+          >
+            {pending ? (
+              <Loader2 className="h-3.5 w-3.5 animate-spin" />
+            ) : (
+              <CheckCircle2 className="h-3.5 w-3.5" />
+            )}
+            Mark as published (live)
+          </button>
+          <span className="text-[10.5px] text-um-muted">
+            Confirms it&apos;s live on WordPress — no new post is created.
+          </span>
+        </div>
+      ) : null}
+
+      {error ? (
+        <div className="rounded-sm border border-destructive/40 bg-destructive/5 px-2 py-1 text-[11px] text-destructive">
+          {error}
+        </div>
+      ) : null}
     </div>
   );
 }
