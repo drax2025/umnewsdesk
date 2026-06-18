@@ -4,6 +4,7 @@ import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import {
   AlertTriangle,
+  ArrowDown,
   CheckCircle2,
   Package,
   RotateCcw,
@@ -178,6 +179,26 @@ export function F7VerdictPanel({
       </div>
 
       <div className="px-4 py-4">
+        {current === "hand_to_senior_editor" ? (
+          <a
+            href="#pub-approval"
+            className="mb-3 flex items-center justify-between gap-2 rounded-md border border-primary/45 bg-primary/10 px-2.5 py-2 text-[11.5px] leading-[1.4] text-primary transition-colors hover:bg-primary/15"
+          >
+            <span className="flex items-center gap-1.5">
+              <CheckCircle2 className="h-3.5 w-3.5 flex-shrink-0" />
+              <span>
+                Handed to Senior Editor. Next step: stamp the{" "}
+                <strong>[PUB] APPROVE</strong> in the Pre-Flight Pack at the
+                bottom of this page.
+              </span>
+            </span>
+            <span className="flex flex-shrink-0 items-center gap-1 font-semibold">
+              Go to [PUB]
+              <ArrowDown className="h-3.5 w-3.5" />
+            </span>
+          </a>
+        ) : null}
+
         {!summary.ready ? (
           <div className="mb-3 rounded-md border border-warn/40 bg-warn/10 px-2.5 py-1.5 text-[11px] text-warn">
             <div className="mb-1 flex items-start gap-2">

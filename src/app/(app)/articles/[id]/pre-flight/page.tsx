@@ -339,17 +339,20 @@ export default async function F7PreFlightPage({
           />
           <F7FailureLog articleId={article.id} failures={failures ?? []} />
 
-          {/* Pack assembly + [PUB] verdict */}
-          <SectionHeader
-            label="Pre-Flight Pack"
-            hint="Hard cap of 3 articles per pack. Stamped to [PUB] for Senior Editor APPROVE / MODIFY / REJECT."
-          />
-          <F7PackPanel
-            articleId={article.id}
-            row={row ?? null}
-            pack={pack}
-            canStampPub={canStampPub}
-          />
+          {/* Pack assembly + [PUB] verdict. Anchor target for the "Go to
+              [PUB]" pointer in the verdict panel above. */}
+          <div id="pub-approval" className="flex scroll-mt-4 flex-col gap-3">
+            <SectionHeader
+              label="Pre-Flight Pack — Senior Editor [PUB] APPROVE"
+              hint="Hard cap of 3 articles per pack. Stamped to [PUB] for Senior Editor APPROVE / MODIFY / REJECT — APPROVE moves the article to scheduled and unlocks F8 Publish."
+            />
+            <F7PackPanel
+              articleId={article.id}
+              row={row ?? null}
+              pack={pack}
+              canStampPub={canStampPub}
+            />
+          </div>
         </div>
       </div>
     </div>
