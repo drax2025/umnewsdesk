@@ -1,4 +1,5 @@
 import { LoginForm } from "./login-form";
+import { getLoginWallpaper } from "@/lib/branding";
 
 export const metadata = {
   title: "Sign in — Union Media",
@@ -14,9 +15,26 @@ export default async function LoginPage({
   const sp = await searchParams;
   const resetSuccess = sp.reset === "1";
   const resetError = sp.reset_error;
+  const wallpaper = await getLoginWallpaper();
   return (
     <div className="relative min-h-screen flex flex-col items-center justify-center px-4 py-6">
-      {/* Subtle grid overlay */}
+      {/* Custom wallpaper (if set) + dark scrim for card legibility */}
+      {wallpaper.url ? (
+        <>
+          <div
+            aria-hidden
+            className="pointer-events-none fixed inset-0 bg-cover bg-center"
+            style={{ backgroundImage: `url(${JSON.stringify(wallpaper.url)})` }}
+          />
+          <div
+            aria-hidden
+            className="pointer-events-none fixed inset-0 bg-black"
+            style={{ opacity: wallpaper.overlay }}
+          />
+        </>
+      ) : null}
+
+      {/* Subtle grid overlay — sits above the wallpaper but stays faint */}
       <div
         aria-hidden
         className="pointer-events-none fixed inset-0 opacity-35"
