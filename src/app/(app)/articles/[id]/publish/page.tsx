@@ -249,15 +249,6 @@ export default async function F8PublishPage({
       {/* Body */}
       <div className="flex-1 overflow-y-auto bg-background px-6 py-5">
         <div className="mx-auto flex max-w-[960px] flex-col gap-4">
-          {article.state !== "scheduled" && article.state !== "live" ? (
-            <div className="rounded-md border border-warn/45 bg-warn/5 px-3 py-2 text-[11.5px] text-warn">
-              Article state is <span className="font-mono">{article.state}</span>{" "}
-              — F8 expects <span className="font-mono">scheduled</span> (after
-              senior PUB-PASS). If the article is still pre-PASS, complete F7
-              first.
-            </div>
-          ) : null}
-
           <ArtefactSweepPanel
             articleId={article.id}
             row={sweepRow ?? null}

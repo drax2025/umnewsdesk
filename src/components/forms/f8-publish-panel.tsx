@@ -67,13 +67,13 @@ export function PublishPanel({
   const lastPublished = latestPublishedLog(publishLog);
   const isLive = articleState === "live";
   // Mirror the server guard in publishArticle: a push (incl. WP Draft) is only
-  // allowed once F6 Final Review has handed off (state 'legal') or F7
-  // Pre-Flight has scheduled it ('scheduled'). Anything earlier means the
-  // article hasn't cleared the gates yet; anything terminal can't publish.
-  const isPublishable =
-    articleState === "scheduled" || articleState === "legal";
+  // allowed once the Senior Editor [PUB] PASS on F7 has moved the article to
+  // 'scheduled'. 'legal' means it's handed to the senior but not yet PUB-PASSed.
+  const isPublishable = articleState === "scheduled";
   const isTerminal =
     articleState === "rejected" || articleState === "killed";
+  // 'legal' = awaiting the senior [PUB] PASS (F7 done, sign-off pending).
+  const awaitingPubPass = articleState === "legal";
 
   return (
     <section className="overflow-hidden rounded-md border border-border bg-card">
@@ -140,6 +140,7 @@ export function PublishPanel({
           articleId={articleId}
           state={articleState}
           isTerminal={isTerminal}
+          awaitingPubPass={awaitingPubPass}
         />
       )}
 
@@ -312,20 +313,25 @@ function PushForm({
 }
 
 /**
- * Shown when the article hasn't reached a publishable state ('legal' or
- * 'scheduled'). Replaces the push form so the senior editor never clicks a
- * dead button — the publishArticle server guard would reject it anyway. Points
- * them at the two gates they still owe: F6 Final Review (→ 'legal') and F7
- * Pre-Flight Check (→ 'scheduled').
+ * Shown when the article hasn't reached the publishable 'scheduled' state.
+ * Replaces the push form so the senior editor never clicks a dead button — the
+ * publishArticle server guard would reject it anyway.
+ *
+ *   - awaitingPubPass ('legal'): F6 + F7 checks are done; the only thing left
+ *     is the Senior Editor [PUB] PASS on the F7 pack, which flips it to
+ *     'scheduled'. This is the common "ready but blocked" case.
+ *   - otherwise: still upstream of F7 — needs F6 Final Review then F7.
  */
 function NotReadyNotice({
   articleId,
   state,
   isTerminal,
+  awaitingPubPass,
 }: {
   articleId: string;
   state: string;
   isTerminal: boolean;
+  awaitingPubPass: boolean;
 }) {
   if (isTerminal) {
     return (
@@ -340,6 +346,34 @@ function NotReadyNotice({
     );
   }
 
+  if (awaitingPubPass) {
+    return (
+      <div className="space-y-3 border-b border-border bg-warn/5 px-3 py-3">
+        <div className="flex items-start gap-2 text-[11.5px] text-warn">
+          <Lock className="mt-0.5 h-3.5 w-3.5 flex-shrink-0" />
+          <p className="leading-[1.5]">
+            Awaiting the Senior Editor{" "}
+            <span className="font-semibold">[PUB] PASS</span>. F6 and F7 checks
+            are done — the B2 sweep above can be clean, but publishing stays
+            locked until a Senior Editor stamps the{" "}
+            <span className="font-semibold">APPROVE</span> verdict on the F7
+            Pre-Flight pack. That flips the article to{" "}
+            <span className="font-mono">scheduled</span> and unlocks the push.
+          </p>
+        </div>
+        <div className="flex flex-wrap gap-1.5">
+          <Link
+            href={`/articles/${articleId}/pre-flight`}
+            className="flex h-7 items-center gap-1.5 rounded-md border border-primary/45 bg-primary/10 px-2.5 text-[11px] font-medium text-primary hover:bg-primary/15"
+          >
+            <Package className="h-3.5 w-3.5" />
+            Stamp [PUB] PASS on F7
+          </Link>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-3 border-b border-border bg-warn/5 px-3 py-3">
       <div className="flex items-start gap-2 text-[11.5px] text-warn">
@@ -347,10 +381,10 @@ function NotReadyNotice({
         <p className="leading-[1.5]">
           Not ready to publish — the article is in{" "}
           <span className="font-mono font-semibold">{state}</span>. Publishing
-          unlocks once it clears{" "}
-          <span className="font-semibold">F6 Final Review</span> (→{" "}
-          <span className="font-mono">legal</span>) and{" "}
-          <span className="font-semibold">F7 Pre-Flight Check</span> (→{" "}
+          unlocks after{" "}
+          <span className="font-semibold">F6 Final Review</span>, then the{" "}
+          <span className="font-semibold">F7 Pre-Flight Check</span> and the
+          Senior Editor [PUB] PASS (→{" "}
           <span className="font-mono">scheduled</span>).
         </p>
       </div>

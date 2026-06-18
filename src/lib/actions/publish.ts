@@ -630,10 +630,10 @@ export async function publishArticle(
     }
   }
 
-  if (article.state !== "scheduled" && article.state !== "legal") {
+  if (article.state !== "scheduled") {
     return {
       ok: false,
-      error: `Article must be in 'scheduled' state to publish (currently '${article.state}').`,
+      error: `Article must be in 'scheduled' state to publish (currently '${article.state}'). A Senior Editor [PUB] PASS on the F7 Pre-Flight pack moves it to scheduled.`,
     };
   }
 
