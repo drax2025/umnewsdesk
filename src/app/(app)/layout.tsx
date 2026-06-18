@@ -3,7 +3,9 @@ import { createClient } from "@/lib/supabase/server";
 import { AppSidebar } from "@/components/shell/app-sidebar";
 import { AppTopbarWrapper } from "@/components/shell/app-topbar-wrapper";
 import { getNavForRole } from "@/lib/shell/get-nav-for-role";
+import { getHighlightColour } from "@/lib/branding";
 import { ROLE_LABEL, type Role } from "@/lib/spec/menu-permissions";
+import type { CSSProperties } from "react";
 
 function initialsFromName(name: string | null | undefined, fallback: string) {
   const source = name?.trim() || fallback;
@@ -63,8 +65,18 @@ export default async function AppLayout({
   // fallback wrapper so this await cannot throw.
   const navSections = await getNavForRole(role);
 
+  // Global highlight colour (Settings page) → exposed as a CSS var so any
+  // surface can background its selected options with it (e.g. F1 triage).
+  const highlightColour = await getHighlightColour();
+  const shellStyle = highlightColour
+    ? ({ "--um-highlight": highlightColour } as CSSProperties)
+    : undefined;
+
   return (
-    <div className="grid h-screen grid-cols-[216px_1fr] grid-rows-[48px_1fr] overflow-hidden">
+    <div
+      style={shellStyle}
+      className="grid h-screen grid-cols-[216px_1fr] grid-rows-[48px_1fr] overflow-hidden"
+    >
       <AppSidebar
         user={{ fullName, role: roleLabel, initials }}
         sections={navSections}

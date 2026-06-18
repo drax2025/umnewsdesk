@@ -1,8 +1,9 @@
 import { redirect } from "next/navigation";
 import { Settings } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
-import { getLoginWallpaper } from "@/lib/branding";
+import { getHighlightColour, getLoginWallpaper } from "@/lib/branding";
 import { LoginWallpaperEditor } from "@/components/forms/login-wallpaper-editor";
+import { HighlightColourEditor } from "@/components/forms/highlight-colour-editor";
 
 export const dynamic = "force-dynamic";
 
@@ -25,7 +26,10 @@ export default async function SettingsPage() {
     redirect("/");
   }
 
-  const wallpaper = await getLoginWallpaper();
+  const [wallpaper, highlightColour] = await Promise.all([
+    getLoginWallpaper(),
+    getHighlightColour(),
+  ]);
 
   return (
     <div className="flex h-full flex-col">
@@ -53,6 +57,8 @@ export default async function SettingsPage() {
             initialUrl={wallpaper.url}
             initialOverlay={wallpaper.overlay}
           />
+
+          <HighlightColourEditor initialColour={highlightColour} />
         </div>
       </div>
     </div>

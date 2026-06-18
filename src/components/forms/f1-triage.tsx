@@ -58,6 +58,13 @@ const STATUS_LABEL: Record<"complete" | "partial" | "empty", string> = {
   empty: "F1 not set",
 };
 
+// Background applied to selected options. Driven by the global --um-highlight
+// CSS var (set from the Settings page "highlight colour"); falls back to a
+// translucent accent so selections still read clearly when none is configured.
+const HIGHLIGHT_STYLE: React.CSSProperties = {
+  backgroundColor: "var(--um-highlight, rgba(37, 99, 235, 0.18))",
+};
+
 export type F1CellProps = {
   candidateId: string;
   candidateCode: string;
@@ -179,8 +186,15 @@ function F1Form({
 }) {
   const [pending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
-  const [option, setOption] = useState<ProductionOption | null>(scorecard.production_option);
-  const [tier, setTier] = useState<DefamationTier | null>(scorecard.defamation_tier);
+  // Default unset scorecards to the most common combination — Option 1
+  // (Direct Publish) and Tier 1 (Standard) — so routine PR pass-throughs are
+  // one click. Editors can still clear either by clicking the active pill.
+  const [option, setOption] = useState<ProductionOption | null>(
+    scorecard.production_option ?? 1,
+  );
+  const [tier, setTier] = useState<DefamationTier | null>(
+    scorecard.defamation_tier ?? 1,
+  );
   const [geo, setGeo] = useState<GeographicTier | null>(
     scorecard.framing_brief?.geographic_tier ?? null,
   );
@@ -235,10 +249,11 @@ function F1Form({
                 type="button"
                 key={o.value}
                 onClick={() => setOption(option === o.value ? null : o.value)}
+                style={option === o.value ? HIGHLIGHT_STYLE : undefined}
                 className={cn(
                   "flex flex-col items-start gap-0.5 rounded-md border px-2.5 py-1.5 text-left transition-colors",
                   option === o.value
-                    ? "border-primary/45 bg-accent/40 text-foreground"
+                    ? "border-primary/45 text-foreground"
                     : "border-border bg-background text-fg-2 hover:bg-secondary",
                 )}
               >
@@ -256,11 +271,12 @@ function F1Form({
                 type="button"
                 key={t.value}
                 onClick={() => setTier(tier === t.value ? null : t.value)}
+                style={tier === t.value ? HIGHLIGHT_STYLE : undefined}
                 className={cn(
                   "flex flex-col items-start gap-0.5 rounded-md border px-2.5 py-1.5 text-left transition-colors",
                   tier === t.value
                     ? cn(
-                        "bg-accent/40 text-foreground",
+                        "text-foreground",
                         t.value === 1 && "border-success/45",
                         t.value === 2 && "border-warn/45",
                         t.value === 3 && "border-destructive/45",
@@ -298,10 +314,11 @@ function F1Form({
               type="button"
               key={g.value}
               onClick={() => setGeo(geo === g.value ? null : g.value)}
+              style={geo === g.value ? HIGHLIGHT_STYLE : undefined}
               className={cn(
                 "flex-1 rounded-md border px-2 py-1.5 text-[12px] font-medium transition-colors",
                 geo === g.value
-                  ? "border-primary/45 bg-accent/40 text-foreground"
+                  ? "border-primary/45 text-foreground"
                   : "border-border bg-background text-fg-2 hover:bg-secondary",
               )}
             >
@@ -332,10 +349,11 @@ function F1Form({
                 key={tag}
                 disabled={disabled}
                 onClick={() => toggleTag(tag)}
+                style={on ? HIGHLIGHT_STYLE : undefined}
                 className={cn(
                   "rounded-full border px-2.5 py-1 text-[11px] transition-colors",
                   on
-                    ? "border-primary/45 bg-accent/60 text-foreground"
+                    ? "border-primary/45 text-foreground"
                     : "border-border bg-background text-fg-2 hover:bg-secondary",
                   disabled && "cursor-not-allowed opacity-40",
                 )}
@@ -364,10 +382,11 @@ function F1Form({
               type="button"
               key={f}
               onClick={() => setFrame(frame === f ? null : f)}
+              style={frame === f ? HIGHLIGHT_STYLE : undefined}
               className={cn(
                 "rounded-md border px-2.5 py-1.5 text-left text-[11.5px] transition-colors",
                 frame === f
-                  ? "border-primary/45 bg-accent/40 text-foreground"
+                  ? "border-primary/45 text-foreground"
                   : "border-border bg-background text-fg-2 hover:bg-secondary",
               )}
             >

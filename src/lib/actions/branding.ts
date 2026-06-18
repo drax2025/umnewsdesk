@@ -109,6 +109,36 @@ export async function updateWallpaperOverlay(
   return { ok: true };
 }
 
+export async function saveHighlightColour(
+  fd: FormData,
+): Promise<BrandingActionResult> {
+  const gate = await requireSeniorEditor();
+  if (gate) return gate;
+
+  const raw = String(fd.get("colour") ?? "").trim();
+  // Accept a hex colour (#rgb / #rrggbb / #rrggbbaa) or empty to clear.
+  if (raw && !/^#[0-9a-fA-F]{3,8}$/.test(raw)) {
+    return { ok: false, error: "Enter a valid hex colour (e.g. #2563eb)." };
+  }
+
+  const admin = createServiceClient();
+  const { error } = await admin.from("app_settings").upsert(
+    {
+      key: "highlight_colour",
+      value: { colour: raw || null },
+      updated_at: new Date().toISOString(),
+      updated_by: await currentUserId(),
+    },
+    { onConflict: "key" },
+  );
+  if (error) return { ok: false, error: error.message };
+
+  revalidatePath("/system/settings");
+  // The colour is read in the (app) layout, so every app route reflects it.
+  revalidatePath("/", "layout");
+  return { ok: true };
+}
+
 export async function clearLoginWallpaper(): Promise<BrandingActionResult> {
   const gate = await requireSeniorEditor();
   if (gate) return gate;

@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
 import {
   AlertTriangle,
@@ -162,6 +163,7 @@ function PushForm({
   canPush: boolean;
   wordpressConfigured: boolean;
 }) {
+  const router = useRouter();
   const [target, setTarget] = useState<PublishTarget>(
     wordpressConfigured ? "wordpress" : "manual",
   );
@@ -192,6 +194,10 @@ function PushForm({
       } else {
         setSuccess("Push recorded.");
       }
+      // A live publish flips article state to 'live' server-side. Refresh so
+      // the header state pill and the Live panel update without a manual
+      // reload (WP Draft stays 'scheduled' by design — refresh is harmless).
+      router.refresh();
     });
   }
 

@@ -79,6 +79,12 @@ export function FeaturedImagePanel({
   const [url, setUrl] = useState<string | null>(initialUrl);
   const [alt, setAlt] = useState(initialAlt ?? "");
   const [credit, setCredit] = useState(initialCredit ?? "");
+  // Last-persisted alt/credit, so the blur autosave only fires on a real
+  // change. Without the autosave, an editor typing the (optional) credit after
+  // upload and navigating away lost it — the credit only saved on the explicit
+  // "Save caption" click, which is easy to miss.
+  const [savedAlt, setSavedAlt] = useState(initialAlt ?? "");
+  const [savedCredit, setSavedCredit] = useState(initialCredit ?? "");
   const [uploading, setUploading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [saved, setSaved] = useState(false);
@@ -139,6 +145,8 @@ export function FeaturedImagePanel({
 
       setUrl(publicUrl);
       setSaved(true);
+      setSavedAlt(alt);
+      setSavedCredit(credit);
     } catch (e) {
       setError(`Unexpected error: ${(e as Error).message}`);
     } finally {
@@ -175,7 +183,17 @@ export function FeaturedImagePanel({
         return;
       }
       setSaved(true);
+      setSavedAlt(alt);
+      setSavedCredit(credit);
     });
+  }
+
+  // Autosave alt/credit when the field loses focus, if there's an image and
+  // something actually changed. Belt-and-braces alongside the Save button.
+  function commitMetaOnBlur() {
+    if (readOnly || !url || pending || uploading) return;
+    if (alt === savedAlt && credit === savedCredit) return;
+    onMetaSave();
   }
 
   function onClear() {
@@ -223,6 +241,8 @@ export function FeaturedImagePanel({
       // server-fetched initialUrl will replace it with the canonical one.
       setUrl(attachment.url);
       setSaved(true);
+      setSavedAlt(alt);
+      setSavedCredit(credit);
     } finally {
       setPickingUrl(null);
     }
@@ -363,6 +383,7 @@ export function FeaturedImagePanel({
               type="text"
               value={alt}
               onChange={(e) => setAlt(e.target.value)}
+              onBlur={commitMetaOnBlur}
               maxLength={500}
               disabled={readOnly}
               placeholder="e.g. First Minister stands at a podium in front of a Saltire backdrop."
@@ -377,6 +398,7 @@ export function FeaturedImagePanel({
               type="text"
               value={credit}
               onChange={(e) => setCredit(e.target.value)}
+              onBlur={commitMetaOnBlur}
               maxLength={200}
               disabled={readOnly}
               placeholder="e.g. Photo: Andrew Cawley / Scottish Government"

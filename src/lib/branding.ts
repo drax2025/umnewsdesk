@@ -18,6 +18,26 @@ function clampOverlay(n: unknown): number {
   return Math.min(Math.max(n, 0), 0.9);
 }
 
+/**
+ * Global "highlight colour" used to background selected options (e.g. the F1
+ * triage scorecard). Set on the Settings page. Returns null when unset, so the
+ * UI can fall back to its built-in accent.
+ */
+export async function getHighlightColour(): Promise<string | null> {
+  try {
+    const supabase = await createClient();
+    const { data } = await supabase
+      .from("app_settings")
+      .select("value")
+      .eq("key", "highlight_colour")
+      .maybeSingle<{ value: { colour?: string | null } | null }>();
+    const c = data?.value?.colour;
+    return typeof c === "string" && /^#[0-9a-fA-F]{3,8}$/.test(c) ? c : null;
+  } catch {
+    return null;
+  }
+}
+
 export async function getLoginWallpaper(): Promise<LoginWallpaper> {
   try {
     const supabase = await createClient();
