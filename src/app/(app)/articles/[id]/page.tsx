@@ -249,6 +249,13 @@ export default async function ArticleDossierPage({
           </div>
           <div className="flex flex-shrink-0 items-center gap-1.5">
             <Link
+              href={`/articles/${a.id}/edit`}
+              className="flex h-7 items-center gap-1.5 rounded-md border border-primary/50 bg-primary/10 px-2.5 text-[11.5px] font-semibold text-primary hover:bg-primary/15"
+            >
+              <Pencil className="h-3.5 w-3.5" />
+              Open in editor
+            </Link>
+            <Link
               href={`/articles/${a.id}/research`}
               className="flex h-7 items-center gap-1.5 rounded-md border border-border bg-background px-2.5 text-[11.5px] font-medium text-fg-2 hover:bg-secondary"
             >
@@ -282,13 +289,6 @@ export default async function ArticleDossierPage({
             >
               <Globe2 className="h-3.5 w-3.5" />
               F8 Publish
-            </Link>
-            <Link
-              href={`/articles/${a.id}/edit`}
-              className="flex h-7 items-center gap-1.5 rounded-md border border-border bg-background px-2.5 text-[11.5px] font-medium text-fg-2 hover:bg-secondary"
-            >
-              <Pencil className="h-3.5 w-3.5" />
-              Open in editor
             </Link>
             <span
               className={cn(
