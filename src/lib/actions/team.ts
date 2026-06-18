@@ -103,8 +103,18 @@ export async function updateProfileRole(formData: FormData): Promise<TeamActionR
   if (!id || !ROLES.includes(role)) return { ok: false, error: "Invalid input" };
 
   const admin = createServiceClient();
-  const { error } = await admin.from("profiles").update({ role }).eq("id", id);
+  // .select() back so a no-op write (bad id, RLS block if the key were ever
+  // misconfigured to non-service) surfaces as an error instead of a silent
+  // "success" that looks like the change didn't stick.
+  const { data, error } = await admin
+    .from("profiles")
+    .update({ role })
+    .eq("id", id)
+    .select("id");
   if (error) return { ok: false, error: error.message };
+  if (!data || data.length === 0) {
+    return { ok: false, error: "No profile updated — the user may no longer exist." };
+  }
 
   revalidateTeam();
   return { ok: true, id };

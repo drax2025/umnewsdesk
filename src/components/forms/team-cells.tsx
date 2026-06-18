@@ -30,20 +30,40 @@ export function RoleCell({
   disabled?: boolean;
 }) {
   const [pending, startTransition] = useTransition();
+  // Controlled select. A previous version used an uncontrolled
+  // <select defaultValue> inside a <form action>; React 19 resets a form's
+  // uncontrolled fields once the action settles, so the role snapped straight
+  // back to its default — looking like the change never saved. Driving the
+  // value from state (and calling the action imperatively) keeps the pick.
+  const [current, setCurrent] = useState<Role>(value);
+  const [error, setError] = useState<string | null>(null);
+
+  function change(next: Role) {
+    if (next === current) return;
+    const prev = current;
+    setCurrent(next);
+    setError(null);
+    startTransition(async () => {
+      const fd = new FormData();
+      fd.set("id", id);
+      fd.set("role", next);
+      const res = await updateProfileRole(fd);
+      if (!res.ok) {
+        setError(res.error);
+        setCurrent(prev); // revert only on a genuine failure
+      }
+    });
+  }
+
   return (
-    <form
-      action={(fd) => startTransition(() => updateProfileRole(fd).then(() => undefined))}
-      className="inline-block"
-    >
-      <input type="hidden" name="id" value={id} />
+    <div className="inline-flex flex-col gap-0.5">
       <select
-        name="role"
-        defaultValue={value}
+        value={current}
         disabled={pending || disabled}
-        onChange={(e) => e.currentTarget.form?.requestSubmit()}
+        onChange={(e) => change(e.currentTarget.value as Role)}
         className={cn(
           "h-6 cursor-pointer rounded-sm border border-border bg-background px-1.5 text-[11px] focus:border-primary focus:outline-none disabled:cursor-not-allowed disabled:opacity-60",
-          ROLE_TONE[value],
+          ROLE_TONE[current],
         )}
       >
         {ROLES.map((r) => (
@@ -52,7 +72,10 @@ export function RoleCell({
           </option>
         ))}
       </select>
-    </form>
+      {error ? (
+        <span className="text-[10px] leading-tight text-destructive">{error}</span>
+      ) : null}
+    </div>
   );
 }
 
