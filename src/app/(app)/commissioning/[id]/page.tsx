@@ -5,6 +5,7 @@ import { createClient } from "@/lib/supabase/server";
 import { cn } from "@/lib/utils";
 import {
   assignCommission,
+  killArticleFromCommission,
   setCommissionStatus,
 } from "@/lib/actions/commissioning";
 import { BriefEditor } from "@/components/forms/brief-editor";
@@ -112,6 +113,14 @@ export default async function CommissionDetailPage({
   const candidate = (candRes as { data: CandidateRow | null }).data;
 
   const assignee = c.assignee_id ? profiles.find((p) => p.id === c.assignee_id) : null;
+
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  const isAdmin = profiles.find((p) => p.id === user?.id)?.role === "admin";
+  const articleState = article?.state ?? null;
+  const isKilled = articleState === "killed";
+  const isLive = articleState === "live";
 
   return (
     <div className="flex h-full flex-col">
@@ -286,6 +295,15 @@ export default async function CommissionDetailPage({
           </Card>
 
           <Card title="Actions">
+            {isKilled ? (
+              <p className="text-[11.5px] italic text-um-muted">
+                Story killed. Preserved in the{" "}
+                <Link href="/queues/reject" className="text-primary hover:underline">
+                  D-Reject queue
+                </Link>
+                .
+              </p>
+            ) : (
             <div className="flex flex-wrap gap-2">
               {c.status === "briefed" ? (
                 <>
@@ -308,7 +326,36 @@ export default async function CommissionDetailPage({
                 </span>
               ) : null}
             </div>
+            )}
           </Card>
+
+          {isAdmin && !isKilled && !isLive ? (
+            <Card title="Danger zone">
+              <form action={killArticleFromCommission} className="flex flex-col gap-2">
+                <input type="hidden" name="id" value={c.id} />
+                <p className="text-[11.5px] leading-[1.5] text-fg-2">
+                  Kill the whole story — e.g. wrong region or otherwise
+                  unsuitable. This moves the article to the D-Reject queue
+                  (state <span className="font-mono">killed</span>) and cannot be
+                  undone here.
+                </p>
+                <textarea
+                  name="reason"
+                  required
+                  minLength={8}
+                  rows={2}
+                  placeholder="Why is this story unsuitable? (required)"
+                  className="rounded-sm border border-border bg-background px-2 py-1.5 text-[12px] text-foreground placeholder:text-um-muted focus:border-destructive focus:outline-none"
+                />
+                <button
+                  type="submit"
+                  className="h-7 self-end rounded-sm border border-destructive/45 bg-destructive/10 px-3 text-[11.5px] font-medium text-destructive transition-colors hover:bg-destructive/15"
+                >
+                  Kill story
+                </button>
+              </form>
+            </Card>
+          ) : null}
         </div>
       </div>
     </div>

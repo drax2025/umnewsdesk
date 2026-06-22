@@ -123,7 +123,6 @@ export default async function CommissioningPage({
         .returns<CommissionTitleOption[]>(),
     ]);
 
-  const commissions: CommissionRow[] = commRes.data ?? [];
   const articles: ArticleRow[] = artRes.data ?? [];
   const profiles: ProfileRow[] = profileRes.data ?? [];
   const allCandidates: CandidateRow[] = candRes.data ?? [];
@@ -131,6 +130,13 @@ export default async function CommissioningPage({
   const titles: CommissionTitleOption[] = titlesRes.data ?? [];
 
   const articleMap = new Map(articles.map((a) => [a.id, a]));
+
+  // Killed stories are terminal — drop their commissions from the active queue
+  // so a spiked article doesn't linger here looking like live work. They remain
+  // auditable in the D-Reject queue.
+  const commissions: CommissionRow[] = (commRes.data ?? []).filter(
+    (c) => articleMap.get(c.article_id)?.state !== "killed",
+  );
   const profileMap = new Map(profiles.map((p) => [p.id, p]));
   const candidateMap = new Map(allCandidates.map((c) => [c.id, c]));
   const commissionedCandIds = new Set(

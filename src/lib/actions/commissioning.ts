@@ -265,6 +265,88 @@ export async function setCommissionStatus(formData: FormData) {
   revalidateAll();
 }
 
+/**
+ * Kill the entire article behind a commission — not just decline it from one
+ * author. Use when the commissioned story turns out to be unsuitable at source
+ * (e.g. it relates to England, not Scotland), so no rewrite or re-brief will
+ * salvage it.
+ *
+ * This is a terminal, audited action: the article moves to state 'killed' and a
+ * row is written to approval_decisions (kind 'reject', to_state 'killed') so the
+ * kill — and its reason — are preserved per the Reasonable Steps Doctrine. The
+ * killed article surfaces in the D-Reject queue. A published ('live') article is
+ * never killed here — that path is a retraction.
+ *
+ * Gated to Admin: the approval_decisions insert RLS already restricts the audit
+ * write to admins, so we check up-front to fail with a clear message rather than
+ * leaving the state flipped but the decision unlogged.
+ */
+export async function killArticleFromCommission(formData: FormData) {
+  const id = String(formData.get("id") ?? "");
+  const reason = String(formData.get("reason") ?? "").trim();
+  if (!id) return;
+  if (reason.length < 8) {
+    throw new Error("A kill reason (at least 8 characters) is required.");
+  }
+
+  const supabase = await createClient();
+
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) throw new Error("Not signed in.");
+  const { data: me } = await supabase
+    .from("profiles")
+    .select("role")
+    .eq("id", user.id)
+    .single<{ role: string | null }>();
+  if (me?.role !== "admin") {
+    throw new Error("Only an Admin can kill an article.");
+  }
+
+  const { data: comm } = await supabase
+    .from("commissions")
+    .select("article_id")
+    .eq("id", id)
+    .single();
+  if (!comm) throw new Error("Commission not found.");
+
+  const { data: art } = await supabase
+    .from("articles")
+    .select("state")
+    .eq("id", comm.article_id)
+    .single<{ state: string }>();
+  if (!art) throw new Error("Article not found.");
+
+  if (art.state === "killed") {
+    revalidateAll();
+    redirect("/commissioning");
+  }
+  if (art.state === "live") {
+    throw new Error("Cannot kill a published article — issue a retraction instead.");
+  }
+
+  const fromState = art.state;
+  await supabase
+    .from("articles")
+    .update({ state: "killed", updated_by: user.id })
+    .eq("id", comm.article_id);
+
+  await supabase.from("approval_decisions").insert({
+    article_id: comm.article_id,
+    from_state: fromState,
+    to_state: "killed",
+    kind: "reject",
+    rationale: reason,
+    decided_by: user.id,
+  });
+
+  revalidateAll();
+  revalidatePath("/queues/reject");
+  revalidatePath(`/articles/${comm.article_id}`);
+  redirect("/commissioning");
+}
+
 export async function updateCommissionBrief(formData: FormData) {
   const id = String(formData.get("id") ?? "");
   const brief = String(formData.get("brief") ?? "");

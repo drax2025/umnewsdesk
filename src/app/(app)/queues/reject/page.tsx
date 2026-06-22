@@ -1,5 +1,6 @@
 import Link from "next/link";
 import {
+  Ban,
   ChevronLeft,
   FileText,
   Gavel,
@@ -38,7 +39,7 @@ const TABS: { key: TabKey; label: string; hint: string }[] = [
   {
     key: "live",
     label: "Active rejects",
-    hint: "Articles currently rejected by F6 H11 fail, F7 [PUB] REJECT, or article.state.",
+    hint: "Articles rejected by F6 H11 fail, F7 [PUB] REJECT, a terminal state, or killed at the commissioning desk.",
   },
   {
     key: "tier3",
@@ -50,6 +51,7 @@ const TABS: { key: TabKey; label: string; hint: string }[] = [
 
 type RejectSource =
   | "state"
+  | "killed"
   | "f6_h11"
   | "f9_pub_reject"
   | "tier3_candidate";
@@ -69,6 +71,13 @@ const SOURCE_META: Record<RejectSource, SourceMeta> = {
     hint: "articles.state = 'rejected'.",
     tone: "destructive",
     icon: XCircle,
+  },
+  killed: {
+    label: "Killed at desk",
+    short: "KILLED",
+    hint: "Editor killed the whole story (e.g. unsuitable / wrong region).",
+    tone: "destructive",
+    icon: Ban,
   },
   f6_h11: {
     label: "F6 H11 fail",
@@ -187,7 +196,7 @@ export default async function DRejectQueuePage({
     supabase
       .from("articles")
       .select("id, headline, standfirst, state, updated_at")
-      .eq("state", "rejected")
+      .in("state", ["rejected", "killed"])
       .order("updated_at", { ascending: false })
       .returns<ArticleRow[]>(),
     supabase
@@ -207,6 +216,32 @@ export default async function DRejectQueuePage({
   const stateArticles = stateRes.data ?? [];
   const reviewArticles = reviewRes.data ?? [];
   const ppArticles = ppRes.data ?? [];
+
+  // Kill reasons: when an article is killed from the commissioning desk the
+  // rationale is logged to approval_decisions (to_state='killed'). Pull the most
+  // recent one per article so the queue can show why it was spiked.
+  const killedIds = stateArticles
+    .filter((a) => a.state === "killed")
+    .map((a) => a.id);
+  const { data: killDecisions } =
+    killedIds.length === 0
+      ? { data: [] as { article_id: string; rationale: string; decided_at: string }[] }
+      : await supabase
+          .from("approval_decisions")
+          .select("article_id, rationale, decided_at")
+          .eq("to_state", "killed")
+          .in("article_id", killedIds)
+          .order("decided_at", { ascending: false })
+          .returns<{ article_id: string; rationale: string; decided_at: string }[]>();
+  const killReasonByArticle = new Map<string, { rationale: string; decidedAt: string }>();
+  for (const d of killDecisions ?? []) {
+    if (!killReasonByArticle.has(d.article_id)) {
+      killReasonByArticle.set(d.article_id, {
+        rationale: d.rationale,
+        decidedAt: d.decided_at,
+      });
+    }
+  }
 
   // Resolve headlines / standfirsts for review + pp article ids that aren't
   // already in state list.
@@ -304,17 +339,32 @@ export default async function DRejectQueuePage({
     });
   }
   for (const a of stateArticles) {
-    liveRows.push({
-      kind: "article",
-      source: "state",
-      id: a.id,
-      headline: a.headline,
-      standfirst: a.standfirst,
-      state: a.state,
-      defamationTier: tierFor(a.id),
-      rationale: null,
-      decidedAt: a.updated_at,
-    });
+    if (a.state === "killed") {
+      const kr = killReasonByArticle.get(a.id);
+      liveRows.push({
+        kind: "article",
+        source: "killed",
+        id: a.id,
+        headline: a.headline,
+        standfirst: a.standfirst,
+        state: a.state,
+        defamationTier: tierFor(a.id),
+        rationale: kr?.rationale ?? null,
+        decidedAt: kr?.decidedAt ?? a.updated_at,
+      });
+    } else {
+      liveRows.push({
+        kind: "article",
+        source: "state",
+        id: a.id,
+        headline: a.headline,
+        standfirst: a.standfirst,
+        state: a.state,
+        defamationTier: tierFor(a.id),
+        rationale: null,
+        decidedAt: a.updated_at,
+      });
+    }
   }
 
   // Most-recent first.

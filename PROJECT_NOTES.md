@@ -5,6 +5,16 @@
 
 _Last updated: 2026-06-22_
 
+## Recently landed (this session)
+
+- **Kill story from commissioning**: new `killArticleFromCommission` action +
+  "Danger zone" UI on `/commissioning/[id]` to spike a whole article (e.g. wrong
+  region/unsuitable), distinct from per-author "Mark declined". Sets
+  `articles.state='killed'`, logs reason to `approval_decisions`, surfaces in the
+  D-Reject queue with a `KILLED` badge, and drops the commission from the active
+  list. Admin-only (audit-log insert is admin-gated by RLS); refuses to kill a
+  `live` article (use a retraction). Verified by typecheck + lint, not browser.
+
 ## What this is
 
 Next.js editorial newsroom app. Articles move through an 8-stage pipeline
