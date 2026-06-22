@@ -535,6 +535,81 @@ async function pushToWordPress(payload: {
   };
 }
 
+/* -------------------------------------------------------------------------- */
+/*  listWpCategories — live category list for the destination's WordPress      */
+/* -------------------------------------------------------------------------- */
+
+export type WpCategoriesResult =
+  | { ok: true; categories: { id: number; name: string }[] }
+  | { ok: false; error: string };
+
+/**
+ * Fetch the live category list from a title's WordPress install so the F8
+ * editor can assign a category at push time. Reads per-title Section G creds
+ * (falling back to WORDPRESS_* env vars) for the given title_id.
+ */
+export async function listWpCategories(
+  fd: FormData,
+): Promise<WpCategoriesResult> {
+  const gate = await requireEditor();
+  if (gate) return { ok: false, error: gate.ok ? "Forbidden" : gate.error };
+
+  const titleId = String(fd.get("title_id") ?? "").trim();
+  if (!titleId) return { ok: false, error: "Missing title_id" };
+
+  const admin = createServiceClient();
+  const { data: titleRow } = await admin
+    .from("titles")
+    .select("wp_base_url, wp_username, wp_app_password")
+    .eq("id", titleId)
+    .maybeSingle<{
+      wp_base_url: string | null;
+      wp_username: string | null;
+      wp_app_password: string | null;
+    }>();
+
+  const base = titleRow?.wp_base_url ?? process.env.WORDPRESS_URL;
+  const user = titleRow?.wp_username ?? process.env.WORDPRESS_USER;
+  const pass = titleRow?.wp_app_password ?? process.env.WORDPRESS_APP_PASSWORD;
+  if (!base || !user || !pass) {
+    return {
+      ok: false,
+      error:
+        "WordPress not configured for this destination — set credentials in /system/titles.",
+    };
+  }
+
+  const url = `${base.replace(/\/+$/, "")}/wp-json/wp/v2/categories?per_page=100&orderby=name&order=asc&_fields=id,name`;
+  let res: Response;
+  try {
+    res = await fetch(url, {
+      headers: {
+        Authorization:
+          "Basic " + Buffer.from(`${user}:${pass}`).toString("base64"),
+      },
+    });
+  } catch (e) {
+    return { ok: false, error: `WP request failed: ${(e as Error).message}` };
+  }
+  if (!res.ok) {
+    const text = await res.text().catch(() => "<no body>");
+    return { ok: false, error: `WP ${res.status}: ${text.slice(0, 300)}` };
+  }
+  const json = (await res.json().catch(() => null)) as unknown;
+  if (!Array.isArray(json)) {
+    return { ok: false, error: "Unexpected WordPress categories response." };
+  }
+  const categories = json
+    .map((c) => {
+      const o = (c ?? {}) as Record<string, unknown>;
+      const id = typeof o.id === "number" ? o.id : Number(o.id);
+      const name = typeof o.name === "string" ? o.name : "";
+      return Number.isFinite(id) && id > 0 && name ? { id, name } : null;
+    })
+    .filter((c): c is { id: number; name: string } => c !== null);
+  return { ok: true, categories };
+}
+
 export async function publishArticle(
   fd: FormData,
 ): Promise<PublishActionResult> {
@@ -545,6 +620,16 @@ export async function publishArticle(
   const target = parseTarget(fd.get("target"));
   const manualUrl = trimOrNull(fd.get("manual_url"), 600);
   const slugOverride = trimOrNull(fd.get("slug"), 200);
+  // Optional destination override (publish to a different title's WordPress)
+  // and category override (overrides the title's wp_default_category_id for
+  // this push). Both are no-ops when absent.
+  const destTitleOverride = trimOrNull(fd.get("title_id"), 64);
+  const categoryRaw = String(fd.get("category_id") ?? "").trim();
+  const parsedCategory = categoryRaw ? Number(categoryRaw) : NaN;
+  const categoryOverride =
+    Number.isFinite(parsedCategory) && parsedCategory > 0
+      ? parsedCategory
+      : null;
 
   if (!article_id) return { ok: false, error: "Missing article_id" };
   if (!target) return { ok: false, error: "Pick a publish target" };
@@ -578,6 +663,12 @@ export async function publishArticle(
       featured_image_credit: string | null;
     }>();
   if (!article) return { ok: false, error: "Article not found" };
+
+  // Destination silo — defaults to the article's own title, but the F8 editor
+  // can redirect the push to another title's WordPress install. On a successful
+  // push we persist the chosen title back onto the article so the master
+  // inventory and any later mark-live target the right place.
+  const destinationTitleId = destTitleOverride ?? article.title_id;
 
   // Featured image resolution — editor's upload wins; otherwise sideload from
   // the candidate's source image_url as a best-effort fallback. The candidate
@@ -677,7 +768,7 @@ export async function publishArticle(
       .select(
         "wp_base_url, wp_username, wp_app_password, wp_default_status, wp_default_category_id",
       )
-      .eq("id", article.title_id)
+      .eq("id", destinationTitleId)
       .maybeSingle<{
         wp_base_url: string | null;
         wp_username: string | null;
@@ -719,7 +810,8 @@ export async function publishArticle(
       title_wp_base_url: titleRow?.wp_base_url ?? null,
       title_wp_username: titleRow?.wp_username ?? null,
       title_wp_app_password: titleRow?.wp_app_password ?? null,
-      title_wp_default_category_id: titleRow?.wp_default_category_id ?? null,
+      title_wp_default_category_id:
+        categoryOverride ?? titleRow?.wp_default_category_id ?? null,
       featured_image_url: resolvedFeaturedUrl,
       featured_image_alt: resolvedFeaturedAlt,
       featured_image_credit: resolvedFeaturedCredit,
@@ -790,7 +882,12 @@ export async function publishArticle(
     // "Publish to WordPress" push promotes wp_draft → live.
     await admin
       .from("articles")
-      .update({ state: "wp_draft" })
+      .update({
+        state: "wp_draft",
+        ...(destinationTitleId !== article.title_id
+          ? { title_id: destinationTitleId }
+          : {}),
+      })
       .eq("id", article_id);
   } else {
     await admin
@@ -798,6 +895,9 @@ export async function publishArticle(
       .update({
         state: "live",
         published_at: now,
+        ...(destinationTitleId !== article.title_id
+          ? { title_id: destinationTitleId }
+          : {}),
       })
       .eq("id", article_id);
 
@@ -807,7 +907,7 @@ export async function publishArticle(
     if (externalUrl) {
       try {
         await recordPublishedToInventory({
-          title_id: article.title_id,
+          title_id: destinationTitleId,
           article_id,
           headline: article.headline,
           url: externalUrl,

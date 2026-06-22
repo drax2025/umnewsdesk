@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useState, useTransition } from "react";
+import { useEffect, useState, useTransition } from "react";
 import {
   AlertTriangle,
   CheckCircle2,
@@ -26,11 +26,19 @@ import {
   type PublishTarget,
 } from "@/lib/spec/f8-publish";
 import {
+  listWpCategories,
   markWpDraftLive,
   publishArticle,
   retractArticle,
 } from "@/lib/actions/publish";
 import { cn } from "@/lib/utils";
+
+export type PublishTitleOption = {
+  id: string;
+  name: string;
+  wpConfigured: boolean;
+  defaultCategoryId: number | null;
+};
 
 type Props = {
   articleId: string;
@@ -39,6 +47,10 @@ type Props = {
   backdate: string | null;
   sweepRow: ArticleArtefactSweepRow | null;
   publishLog: ArticlePublishLogRow[];
+  /** All publication silos the editor can target, with WP-config status. */
+  titles: PublishTitleOption[];
+  /** The article's own title — the default destination. */
+  currentTitleId: string;
   /**
    * Where the WP credentials F8 will use are coming from:
    *   - "title": filled in on this title's Section G row (per-title config).
@@ -60,6 +72,8 @@ export function PublishPanel({
   backdate,
   sweepRow,
   publishLog,
+  titles,
+  currentTitleId,
   wordpressCredSource,
   titleName,
   readOnly = false,
@@ -145,6 +159,8 @@ export function PublishPanel({
           backdate={backdate}
           canPush={summary.cleanForPush && !readOnly}
           wordpressConfigured={wordpressConfigured}
+          titles={titles}
+          currentTitleId={currentTitleId}
         />
       ) : (
         <NotReadyNotice
@@ -166,12 +182,16 @@ function PushForm({
   backdate,
   canPush,
   wordpressConfigured,
+  titles,
+  currentTitleId,
 }: {
   articleId: string;
   defaultSlug: string | null;
   backdate: string | null;
   canPush: boolean;
   wordpressConfigured: boolean;
+  titles: PublishTitleOption[];
+  currentTitleId: string;
 }) {
   const router = useRouter();
   const [target, setTarget] = useState<PublishTarget>(
@@ -179,9 +199,59 @@ function PushForm({
   );
   const [slug, setSlug] = useState(defaultSlug ?? "");
   const [manualUrl, setManualUrl] = useState("");
+  const [destTitleId, setDestTitleId] = useState(currentTitleId);
+  const [categoryId, setCategoryId] = useState<string>(() => {
+    const t = titles.find((x) => x.id === currentTitleId);
+    return t?.defaultCategoryId != null ? String(t.defaultCategoryId) : "";
+  });
+  const [categories, setCategories] = useState<{ id: number; name: string }[]>(
+    [],
+  );
+  const [catLoading, setCatLoading] = useState(false);
+  const [catError, setCatError] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
+
+  const wpTarget = target !== "manual";
+
+  // Load the destination's live WordPress categories whenever the destination
+  // changes (and only for a WP push — manual records a URL only).
+  useEffect(() => {
+    if (!wpTarget) return;
+    let cancelled = false;
+    const run = async () => {
+      setCatLoading(true);
+      setCatError(null);
+      setCategories([]);
+      const fd = new FormData();
+      fd.set("title_id", destTitleId);
+      try {
+        const res = await listWpCategories(fd);
+        if (cancelled) return;
+        if (!res.ok) {
+          setCatError(res.error);
+        } else {
+          setCategories(res.categories);
+        }
+      } catch (e: unknown) {
+        if (cancelled) return;
+        setCatError((e as Error)?.message ?? "Failed to load categories.");
+      } finally {
+        if (!cancelled) setCatLoading(false);
+      }
+    };
+    void run();
+    return () => {
+      cancelled = true;
+    };
+  }, [destTitleId, wpTarget]);
+
+  function onDestChange(newId: string) {
+    setDestTitleId(newId);
+    const t = titles.find((x) => x.id === newId);
+    setCategoryId(t?.defaultCategoryId != null ? String(t.defaultCategoryId) : "");
+  }
 
   function push() {
     setError(null);
@@ -191,6 +261,10 @@ function PushForm({
     fd.set("article_id", articleId);
     fd.set("target", target);
     fd.set("slug", slug);
+    if (wpTarget) {
+      fd.set("title_id", destTitleId);
+      if (categoryId) fd.set("category_id", categoryId);
+    }
     if (target === "manual") fd.set("manual_url", manualUrl);
 
     startTransition(async () => {
@@ -240,6 +314,66 @@ function PushForm({
           );
         })}
       </div>
+
+      {wpTarget ? (
+        <div className="grid gap-3 sm:grid-cols-2">
+          <label className="flex flex-col gap-1">
+            <span className="font-mono text-[10px] uppercase tracking-[0.05em] text-um-muted">
+              Destination site
+            </span>
+            <select
+              value={destTitleId}
+              onChange={(e) => onDestChange(e.target.value)}
+              disabled={pending}
+              className="h-8 rounded-md border border-border bg-background px-2 text-[12px] text-foreground disabled:opacity-60"
+            >
+              {titles.map((t) => (
+                <option key={t.id} value={t.id}>
+                  {t.name}
+                  {t.id === currentTitleId ? " (this article)" : ""}
+                  {t.wpConfigured ? "" : " — no WP creds"}
+                </option>
+              ))}
+            </select>
+            {destTitleId !== currentTitleId ? (
+              <span className="text-[10px] leading-[1.4] text-warn">
+                Publishing to a different site — the article will be reassigned
+                to this title on push.
+              </span>
+            ) : null}
+          </label>
+
+          <label className="flex flex-col gap-1">
+            <span className="font-mono text-[10px] uppercase tracking-[0.05em] text-um-muted">
+              Category
+            </span>
+            <select
+              value={
+                categories.some((c) => String(c.id) === categoryId)
+                  ? categoryId
+                  : ""
+              }
+              onChange={(e) => setCategoryId(e.target.value)}
+              disabled={pending || catLoading || categories.length === 0}
+              className="h-8 rounded-md border border-border bg-background px-2 text-[12px] text-foreground disabled:opacity-60"
+            >
+              <option value="">
+                {catLoading ? "Loading categories…" : "— Use title default —"}
+              </option>
+              {categories.map((c) => (
+                <option key={c.id} value={String(c.id)}>
+                  {c.name}
+                </option>
+              ))}
+            </select>
+            {catError ? (
+              <span className="text-[10px] leading-[1.4] text-warn">
+                {catError}
+              </span>
+            ) : null}
+          </label>
+        </div>
+      ) : null}
 
       {target !== "manual" ? (
         <label className="flex flex-col gap-1">

@@ -4,6 +4,8 @@ import { useState, useTransition } from "react";
 import {
   AlertTriangle,
   CheckCircle2,
+  ChevronDown,
+  ChevronRight,
   CircleDashed,
   Loader2,
   Save,
@@ -64,6 +66,10 @@ export function ArtefactSweepPanel({
   // 17 individual rows would keep their stale local `status` after the bulk
   // action completes.
   const [version, setVersion] = useState(0);
+  // Artefacts roll up by default — the header summary carries the at-a-glance
+  // counts, and the editor expands to action individual rows. Keeps the F8 page
+  // scannable when 17 rows are clean and nothing needs touching.
+  const [expanded, setExpanded] = useState(false);
 
   return (
     <section className="overflow-hidden rounded-md border border-border bg-card">
@@ -87,32 +93,49 @@ export function ArtefactSweepPanel({
             sweep blocked
           </span>
         )}
+        <button
+          type="button"
+          onClick={() => setExpanded((v) => !v)}
+          aria-expanded={expanded}
+          className="flex h-6 items-center gap-1 rounded-sm border border-border bg-background px-1.5 font-mono text-[10px] font-medium uppercase tracking-[0.05em] text-fg-2 transition-colors hover:bg-secondary"
+        >
+          {expanded ? (
+            <ChevronDown className="h-3 w-3" />
+          ) : (
+            <ChevronRight className="h-3 w-3" />
+          )}
+          {expanded ? "Hide artefacts" : "View artefacts"}
+        </button>
       </header>
 
-      <p className="border-b border-border bg-background/30 px-3 py-2 text-[10.5px] leading-[1.5] text-um-muted">
-        DIGIT, Futurescot and SFN are <strong>signal-only</strong>. F8 confirms
-        none of the 17 prohibited artefacts have slipped past F7 before
-        WordPress push. Any contamination_found row blocks publish; any pending
-        or unjustified N/A row blocks publish.
-      </p>
+      {expanded ? (
+        <>
+          <p className="border-b border-border bg-background/30 px-3 py-2 text-[10.5px] leading-[1.5] text-um-muted">
+            DIGIT, Futurescot and SFN are <strong>signal-only</strong>. F8
+            confirms none of the 17 prohibited artefacts have slipped past F7
+            before WordPress push. Any contamination_found row blocks publish;
+            any pending or unjustified N/A row blocks publish.
+          </p>
 
-      <BulkStampToolbar
-        articleId={articleId}
-        pendingCount={summary.pending}
-        readOnly={readOnly}
-        onComplete={() => setVersion((v) => v + 1)}
-      />
+          <BulkStampToolbar
+            articleId={articleId}
+            pendingCount={summary.pending}
+            readOnly={readOnly}
+            onComplete={() => setVersion((v) => v + 1)}
+          />
 
-      {(["digit", "futurescot", "sfn"] as ArtefactOutlet[]).map((outlet) => (
-        <OutletBlock
-          key={`${outlet}:${version}`}
-          outlet={outlet}
-          defs={artefactsByOutlet(outlet)}
-          row={row}
-          articleId={articleId}
-          readOnly={readOnly}
-        />
-      ))}
+          {(["digit", "futurescot", "sfn"] as ArtefactOutlet[]).map((outlet) => (
+            <OutletBlock
+              key={`${outlet}:${version}`}
+              outlet={outlet}
+              defs={artefactsByOutlet(outlet)}
+              row={row}
+              articleId={articleId}
+              readOnly={readOnly}
+            />
+          ))}
+        </>
+      ) : null}
     </section>
   );
 }

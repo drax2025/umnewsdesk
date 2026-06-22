@@ -49,6 +49,15 @@ type TitleWpRow = {
   wp_app_password: string | null;
 };
 
+type TitleListRow = {
+  id: string;
+  name: string;
+  wp_base_url: string | null;
+  wp_username: string | null;
+  wp_app_password: string | null;
+  wp_default_category_id: number | null;
+};
+
 function coerceAttachments(raw: unknown): CandidateAttachment[] {
   if (!Array.isArray(raw)) return [];
   const out: CandidateAttachment[] = [];
@@ -160,29 +169,49 @@ export default async function F8PublishPage({
   }
   const isEditor = role === "editor" || role === "admin";
 
-  const [{ data: sweepRow }, { data: publishLog }, { data: titleWp }] =
-    await Promise.all([
-      supabase
-        .from("article_artefact_sweep")
-        .select(
-          "article_id, results, completed_at, completed_by, updated_at",
-        )
-        .eq("article_id", id)
-        .maybeSingle<ArticleArtefactSweepRow>(),
-      supabase
-        .from("article_publish_log")
-        .select(
-          "id, article_id, target, status, external_id, external_url, error, payload, attempted_at, completed_at, created_by",
-        )
-        .eq("article_id", id)
-        .order("attempted_at", { ascending: false })
-        .returns<ArticlePublishLogRow[]>(),
-      supabase
-        .from("titles")
-        .select("name, wp_base_url, wp_username, wp_app_password")
-        .eq("id", article.title_id)
-        .maybeSingle<TitleWpRow>(),
-    ]);
+  const [
+    { data: sweepRow },
+    { data: publishLog },
+    { data: titleWp },
+    { data: allTitles },
+  ] = await Promise.all([
+    supabase
+      .from("article_artefact_sweep")
+      .select("article_id, results, completed_at, completed_by, updated_at")
+      .eq("article_id", id)
+      .maybeSingle<ArticleArtefactSweepRow>(),
+    supabase
+      .from("article_publish_log")
+      .select(
+        "id, article_id, target, status, external_id, external_url, error, payload, attempted_at, completed_at, created_by",
+      )
+      .eq("article_id", id)
+      .order("attempted_at", { ascending: false })
+      .returns<ArticlePublishLogRow[]>(),
+    supabase
+      .from("titles")
+      .select("name, wp_base_url, wp_username, wp_app_password")
+      .eq("id", article.title_id)
+      .maybeSingle<TitleWpRow>(),
+    supabase
+      .from("titles")
+      .select(
+        "id, name, wp_base_url, wp_username, wp_app_password, wp_default_category_id",
+      )
+      .order("name", { ascending: true })
+      .returns<TitleListRow[]>(),
+  ]);
+
+  // Destination picker — every silo the editor can publish to, flagged with
+  // whether it has WordPress credentials wired up.
+  const titleOptions = (allTitles ?? []).map((t) => ({
+    id: t.id,
+    name: t.name,
+    wpConfigured: Boolean(
+      t.wp_base_url && t.wp_username && t.wp_app_password,
+    ),
+    defaultCategoryId: t.wp_default_category_id,
+  }));
 
   // Per-title creds take precedence over env vars (publishArticle does the
   // same fallback). The banner used to only check env vars, which lied to
@@ -274,6 +303,8 @@ export default async function F8PublishPage({
             backdate={article.backdate}
             sweepRow={sweepRow ?? null}
             publishLog={publishLog ?? []}
+            titles={titleOptions}
+            currentTitleId={article.title_id}
             wordpressCredSource={wordpressCredSource}
             titleName={titleWp?.name ?? null}
             readOnly={!isEditor}

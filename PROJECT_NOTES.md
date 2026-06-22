@@ -11,6 +11,22 @@ _Last updated: 2026-06-22_
 
 ## Recently landed (this session)
 
+- **F8 Publish UX — artefacts roll up + destination/category at push**:
+  - **Stage 1 (final B2 sweep)**: the 17-artefact list now collapses by default
+    on `/articles/[id]/publish`. The panel header keeps the live summary counts
+    (clean/found/N-A/pending) and the ready/blocked badge; a "View artefacts" /
+    "Hide artefacts" toggle expands the bulk toolbar + outlet rows when an editor
+    needs to action them. (`f8-artefact-sweep.tsx`.)
+  - **Stage 2 (publish push)**: the WP push form now has a **Destination site**
+    selector (any `titles` silo, flagged with whether it has WP creds) and a
+    **Category** selector populated live from the chosen destination's WordPress
+    (`/wp-json/wp/v2/categories` via new `listWpCategories` server action;
+    defaults to the title's `wp_default_category_id`). Picking a different
+    destination reassigns `articles.title_id` on a successful push so the master
+    inventory and any later mark-live target the right site. `publishArticle`
+    accepts optional `title_id` + `category_id` overrides (back-compat: absent =
+    old behaviour). Manual-URL pushes skip both selectors. Verified by
+    typecheck + lint, not browser.
 - **Signal-only source indicator**: the candidate inbox
   (`/discovery/inbox`) now renders an amber `SIGNAL ONLY` badge under the source
   name when the candidate's `discovery_sources.signal_only_eligible` is true —
