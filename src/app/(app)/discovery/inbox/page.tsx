@@ -60,7 +60,12 @@ type CandidateRow = {
 };
 
 type StreamRow = { id: string; name: string; slug: string };
-type SourceRow = { id: string; name: string; code: string };
+type SourceRow = {
+  id: string;
+  name: string;
+  code: string;
+  signal_only_eligible: boolean;
+};
 type SweepRow = { id: string; code: string };
 
 type OpsAlertRow = {
@@ -207,7 +212,7 @@ export default async function CandidateInboxPage({
         .order("surfaced_at", { ascending: false })
         .limit(200),
       supabase.from("discovery_streams").select("id, name, slug"),
-      supabase.from("discovery_sources").select("id, name, code"),
+      supabase.from("discovery_sources").select("id, name, code, signal_only_eligible"),
       supabase.from("sweep_runs").select("id, code"),
       supabase
         .from("ops_rr_alerts")
@@ -641,7 +646,17 @@ export default async function CandidateInboxPage({
                           <Thumb url={c.image_url} alt={c.working_headline} />
                         </td>
                         <td className="px-3 py-2.5 text-[11.5px] text-fg-2">
-                          {c.raw?.agency_name ?? source?.name ?? "—"}
+                          <span className="block">
+                            {c.raw?.agency_name ?? source?.name ?? "—"}
+                          </span>
+                          {source?.signal_only_eligible ? (
+                            <span
+                              className="mt-1 inline-flex items-center rounded-sm border border-warn/45 bg-warn/10 px-1.5 py-0.5 font-mono text-[9px] font-semibold uppercase tracking-wider text-warn"
+                              title="Signal-only source — awareness/intelligence only. Not a drafting basis; do not commission."
+                            >
+                              Signal only
+                            </span>
+                          ) : null}
                         </td>
                         <td className="whitespace-nowrap px-3 py-2.5 font-mono text-[11px] tabular-nums text-um-muted">
                           {fmtTime(c.surfaced_at)}
