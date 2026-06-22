@@ -11,6 +11,16 @@ _Last updated: 2026-06-22_
 
 ## Recently landed (this session)
 
+- **Discovery inbox shows downstream article state**: a commissioned candidate
+  now displays the lifecycle state of the article it became — most importantly a
+  green `● LIVE` badge once published — as a chip in the Working Headline cell
+  and an "Open article · <state>" link in the Actions column (links to the
+  dossier). Built by joining candidate → commission → article(state) in
+  `/discovery/inbox`. The Actions link replaces the Commission button whenever an
+  article already exists, so a published candidate is obvious and can't be
+  double-commissioned. Also fixed: `commissionFromCandidate` now stamps the
+  candidate `triage_state='sent_to_f1'` on commission (previously it stayed
+  'ready', leaving a stale Commission button and wrong inbox counts).
 - **F8 Publish UX — artefacts roll up + destination/category at push**:
   - **Stage 1 (final B2 sweep)**: the 17-artefact list now collapses by default
     on `/articles/[id]/publish`. The panel header keeps the live summary counts

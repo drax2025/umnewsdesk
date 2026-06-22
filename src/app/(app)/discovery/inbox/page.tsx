@@ -121,6 +121,39 @@ const VERIFY_PILL: Record<string, string> = {
   unverified: "text-destructive",
 };
 
+/**
+ * Lifecycle labels for the article a commissioned candidate became. Surfaced
+ * on the inbox row so the desk can see at a glance that a candidate is already
+ * downstream (and how far) without opening commissioning. `live` / `wp_draft`
+ * are the "published" end-states the operator was looking for.
+ */
+const ARTICLE_STATE_META: Record<string, { label: string; tone: string }> = {
+  pitched: { label: "Pitched", tone: "border-um-muted/40 bg-um-muted/10 text-um-muted" },
+  commissioned: {
+    label: "Commissioned",
+    tone: "border-state-comm/40 bg-state-comm/10 text-state-comm",
+  },
+  filed: { label: "Filed", tone: "border-primary/40 bg-primary/10 text-primary" },
+  subbed: { label: "Sub-edit", tone: "border-primary/40 bg-primary/10 text-primary" },
+  legal: { label: "Legal", tone: "border-state-legal/40 bg-state-legal/10 text-state-legal" },
+  scheduled: { label: "Scheduled", tone: "border-warn/40 bg-warn/10 text-warn" },
+  wp_draft: { label: "WP draft", tone: "border-warn/40 bg-warn/10 text-warn" },
+  live: { label: "● Live", tone: "border-success/45 bg-success/15 text-success" },
+  rejected: { label: "Rejected", tone: "border-um-muted/40 bg-um-muted/10 text-um-muted" },
+  killed: { label: "Killed", tone: "border-destructive/45 bg-destructive/10 text-destructive" },
+};
+
+function articleStateMeta(state: string): { label: string; tone: string } {
+  return (
+    ARTICLE_STATE_META[state] ?? {
+      label: state,
+      tone: "border-border bg-background text-um-muted",
+    }
+  );
+}
+
+type LinkedArticle = { id: string; state: string };
+
 function relTime(iso: string): string {
   const ms = Date.now() - new Date(iso).getTime();
   const m = Math.floor(ms / 60_000);
@@ -240,6 +273,42 @@ export default async function CandidateInboxPage({
 
   const streamMap = new Map(streams.map((s) => [s.id, s]));
   const sourceMap = new Map(sources.map((s) => [s.id, s]));
+
+  // Link each candidate to the article it was commissioned into (if any), so
+  // the row can show how far downstream it is — most importantly whether it's
+  // already live. candidate → commission → article(state). A candidate can be
+  // re-commissioned, so prefer the most recent commission.
+  const articleByCandidate = new Map<string, LinkedArticle>();
+  const candidateIds = cands.map((c) => c.id);
+  if (candidateIds.length > 0) {
+    const { data: comms } = await supabase
+      .from("commissions")
+      .select("candidate_id, article_id, commissioned_at")
+      .in("candidate_id", candidateIds)
+      .order("commissioned_at", { ascending: false })
+      .returns<
+        { candidate_id: string | null; article_id: string | null; commissioned_at: string }[]
+      >();
+    const articleIds = Array.from(
+      new Set((comms ?? []).map((x) => x.article_id).filter((x): x is string => Boolean(x))),
+    );
+    const stateById = new Map<string, string>();
+    if (articleIds.length > 0) {
+      const { data: arts } = await supabase
+        .from("articles")
+        .select("id, state")
+        .in("id", articleIds)
+        .returns<{ id: string; state: string }[]>();
+      for (const a of arts ?? []) stateById.set(a.id, a.state);
+    }
+    // comms is newest-first; first write per candidate wins (the latest one).
+    for (const x of comms ?? []) {
+      if (!x.candidate_id || !x.article_id) continue;
+      if (articleByCandidate.has(x.candidate_id)) continue;
+      const state = stateById.get(x.article_id);
+      if (state) articleByCandidate.set(x.candidate_id, { id: x.article_id, state });
+    }
+  }
   // Server Component renders once per request, so a wall-clock snapshot
   // here is stable for the lifetime of the response. Threading it to
   // EmbargoChip keeps the child component pure.
@@ -599,6 +668,7 @@ export default async function CandidateInboxPage({
                   {filtered.map((c) => {
                     const stream = c.stream_id ? streamMap.get(c.stream_id) : null;
                     const source = c.source_id ? sourceMap.get(c.source_id) : null;
+                    const article = articleByCandidate.get(c.id) ?? null;
                     return (
                       <tr
                         key={c.id}
@@ -638,6 +708,7 @@ export default async function CandidateInboxPage({
                                   nowMs={nowMs}
                                 />
                                 <AttachmentChip names={c.attachment_urls} />
+                                {article ? <ArticleStateChip article={article} /> : null}
                               </div>
                             </div>
                           </div>
@@ -718,6 +789,7 @@ export default async function CandidateInboxPage({
                             id={c.id}
                             state={c.triage_state}
                             titles={titles}
+                            article={article}
                           />
                         </td>
                       </tr>
@@ -760,15 +832,49 @@ export default async function CandidateInboxPage({
   );
 }
 
+function ArticleStateChip({ article }: { article: LinkedArticle }) {
+  const meta = articleStateMeta(article.state);
+  return (
+    <Link
+      href={`/articles/${article.id}`}
+      title={`Commissioned — article is ${article.state}. Open the dossier.`}
+      className={cn(
+        "inline-flex items-center rounded-sm border px-1.5 py-0.5 font-mono text-[10px] font-semibold uppercase tracking-wider transition-colors hover:brightness-110",
+        meta.tone,
+      )}
+    >
+      {meta.label}
+    </Link>
+  );
+}
+
 function TriageActions({
   id,
   state,
   titles,
+  article,
 }: {
   id: string;
   state: CandidateRow["triage_state"];
   titles: CommissionTitleOption[];
+  article: LinkedArticle | null;
 }) {
+  // Already commissioned (article exists) — show a path to it and its
+  // lifecycle state instead of a Commission button, regardless of the
+  // candidate's own triage_state. This is what makes a published candidate
+  // obvious from the inbox and prevents accidental double-commissioning.
+  if (article) {
+    const meta = articleStateMeta(article.state);
+    return (
+      <Link
+        href={`/articles/${article.id}`}
+        className="inline-flex h-6 items-center gap-1 rounded-sm border border-border bg-background px-2 text-[10.5px] font-medium text-fg-2 transition-colors hover:bg-secondary"
+        title={`Open the article dossier (state: ${article.state}).`}
+      >
+        Open article · {meta.label}
+      </Link>
+    );
+  }
   if (state === "sent_to_f1") {
     return <span className="text-[10.5px] text-um-muted">commissioned</span>;
   }

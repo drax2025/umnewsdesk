@@ -230,6 +230,15 @@ export async function commissionFromCandidate(formData: FormData) {
     );
   }
 
+  // Hand the candidate downstream — it's now an article in the pipeline.
+  // 'sent_to_f1' is the canonical "handed to F1" triage state; stamping it
+  // here stops the inbox row showing a stale Commission button (which would
+  // double-commission) and keeps the Ready/Sent-to-F1 counts honest.
+  await supabase
+    .from("candidates")
+    .update({ triage_state: "sent_to_f1" })
+    .eq("id", candidateId);
+
   revalidateAll();
   if (newComm.id) redirect(`/commissioning/${newComm.id}`);
   redirect("/commissioning");
