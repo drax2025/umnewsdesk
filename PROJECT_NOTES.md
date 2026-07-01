@@ -138,4 +138,11 @@ F5 Editor → F6 Final Review → F7 Pre-Flight Check → F8 Publish
 
 ## Context worth remembering
 
-- _(none recorded yet)_
+- **Migration state (verified 2026-07-01)**: all migrations `0001`–`0039` are
+  applied to the live project (`xjyzgwflywvvfyaehizv`). `0007` (write surface +
+  approvals) was the **only** gap — it had never been applied and was fixed this
+  session (see Recently landed). Probed every schema migration's signature
+  table/column via PostgREST; both renames confirmed (`0036` new `article_pre_flight`
+  present + old `article_pre_publish` gone; `0038` `senior_editor` gone). Note:
+  this project has **no `supabase_migrations.schema_migrations` tracking table**
+  (migrations applied ad hoc), so there's no built-in guard against another gap.
