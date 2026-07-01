@@ -11,6 +11,24 @@ _Last updated: 2026-06-22_
 
 ## Recently landed (this session)
 
+- **Repo migration 0007 reconciled with the deployed DB**: rewrote
+  `supabase/migrations/0007_write_surface_schema.sql` to be idempotent
+  (`create ... if not exists`, guarded enum create, `drop policy if exists`
+  before create) and to use the current role model — RLS insert policies now gate
+  on `editor`/`admin` (revisions) and `admin` (approval decisions) instead of the
+  retired `senior_editor`, which is no longer a valid `user_role` label. A fresh
+  rebuild now matches production and won't fail on the stale enum value.
+- **Audit/history writes no longer fail silently**: three server actions that
+  wrote to `article_revisions` / `approval_decisions` ignored their insert
+  result. Now they check every write and throw on failure (with a server-side
+  `console.error`):
+  - `saveArticleDraft` (`article-write.ts`) — surfaces both the article update
+    and the revision-history insert.
+  - `recordDecision` (`approvals.ts`) and `killArticleFromCommission`
+    (`commissioning.ts`) — now write the `approval_decisions` audit row **first**
+    and only advance article state if it succeeds. Previously a missing table (or
+    the admin-only RLS policy rejecting a non-admin) let the state change through
+    with no audit trail. Verified: typecheck + lint clean.
 - **Applied missing migration 0007 (write surface + approvals)**: while testing
   the F3 runner's `--commit` write-back, discovered `article_revisions` AND
   `approval_decisions` returned 404/PGRST205 from PostgREST — the tables did not
@@ -110,19 +128,6 @@ F5 Editor → F6 Final Review → F7 Pre-Flight Check → F8 Publish
 
 ## Outstanding / to do
 
-- **Reconcile repo migration 0007 with what's deployed**: the DB now has the
-  corrected idempotent 0007 (admin/editor RLS), but `supabase/migrations/
-  0007_write_surface_schema.sql` in the repo still has the original
-  `senior_editor` policies and non-idempotent DDL. Decide whether to rewrite the
-  file to match reality (safe here — no migration tracking, effectively solo dev)
-  so a future replay doesn't fail on the `senior_editor` enum value.
-- **App silently swallows failed audit writes**: `saveArticleDraft`
-  (`lib/actions/article-write.ts`) inserts into `article_revisions` and never
-  checks the result; the approvals/kill-story flows do the same for
-  `approval_decisions`. With 0007 missing, these had been failing silently for
-  who-knows-how-long (no revision history / approval audit recorded). Now that
-  the tables exist it's fixed, but consider surfacing insert errors so a missing
-  table can't fail invisibly again.
 - **Enforce signal-only at commissioning** (optional): add a server-side guard in
   `commissionFromCandidate` to refuse/warn when the candidate's source is
   `signal_only_eligible`. Currently only surfaced visually in the inbox.

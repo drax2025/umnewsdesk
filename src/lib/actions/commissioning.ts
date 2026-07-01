@@ -336,19 +336,33 @@ export async function killArticleFromCommission(formData: FormData) {
   }
 
   const fromState = art.state;
-  await supabase
+
+  // Audit first: killing an article must leave a decision record. If the insert
+  // fails (missing table / RLS), abort before flipping state to 'killed' rather
+  // than spiking the article with no trace of who/why.
+  const { error: decisionErr } = await supabase
+    .from("approval_decisions")
+    .insert({
+      article_id: comm.article_id,
+      from_state: fromState,
+      to_state: "killed",
+      kind: "reject",
+      rationale: reason,
+      decided_by: user.id,
+    });
+  if (decisionErr) {
+    console.error("killArticleFromCommission: failed to write approval_decisions", decisionErr);
+    throw new Error(`Could not record kill decision: ${decisionErr.message}`);
+  }
+
+  const { error: updateErr } = await supabase
     .from("articles")
     .update({ state: "killed", updated_by: user.id })
     .eq("id", comm.article_id);
-
-  await supabase.from("approval_decisions").insert({
-    article_id: comm.article_id,
-    from_state: fromState,
-    to_state: "killed",
-    kind: "reject",
-    rationale: reason,
-    decided_by: user.id,
-  });
+  if (updateErr) {
+    console.error("killArticleFromCommission: failed to update article", updateErr);
+    throw new Error(`Kill decision recorded but article update failed: ${updateErr.message}`);
+  }
 
   revalidateAll();
   revalidatePath("/queues/reject");

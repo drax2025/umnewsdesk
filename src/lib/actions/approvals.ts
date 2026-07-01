@@ -90,15 +90,33 @@ export async function recordDecision(formData: FormData) {
     // calendar surface, which will succeed now that legal_cleared_at is set.
   }
 
-  await supabase.from("articles").update(patch).eq("id", id);
-  await supabase.from("approval_decisions").insert({
-    article_id: id,
-    from_state: from,
-    to_state: to,
-    kind,
-    rationale,
-    decided_by: userId,
-  });
+  // Write the audit row FIRST. The approval decision is a precondition for the
+  // state transition — if it can't be recorded (missing table, or the
+  // admin-only RLS insert policy rejects a non-admin), we must abort before
+  // moving the article, not silently advance state with no audit trail.
+  const { error: decisionErr } = await supabase
+    .from("approval_decisions")
+    .insert({
+      article_id: id,
+      from_state: from,
+      to_state: to,
+      kind,
+      rationale,
+      decided_by: userId,
+    });
+  if (decisionErr) {
+    console.error("recordDecision: failed to write approval_decisions", decisionErr);
+    throw new Error(`Could not record approval decision: ${decisionErr.message}`);
+  }
+
+  const { error: updateErr } = await supabase
+    .from("articles")
+    .update(patch)
+    .eq("id", id);
+  if (updateErr) {
+    console.error("recordDecision: failed to update article state", updateErr);
+    throw new Error(`Decision recorded but article update failed: ${updateErr.message}`);
+  }
 
   revalidate(id);
 }

@@ -65,7 +65,7 @@ export async function saveArticleDraft(formData: FormData) {
   const { data: user } = await supabase.auth.getUser();
   const userId = user.user?.id ?? null;
 
-  await supabase
+  const { error: updateErr } = await supabase
     .from("articles")
     .update({
       headline,
@@ -74,10 +74,14 @@ export async function saveArticleDraft(formData: FormData) {
       updated_by: userId,
     })
     .eq("id", id);
+  if (updateErr) {
+    console.error("saveArticleDraft: failed to update article", updateErr);
+    throw new Error(`Could not save draft: ${updateErr.message}`);
+  }
 
   const revNo = await nextRevisionNo(supabase, id);
 
-  await supabase.from("article_revisions").insert({
+  const { error: revErr } = await supabase.from("article_revisions").insert({
     article_id: id,
     revision_no: revNo,
     headline,
@@ -86,6 +90,13 @@ export async function saveArticleDraft(formData: FormData) {
     summary,
     created_by: userId,
   });
+  if (revErr) {
+    // The draft itself saved, but the revision history did not. Fail loudly
+    // rather than swallow it — a missing article_revisions table (or RLS
+    // rejection) must not pass silently. A retry re-records the history.
+    console.error("saveArticleDraft: failed to write article_revisions", revErr);
+    throw new Error(`Draft saved but revision history failed: ${revErr.message}`);
+  }
 
   revalidate(id);
 }
