@@ -11,6 +11,21 @@ _Last updated: 2026-06-22_
 
 ## Recently landed (this session)
 
+- **F3 Initial Draft agent runner (spike)**: first "execution layer" prototype —
+  `scripts/f3-draft-runner.mjs` (+ `npm run f3:draft`). A standalone Node ESM
+  batch job that finds `commissioned` articles, asks Claude (forced tool-use,
+  strict schema) for an F3 draft — 3 headline options ≤90c + standfirst + body —
+  and, only with `--commit`, writes it back the same way the F3 UI does
+  (`articles.headline_options`/`standfirst`/`body` + a new `article_revisions`
+  row). Deliberately conservative: **DRY RUN by default**, article is **left in
+  `commissioned`** (a human still files it — output is a draft, zero new publish
+  risk), and it **refuses to draft from `signal_only_eligible` sources** (mirrors
+  the inbox guardrail). Uses the Supabase service-role key (runs outside a
+  request). Needs `ANTHROPIC_API_KEY` — **not in `.env.local`**, must be added.
+  Flags: `--id`, `--limit`, `--commit`, `--force`, `--model` (default
+  `claude-sonnet-4-5`, or `$ANTHROPIC_MODEL`). Verified end-to-end up to the
+  model call (Supabase query + candidate/source join + guardrail run clean); the
+  real generation + write-back leg is untested pending an API key.
 - **Discovery inbox shows downstream article state**: a commissioned candidate
   now displays the lifecycle state of the article it became — most importantly a
   green `● LIVE` badge once published — as a chip in the Working Headline cell
