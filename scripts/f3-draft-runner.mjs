@@ -22,21 +22,34 @@
  *   • Uses the Supabase SERVICE ROLE key (bypasses RLS) because it runs outside
  *     a request. Treat this script as a privileged batch job.
  *
+ * TWO GENERATION BACKENDS (--via):
+ *   --via=cli  (default)  Shells out to the local `claude` CLI in headless mode.
+ *                         Reuses whatever auth the CLI is logged in with (e.g. a
+ *                         Pro/Max subscription) — NO API key, no extra API
+ *                         billing. Depends on the `claude` binary being on PATH.
+ *                         Good for running this by hand today.
+ *   --via=api             Calls the Anthropic API directly via @anthropic-ai/sdk.
+ *                         Needs ANTHROPIC_API_KEY (API-console billed). No CLI
+ *                         dependency. This is the right choice for an unattended
+ *                         production batch job (cron/server).
+ *
  * ENV (loaded via `node --env-file=.env.local`, or export them yourself):
  *   NEXT_PUBLIC_SUPABASE_URL       (present in .env.local)
  *   SUPABASE_SERVICE_ROLE_KEY      (present in .env.local)
- *   ANTHROPIC_API_KEY              (NOT in .env.local — you must add it)
- *   ANTHROPIC_MODEL                (optional; default claude-sonnet-4-5)
+ *   ANTHROPIC_API_KEY              (only for --via=api; NOT in .env.local)
+ *   ANTHROPIC_MODEL                (optional model override for either backend)
  *
  * USAGE:
- *   npm run f3:draft                 # dry-run, oldest 1 commissioned needing a draft
- *   npm run f3:draft -- --limit=3    # dry-run, oldest 3
- *   npm run f3:draft -- --id=<uuid>  # dry-run, one specific article
- *   npm run f3:draft -- --id=<uuid> --commit   # write it
- *   npm run f3:draft -- --id=<uuid> --force    # draft even if it already has one
- *   npm run f3:draft -- --model=claude-opus-4-1 --id=<uuid>
+ *   npm run f3:draft                 # dry-run via CLI, oldest 1 needing a draft
+ *   npm run f3:draft -- --limit=3    # dry-run via CLI, oldest 3
+ *   npm run f3:draft -- --id=<uuid>  # dry-run via CLI, one specific article
+ *   npm run f3:draft -- --id=<uuid> --commit          # write it (CLI backend)
+ *   npm run f3:draft -- --via=api --id=<uuid> --commit # write it (API backend)
+ *   npm run f3:draft -- --id=<uuid> --force           # redraft even if it has one
+ *   npm run f3:draft -- --model=opus --id=<uuid>
  */
 
+import { execFile } from "node:child_process";
 import { createClient } from "@supabase/supabase-js";
 import Anthropic from "@anthropic-ai/sdk";
 
@@ -51,7 +64,7 @@ const DEFAULT_MODEL = "claude-sonnet-4-5";
 /*  Arg parsing                                                                */
 /* -------------------------------------------------------------------------- */
 function parseArgs(argv) {
-  const out = { commit: false, force: false, limit: 1, id: null, model: null, help: false };
+  const out = { commit: false, force: false, limit: 1, id: null, model: null, via: "cli", help: false };
   for (const a of argv) {
     if (a === "--commit") out.commit = true;
     else if (a === "--force") out.force = true;
@@ -59,6 +72,7 @@ function parseArgs(argv) {
     else if (a.startsWith("--limit=")) out.limit = Math.max(1, Number(a.slice(8)) || 1);
     else if (a.startsWith("--id=")) out.id = a.slice(5).trim() || null;
     else if (a.startsWith("--model=")) out.model = a.slice(8).trim() || null;
+    else if (a.startsWith("--via=")) out.via = a.slice(6).trim().toLowerCase();
   }
   return out;
 }
@@ -68,14 +82,18 @@ const HELP = `F3 Initial Draft — agent runner (spike)
   node --env-file=.env.local scripts/f3-draft-runner.mjs [options]
 
 Options:
+  --via=<cli|api> Generation backend. cli (default) uses the local claude CLI
+                  (subscription auth, no API key). api uses ANTHROPIC_API_KEY.
   --id=<uuid>     Target one specific article (else: oldest commissioned needing a draft)
   --limit=<n>     Draft up to n articles (ignored when --id is set). Default 1.
   --commit        Actually write the draft. Without this it's a DRY RUN.
   --force         Draft even if the article already has headline_options/body.
-  --model=<name>  Override model (default ${DEFAULT_MODEL}, or $ANTHROPIC_MODEL).
+  --model=<name>  Override model (via=api default ${DEFAULT_MODEL}; via=cli uses
+                  the CLI default unless set). Or set $ANTHROPIC_MODEL.
   -h, --help      Show this help.
 
-Env required: NEXT_PUBLIC_SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, ANTHROPIC_API_KEY`;
+Env required: NEXT_PUBLIC_SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY
+  (+ ANTHROPIC_API_KEY when --via=api)`;
 
 /* -------------------------------------------------------------------------- */
 /*  Small helpers                                                              */
@@ -144,8 +162,8 @@ const DRAFT_TOOL = {
   },
 };
 
-async function generateDraft(client, model, article, candidate) {
-  const system = [
+function buildSystemPrompt() {
+  return [
     "You are the F3 Initial Draft agent in an editorial newsroom pipeline.",
     "You write a first-pass draft for a commissioned article: three headline",
     "options, a standfirst, and a full body in Markdown.",
@@ -153,10 +171,12 @@ async function generateDraft(client, model, article, candidate) {
     "Headlines may lean engaging/click-worthy but must be accurate and not misleading.",
     "The body is a first draft for a human editor to refine — be factual, do not",
     "invent quotes or statistics that aren't supported by the provided context, and",
-    "flag anything you had to assume. Submit via the submit_f3_draft tool only.",
+    "flag anything you had to assume.",
   ].join(" ");
+}
 
-  const user = [
+function buildUserPrompt(article, candidate) {
+  return [
     `Commissioned article headline (working): ${article.headline || "(none yet)"}`,
     article.standfirst ? `Existing standfirst: ${article.standfirst}` : null,
     "",
@@ -165,19 +185,71 @@ async function generateDraft(client, model, article, candidate) {
   ]
     .filter(Boolean)
     .join("\n");
+}
 
+/** API backend — forced tool-use guarantees the exact JSON shape. */
+async function generateDraftViaApi(client, model, article, candidate) {
   const resp = await client.messages.create({
     model,
     max_tokens: 4096,
-    system,
+    system: buildSystemPrompt() + " Submit via the submit_f3_draft tool only.",
     tools: [DRAFT_TOOL],
     tool_choice: { type: "tool", name: "submit_f3_draft" },
-    messages: [{ role: "user", content: user }],
+    messages: [{ role: "user", content: buildUserPrompt(article, candidate) }],
   });
-
   const block = resp.content.find((b) => b.type === "tool_use");
   if (!block) die("Model did not return a tool_use block.");
   return { input: block.input, usage: resp.usage };
+}
+
+/**
+ * CLI backend — shells out to `claude -p` with --json-schema for structured
+ * output. Reuses the CLI's own auth (no API key). Returns the same shape as the
+ * API backend so the caller doesn't care which was used.
+ */
+async function generateDraftViaCli(model, article, candidate) {
+  const cliArgs = [
+    "-p",
+    buildUserPrompt(article, candidate),
+    "--output-format",
+    "json",
+    "--json-schema",
+    JSON.stringify(DRAFT_TOOL.input_schema),
+    "--system-prompt",
+    buildSystemPrompt(),
+    ...(model ? ["--model", model] : []),
+  ];
+
+  const stdout = await new Promise((resolve, reject) => {
+    execFile("claude", cliArgs, { maxBuffer: 32 * 1024 * 1024 }, (err, out, errOut) => {
+      if (err) {
+        if (err.code === "ENOENT") {
+          reject(new Error("`claude` CLI not found on PATH. Install it or use --via=api."));
+        } else {
+          reject(new Error(`claude CLI failed: ${errOut || err.message}`));
+        }
+        return;
+      }
+      resolve(out);
+    });
+  });
+
+  let parsed;
+  try {
+    parsed = JSON.parse(stdout);
+  } catch {
+    die(`Could not parse claude CLI output as JSON:\n${String(stdout).slice(0, 500)}`);
+  }
+  if (parsed.is_error) die(`claude CLI reported an error: ${parsed.result ?? "(no detail)"}`);
+  const input = parsed.structured_output;
+  if (!input) die("claude CLI returned no structured_output (schema not satisfied).");
+  return {
+    input,
+    usage: {
+      input_tokens: parsed.usage?.input_tokens,
+      output_tokens: parsed.usage?.output_tokens,
+    },
+  };
 }
 
 /* -------------------------------------------------------------------------- */
@@ -234,25 +306,41 @@ async function main() {
     return;
   }
 
+  if (args.via !== "cli" && args.via !== "api") {
+    die(`Unknown --via=${args.via}. Use --via=cli or --via=api.`);
+  }
+
   const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL;
   const SERVICE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;
   const ANTHROPIC_KEY = process.env.ANTHROPIC_API_KEY;
-  const model = args.model || process.env.ANTHROPIC_MODEL || DEFAULT_MODEL;
+  // API backend defaults to a known model; CLI backend uses its own default
+  // unless the user explicitly overrides it.
+  const model =
+    args.model ||
+    process.env.ANTHROPIC_MODEL ||
+    (args.via === "api" ? DEFAULT_MODEL : null);
 
   if (!SUPABASE_URL || !SERVICE_KEY) die("Missing NEXT_PUBLIC_SUPABASE_URL / SUPABASE_SERVICE_ROLE_KEY.");
-  if (!ANTHROPIC_KEY) {
-    die(
-      "Missing ANTHROPIC_API_KEY. It is not in .env.local — add it there\n" +
-        "  (ANTHROPIC_API_KEY=sk-ant-...) or export it before running.",
-    );
+
+  let anthropic = null;
+  if (args.via === "api") {
+    if (!ANTHROPIC_KEY) {
+      die(
+        "Missing ANTHROPIC_API_KEY (required for --via=api). It is not in\n" +
+          "  .env.local — add it there (ANTHROPIC_API_KEY=sk-ant-...) or export it,\n" +
+          "  or run with --via=cli to use the local claude CLI instead.",
+      );
+    }
+    anthropic = new Anthropic({ apiKey: ANTHROPIC_KEY });
   }
 
   const supabase = createClient(SUPABASE_URL, SERVICE_KEY, {
     auth: { persistSession: false },
   });
-  const anthropic = new Anthropic({ apiKey: ANTHROPIC_KEY });
 
-  console.log(`\nF3 draft runner — ${args.commit ? "COMMIT" : "DRY RUN"} · model ${model}\n`);
+  console.log(
+    `\nF3 draft runner — ${args.commit ? "COMMIT" : "DRY RUN"} · via ${args.via} · model ${model ?? "(cli default)"}\n`,
+  );
 
   // 1. Select target articles.
   let query = supabase
@@ -310,9 +398,12 @@ async function main() {
       }
     }
 
-    // 3. Generate.
+    // 3. Generate (backend chosen by --via).
     console.log("   generating…");
-    const { input: draft, usage } = await generateDraft(anthropic, model, article, candidate);
+    const { input: draft, usage } =
+      args.via === "api"
+        ? await generateDraftViaApi(anthropic, model, article, candidate)
+        : await generateDraftViaCli(model, article, candidate);
 
     // 4. Report / write.
     console.log(`   → ${draft.headline_options?.length ?? 0} headline options:`);

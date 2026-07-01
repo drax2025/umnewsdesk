@@ -23,9 +23,16 @@ _Last updated: 2026-06-22_
   the inbox guardrail). Uses the Supabase service-role key (runs outside a
   request). Needs `ANTHROPIC_API_KEY` — **not in `.env.local`**, must be added.
   Flags: `--id`, `--limit`, `--commit`, `--force`, `--model` (default
-  `claude-sonnet-4-5`, or `$ANTHROPIC_MODEL`). Verified end-to-end up to the
-  model call (Supabase query + candidate/source join + guardrail run clean); the
-  real generation + write-back leg is untested pending an API key.
+  `claude-sonnet-4-5`, or `$ANTHROPIC_MODEL`).
+  - **Two generation backends (`--via`)**: `--via=cli` (default) shells out to
+    the local `claude` CLI in headless mode (`-p --output-format json
+    --json-schema …`), reusing the CLI's own subscription auth — **no API key,
+    no API billing**; good for running by hand now. `--via=api` calls the
+    Anthropic API via `@anthropic-ai/sdk` (needs `ANTHROPIC_API_KEY`) — the right
+    choice for an unattended production batch job. Both return the same shape.
+  - Verified end-to-end via CLI (real generation: 3 valid headlines + standfirst
+    + ~4.5k-char body, no API key). The `--commit` write-back leg is untested
+    (mirrors the proven F3 UI actions) — try it on a throwaway article first.
 - **Discovery inbox shows downstream article state**: a commissioned candidate
   now displays the lifecycle state of the article it became — most importantly a
   green `● LIVE` badge once published — as a chip in the Working Headline cell
