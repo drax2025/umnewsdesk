@@ -11,6 +11,19 @@ _Last updated: 2026-06-22_
 
 ## Recently landed (this session)
 
+- **Applied missing migration 0007 (write surface + approvals)**: while testing
+  the F3 runner's `--commit` write-back, discovered `article_revisions` AND
+  `approval_decisions` returned 404/PGRST205 from PostgREST — the tables did not
+  exist. Migration `0007_write_surface_schema.sql` had never been applied to the
+  live project (`xjyzgwflywvvfyaehizv`), and there is **no
+  `supabase_migrations.schema_migrations` tracking table** in this project
+  (migrations were applied ad hoc, and 0007 was simply skipped). Applied a
+  corrected, idempotent version via the SQL editor — same schema, but the RLS
+  insert policies were updated from the retired `senior_editor` role to the
+  current model (`editor`/`admin` for revisions, `admin` for approval decisions;
+  the original file's `senior_editor` literal is not even a valid `user_role`
+  enum label anymore). Tables now resolve (HTTP 200) and the runner writes both
+  the article draft and its revision row cleanly. **Follow-ups noted below.**
 - **F3 Initial Draft agent runner (spike)**: first "execution layer" prototype —
   `scripts/f3-draft-runner.mjs` (+ `npm run f3:draft`). A standalone Node ESM
   batch job that finds `commissioned` articles, asks Claude (forced tool-use,
@@ -30,9 +43,10 @@ _Last updated: 2026-06-22_
     no API billing**; good for running by hand now. `--via=api` calls the
     Anthropic API via `@anthropic-ai/sdk` (needs `ANTHROPIC_API_KEY`) — the right
     choice for an unattended production batch job. Both return the same shape.
-  - Verified end-to-end via CLI (real generation: 3 valid headlines + standfirst
-    + ~4.5k-char body, no API key). The `--commit` write-back leg is untested
-    (mirrors the proven F3 UI actions) — try it on a throwaway article first.
+  - Verified end-to-end via CLI including `--commit`: generates 3 valid
+    headlines + standfirst + ~5k-char body and writes `articles` + an
+    `article_revisions` row, leaving state at `commissioned`. Test article:
+    REC/Highland "grid-scale battery" (`c4107635-…`), now at revision 2.
 - **Discovery inbox shows downstream article state**: a commissioned candidate
   now displays the lifecycle state of the article it became — most importantly a
   green `● LIVE` badge once published — as a chip in the Working Headline cell
@@ -96,6 +110,19 @@ F5 Editor → F6 Final Review → F7 Pre-Flight Check → F8 Publish
 
 ## Outstanding / to do
 
+- **Reconcile repo migration 0007 with what's deployed**: the DB now has the
+  corrected idempotent 0007 (admin/editor RLS), but `supabase/migrations/
+  0007_write_surface_schema.sql` in the repo still has the original
+  `senior_editor` policies and non-idempotent DDL. Decide whether to rewrite the
+  file to match reality (safe here — no migration tracking, effectively solo dev)
+  so a future replay doesn't fail on the `senior_editor` enum value.
+- **App silently swallows failed audit writes**: `saveArticleDraft`
+  (`lib/actions/article-write.ts`) inserts into `article_revisions` and never
+  checks the result; the approvals/kill-story flows do the same for
+  `approval_decisions`. With 0007 missing, these had been failing silently for
+  who-knows-how-long (no revision history / approval audit recorded). Now that
+  the tables exist it's fixed, but consider surfacing insert errors so a missing
+  table can't fail invisibly again.
 - **Enforce signal-only at commissioning** (optional): add a server-side guard in
   `commissionFromCandidate` to refuse/warn when the candidate's source is
   `signal_only_eligible`. Currently only surfaced visually in the inbox.
