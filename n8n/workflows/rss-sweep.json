@@ -5,7 +5,10 @@
       "parameters": {
         "rule": {
           "interval": [
-            { "field": "cronExpression", "expression": "0 8,16 * * *" }
+            {
+              "field": "cronExpression",
+              "expression": "0 8,16 * * *"
+            }
           ]
         }
       },
@@ -13,7 +16,10 @@
       "name": "Schedule 08:00 + 16:00",
       "type": "n8n-nodes-base.scheduleTrigger",
       "typeVersion": 1.2,
-      "position": [240, 300]
+      "position": [
+        240,
+        300
+      ]
     },
     {
       "parameters": {
@@ -23,7 +29,10 @@
       "name": "Derive slot",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [460, 300]
+      "position": [
+        460,
+        300
+      ]
     },
     {
       "parameters": {
@@ -40,23 +49,16 @@
       "name": "Open sweep",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
-      "position": [680, 300],
+      "position": [
+        680,
+        300
+      ],
       "credentials": {
         "httpHeaderAuth": {
           "id": "REPLACE_WITH_CREDENTIAL_ID",
           "name": "UM Newsroom — INGEST_TOKEN"
         }
       }
-    },
-    {
-      "parameters": {
-        "jsCode": "// Edit this list to add or remove sources. Each entry needs a code\n// (must match discovery_sources.code) and a feed_url. Layer/stream\n// resolution happens server-side from the code.\nconst sources = [\n  { code: 'SRC-9011', feed_url: 'https://techscotland.com/feed' },\n  { code: 'SRC-9002', feed_url: 'https://edinburghbioquarter.com/news/feed' },\n  { code: 'SRC-9009', feed_url: 'https://www.ssen-transmission.co.uk/news/feed' }\n];\nconst sweepId = $input.first().json.sweep_id;\nconst sweepCode = $input.first().json.sweep_code;\nreturn sources.map((s) => ({ json: { ...s, sweep_id: sweepId, sweep_code: sweepCode } }));"
-      },
-      "id": "a9b1c2d3-0002-4000-8000-000000000004",
-      "name": "Source list",
-      "type": "n8n-nodes-base.code",
-      "typeVersion": 2,
-      "position": [900, 300]
     },
     {
       "parameters": {
@@ -67,7 +69,10 @@
       "name": "Loop sources",
       "type": "n8n-nodes-base.splitInBatches",
       "typeVersion": 3,
-      "position": [1120, 300]
+      "position": [
+        1240,
+        300
+      ]
     },
     {
       "parameters": {
@@ -80,7 +85,10 @@
       "name": "Fetch RSS",
       "type": "n8n-nodes-base.rssFeedRead",
       "typeVersion": 1.1,
-      "position": [1340, 220],
+      "position": [
+        1460,
+        220
+      ],
       "onError": "continueErrorOutput"
     },
     {
@@ -91,7 +99,10 @@
       "name": "Map RSS → items",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [1560, 220]
+      "position": [
+        1680,
+        220
+      ]
     },
     {
       "parameters": {
@@ -115,7 +126,10 @@
       "name": "Post item",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
-      "position": [1780, 220],
+      "position": [
+        1900,
+        220
+      ],
       "credentials": {
         "httpHeaderAuth": {
           "id": "REPLACE_WITH_CREDENTIAL_ID",
@@ -131,7 +145,10 @@
       "name": "Record success",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [2000, 220]
+      "position": [
+        2120,
+        220
+      ]
     },
     {
       "parameters": {
@@ -141,7 +158,10 @@
       "name": "Record failure",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [1560, 400]
+      "position": [
+        1680,
+        400
+      ]
     },
     {
       "parameters": {
@@ -158,7 +178,10 @@
       "name": "File alert",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
-      "position": [1780, 400],
+      "position": [
+        1900,
+        400
+      ],
       "credentials": {
         "httpHeaderAuth": {
           "id": "REPLACE_WITH_CREDENTIAL_ID",
@@ -181,62 +204,215 @@
       "name": "Complete sweep",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
-      "position": [2240, 300],
+      "position": [
+        2360,
+        300
+      ],
       "credentials": {
         "httpHeaderAuth": {
           "id": "REPLACE_WITH_CREDENTIAL_ID",
           "name": "UM Newsroom — INGEST_TOKEN"
         }
       }
+    },
+    {
+      "parameters": {
+        "url": "={{ $env.UM_BASE_URL }}/api/ingest/sources?method=rss",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "httpHeaderAuth",
+        "options": {}
+      },
+      "id": "fetch-source-list",
+      "name": "Fetch source list",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        900,
+        300
+      ],
+      "notes": "Reads discovery_sources from the app so the registry is authoritative. Add/remove sources in /system/discovery-config, not here.",
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "REPLACE_WITH_CREDENTIAL_ID",
+          "name": "UM Newsroom — INGEST_TOKEN"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// Source list now comes from the app's registry (discovery_sources) via\n// /api/ingest/sources — do NOT hardcode sources here. Manage them in\n// /system/discovery-config; paused sources are filtered out server-side.\nconst sweep = $('Open sweep').first().json;\nconst payload = $input.first().json;\nconst sources = Array.isArray(payload.sources) ? payload.sources : [];\n\nif (sources.length === 0) {\n  // Nothing to sweep. Returning [] would silently end the run, so surface it.\n  throw new Error('Source registry returned 0 active rss sources — check /system/discovery-config');\n}\n\nreturn sources.map((s) => ({\n  json: {\n    code: s.code,\n    feed_url: s.feed_url,\n    name: s.name,\n    layer: s.layer,\n    signal_only_eligible: s.signal_only_eligible,\n    sweep_id: sweep.sweep_id,\n    sweep_code: sweep.sweep_code,\n  },\n}));"
+      },
+      "id": "build-source-queue",
+      "name": "Build source queue",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1010,
+        300
+      ],
+      "notes": "Fans the registry response out to one item per source."
     }
   ],
   "connections": {
     "Schedule 08:00 + 16:00": {
-      "main": [[{ "node": "Derive slot", "type": "main", "index": 0 }]]
+      "main": [
+        [
+          {
+            "node": "Derive slot",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
     },
     "Derive slot": {
-      "main": [[{ "node": "Open sweep", "type": "main", "index": 0 }]]
+      "main": [
+        [
+          {
+            "node": "Open sweep",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
     },
     "Open sweep": {
-      "main": [[{ "node": "Source list", "type": "main", "index": 0 }]]
-    },
-    "Source list": {
-      "main": [[{ "node": "Loop sources", "type": "main", "index": 0 }]]
+      "main": [
+        [
+          {
+            "node": "Fetch source list",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
     },
     "Loop sources": {
       "main": [
-        [{ "node": "Complete sweep", "type": "main", "index": 0 }],
-        [{ "node": "Fetch RSS", "type": "main", "index": 0 }]
+        [
+          {
+            "node": "Complete sweep",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Fetch RSS",
+            "type": "main",
+            "index": 0
+          }
+        ]
       ]
     },
     "Fetch RSS": {
       "main": [
-        [{ "node": "Map RSS → items", "type": "main", "index": 0 }],
-        [{ "node": "Record failure", "type": "main", "index": 0 }]
+        [
+          {
+            "node": "Map RSS → items",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Record failure",
+            "type": "main",
+            "index": 0
+          }
+        ]
       ]
     },
     "Map RSS → items": {
-      "main": [[{ "node": "Post item", "type": "main", "index": 0 }]]
+      "main": [
+        [
+          {
+            "node": "Post item",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
     },
     "Post item": {
-      "main": [[{ "node": "Record success", "type": "main", "index": 0 }]]
+      "main": [
+        [
+          {
+            "node": "Record success",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
     },
     "Record success": {
-      "main": [[{ "node": "Loop sources", "type": "main", "index": 0 }]]
+      "main": [
+        [
+          {
+            "node": "Loop sources",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
     },
     "Record failure": {
-      "main": [[{ "node": "File alert", "type": "main", "index": 0 }]]
+      "main": [
+        [
+          {
+            "node": "File alert",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
     },
     "File alert": {
-      "main": [[{ "node": "Loop sources", "type": "main", "index": 0 }]]
+      "main": [
+        [
+          {
+            "node": "Loop sources",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Fetch source list": {
+      "main": [
+        [
+          {
+            "node": "Build source queue",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build source queue": {
+      "main": [
+        [
+          {
+            "node": "Loop sources",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
     }
   },
   "settings": {
     "executionOrder": "v1"
   },
   "tags": [
-    { "name": "um-newsroom" },
-    { "name": "ingest" },
-    { "name": "rss" }
+    {
+      "name": "um-newsroom"
+    },
+    {
+      "name": "ingest"
+    },
+    {
+      "name": "rss"
+    }
   ]
 }
