@@ -7,9 +7,43 @@
 > "Recently landed" describing what landed. Update the notes as part of the same
 > commit — never commit code without a notes entry.
 
-_Last updated: 2026-06-22_
+_Last updated: 2026-08-31_
 
 ## Recently landed (this session)
+
+- **RSS sweep now reads the source registry** (`discovery_sources` is
+  authoritative): new `GET /api/ingest/sources?method=rss` (bearer
+  `INGEST_TOKEN`) returns the live registry, and `n8n/workflows/rss-sweep.json`
+  replaces its hardcoded **Source list** Code node with **Fetch source list**
+  (HTTP) → **Build source queue** (Code). Previously the workflow carried its
+  own copy of the list, so adding a source in `/system/discovery-config` did
+  nothing and deleting one left the runner fetching a dead URL — the repo copy
+  still pointed at `SRC-9011`/`SRC-9002`/`SRC-9009`, **all three now deleted**.
+  Server-side filtering: `paused` and future `paused_until` excluded;
+  `warning`/`critical` included (health signals, not off-switches, else a source
+  could never recover); signal-only included with the flag passed through
+  (signal-only restricts drafting, not ingestion). An empty registry now
+  **throws** in the queue node instead of silently sweeping nothing. Verified
+  live: 401 unauthenticated, 401 bad token, 400 bad method, 200 returning
+  `SRC-9016`. Typecheck + lint clean.
+  - Note: `crawl_method` is free `text`, not an enum; `PRESS_MAILBOX` uses
+    `'email'`, which is outside the app's documented set
+    (`rss|sitemap|html_scrape|api`). Harmless — email is push-based via Postmark
+    and never swept — but the endpoint's allow-list rejects `?method=email`.
+- **Source registry purged of seed data** (31 Aug 2026): deleted the 15
+  `SRC-9001`–`SRC-9015` rows seeded by `0004_seed_discovery.sql`. Not one had a
+  working feed URL (7×404, 4× HTML-not-feed, 2× dead host, 403, 401), their
+  candidates were invented (`REC-91xx`), and four were outright fabrications —
+  `techscotland.com` and `snugg.co.uk` are **parked domain-for-sale pages**,
+  `highlandenergy.co` and `dundeeinnovation.com` are NXDOMAIN. Registry now
+  holds `SRC-9016` (the only producing feed) and `PRESS_MAILBOX`. Backup of all
+  deleted rows: `/tmp/purge-backup-2026-08-31.json`.
+  - **Schema drift found:** `0003_discovery_schema.sql` declares
+    `candidates.source_id` `not null … on delete cascade`, but the **live**
+    column is nullable with `on delete set null`. Nothing was lost — 19 seed
+    candidates survive with `source_id = NULL` (plus 2 empty orphan articles).
+    Same class of divergence as the migration-0007 gap: **the migration files do
+    not reliably describe the live database.**
 
 - **Repo migration 0007 reconciled with the deployed DB**: rewrote
   `supabase/migrations/0007_write_surface_schema.sql` to be idempotent

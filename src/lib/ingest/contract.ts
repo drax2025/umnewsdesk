@@ -18,6 +18,27 @@
 export type SweepSlot = "am" | "pm";
 export type SweepTrigger = "scheduled" | "manual" | "webhook";
 export type ItemKind = "rss" | "email" | "pdf" | "web" | "generic";
+export type CrawlMethod = "rss" | "sitemap" | "html_scrape" | "api";
+
+// ─── Source list (GET /api/ingest/sources) ───────────────────
+// Lets a sweep runner ask the app which sources to fetch, so
+// `discovery_sources` is the single source of truth rather than a
+// hardcoded list inside the n8n workflow.
+export type SweepSource = {
+  code: string;
+  name: string;
+  feed_url: string;
+  crawl_method: CrawlMethod;
+  layer: string;
+  status: string;
+  signal_only_eligible: boolean;
+};
+
+export type SweepSourcesResponse = {
+  method: CrawlMethod;
+  count: number;
+  sources: SweepSource[];
+};
 
 // ─── Open sweep ──────────────────────────────────────────────
 export type OpenSweepBody = {

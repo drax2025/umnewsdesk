@@ -64,10 +64,23 @@ so you can isolate "is it the route?" from "is it n8n?".
 
 1. Import `rss-sweep.json`.
 2. Re-bind the credential on the four HTTP nodes.
-3. Edit the **Source list** Code node to match the sources you actually
-   want polled. Each entry needs `code` (matching `discovery_sources.code`)
-   and `feed_url`. Layer is resolved server-side from the code, so don't
-   set it here.
+3. **Nothing to edit — the source list is no longer in the workflow.** The
+   **Fetch source list** node calls `GET /api/ingest/sources?method=rss` and
+   the app returns the live contents of `discovery_sources`. Manage sources in
+   the app at **/system/discovery-config**; the workflow picks the change up on
+   its next run.
+
+   The endpoint filters server-side so a runner never fetches something the desk
+   switched off:
+   - `status = 'paused'` and any source whose `paused_until` is still in the
+     future are **excluded**
+   - `warning` / `critical` are **included** — they are health signals, not
+     off-switches, so a source that failed once can recover on its own
+   - signal-only sources are **included** (the flag is passed through);
+     signal-only restricts drafting, not ingestion
+
+   If the registry returns zero sources the **Build source queue** node throws
+   rather than quietly ending the run with nothing swept.
 4. Activate the workflow.
 5. Schedule runs at 08:00 and 16:00 UTC. To change the cadence, edit the
    cron expression on **Schedule 08:00 + 16:00**.
