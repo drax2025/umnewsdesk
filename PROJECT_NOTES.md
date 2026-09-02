@@ -11,6 +11,35 @@ _Last updated: 2026-09-02_
 
 ## Recently landed (this session)
 
+- **Advisory fact-check on the way out** (2 Sep 2026, Phase 4). `sendToNewsroom`
+  now fetches the source page, compares the candidate against it in one model
+  pass, and attaches the result to the payload and to the candidate row.
+  `src/lib/fetch/safe-url.ts` (ported unchanged from V1), `src/lib/fact-check/`
+  (types, extractor, check), migration `0044`.
+  - **Advisory means advisory.** `factCheckCandidate` never throws. No key, a
+    host that resolves private, a 404, a paywall, a timeout, a model returning
+    nonsense — all come back as `state: "unavailable"` with the reason, and the
+    send proceeds. Three findings send exactly like none.
+  - `state` is three-valued on purpose. `clean` and `unavailable` both carry an
+    empty findings list; collapsing them would let a page that failed to fetch
+    read as a page that checked out.
+  - **Extraction needed real work.** The first source tried has no `<article>`,
+    no `<main>` and no recognisable content class, so there was no structure to
+    lean on. A straight turndown spent the whole 12k budget on social icons and
+    teaser cards and truncated *before* the article. Filtering teaser cards
+    (`* [![…`) and non-prose blocks brought the same page to 10,250 characters
+    with the article at char ~90 and nothing truncated. The candidate headline
+    is also passed as an anchor for pages where a sidebar still survives.
+  - Model is `claude-opus-5`. One call per send, not per candidate — there are
+    1,000+ candidates and almost none of them are sent.
+  - Guard and extractor verified against the live Daily Business Group page:
+    16/16, including cloud-metadata and `file://` refusals.
+  - **Not yet verified end to end.** `ANTHROPIC_API_KEY` exists only in Vercel,
+    so the model half has never run. It needs a real send from a deployed
+    build.
+  - Also removed: `scripts/f3-draft-runner.mjs` and the `f3:draft` package
+    script — Phase 3 missed them because the orphan scan only covered `src/`.
+
 - **The editorial pipeline is retired** (2 Sep 2026, Phase 3). News Desk now
   does discovery and hands the result to Newsroom V1; V1 does the editing,
   images, embargoes, publishing and the agency reply. Removed: `/approvals`,
