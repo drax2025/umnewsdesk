@@ -2,6 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
+import { factCheckCandidate } from "@/lib/fact-check/check";
 
 /**
  * Hands a candidate to Newsroom V1, which owns everything downstream —
@@ -15,6 +16,12 @@ import { createClient } from "@/lib/supabase/server";
  *
  * What comes back is recorded against the candidate, so both systems can say
  * where a story went.
+ *
+ * A fact-check runs on the way out — the candidate against the page it came
+ * from. It is advisory and never blocks: a check that finds three problems
+ * sends exactly like one that finds none, and a check that could not run sends
+ * too, carrying the reason. The editor in V1 sees the notes beside the source
+ * links and decides.
  */
 
 const TIMEOUT_MS = 20_000;
@@ -86,6 +93,16 @@ export async function sendToNewsroom(candidateId: string): Promise<HandoffResult
   const blocked = blockingReason(candidate);
   if (blocked) return { ok: false, error: blocked };
 
+  // Advisory, and deliberately before the post rather than after: the notes
+  // are only useful to the person who picks the story up, so they have to
+  // travel with it. factCheckCandidate never throws — every failure comes back
+  // as state "unavailable" with a reason attached.
+  const factCheck = await factCheckCandidate({
+    sourceUrl: candidate.primary_url as string,
+    title: candidate.working_headline,
+    body: candidate.body_text as string,
+  });
+
   const payload = {
     candidateId: candidate.code,
     sourceUrl: candidate.primary_url,
@@ -101,6 +118,7 @@ export async function sendToNewsroom(candidateId: string): Promise<HandoffResult
       state: candidate.verification_state,
       dedup: candidate.dedup_state,
     },
+    factCheck,
   };
 
   let lastError = "";
@@ -122,6 +140,8 @@ export async function sendToNewsroom(candidateId: string): Promise<HandoffResult
             newsroom_record_id: body.recordId ?? null,
             sent_to_newsroom_at: new Date().toISOString(),
             newsroom_send_error: null,
+            fact_check: factCheck,
+            fact_checked_at: factCheck.checkedAt,
             triage_state: "sent_to_f1",
           })
           .eq("id", candidateId);
