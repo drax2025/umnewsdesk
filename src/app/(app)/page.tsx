@@ -15,15 +15,12 @@ import { cn } from "@/lib/utils";
 
 export const dynamic = "force-dynamic";
 
-type CandidateRow = {
+type SentRow = {
   id: string;
   code: string;
   working_headline: string;
-  triage_state: string;
-  surfaced_at: string;
   sent_to_newsroom_at: string | null;
   newsroom_record_id: string | null;
-  newsroom_send_error: string | null;
 };
 
 type SweepRow = {
@@ -37,109 +34,124 @@ type SweepRow = {
   parse_failures: number | null;
 };
 
+/** Matches `sweep_status` in 0003_discovery_schema.sql — not "completed". */
+const SWEEP_OK = "complete";
 const HELD_STATES = ["held_dedup", "held_source", "needs_review", "pointer"];
 
 export default async function DashboardPage() {
   const supabase = await createClient();
 
-  const [candRes, sweepRes, opsRes, sourcesRes] = await Promise.all([
-    supabase
-      .from("candidates")
-      .select(
-        "id, code, working_headline, triage_state, surfaced_at, sent_to_newsroom_at, newsroom_record_id, newsroom_send_error",
-      )
-      .order("surfaced_at", { ascending: false })
-      .limit(500)
-      .returns<CandidateRow[]>(),
-    supabase
-      .from("sweep_runs")
-      .select(
-        "code, status, started_at, completed_at, candidates_total, sites_total, not_reached, parse_failures",
-      )
-      .order("started_at", { ascending: false })
-      .limit(1)
-      .returns<SweepRow[]>(),
-    supabase
-      .from("ops_rr_alerts")
-      .select("id", { count: "exact", head: true })
-      .eq("status", "open"),
-    supabase
-      .from("discovery_sources")
-      .select("status")
-      .returns<{ status: string }[]>(),
-  ]);
+  const startOfToday = new Date();
+  startOfToday.setHours(0, 0, 0, 0);
+  const todayIso = startOfToday.toISOString();
 
-  const cands = candRes.data ?? [];
+  // Counted in the database, not by reading rows and calling .length: there
+  // are over a thousand candidates, and any row cap here would quietly
+  // undercount the tiles rather than fail.
+  const [readyRes, heldRes, sentTodayRes, failedRes, sweepRes, opsRes, sourcesRes, recentRes] =
+    await Promise.all([
+      supabase
+        .from("candidates")
+        .select("id", { count: "exact", head: true })
+        .eq("triage_state", "ready")
+        .is("sent_to_newsroom_at", null),
+      supabase
+        .from("candidates")
+        .select("id", { count: "exact", head: true })
+        .in("triage_state", HELD_STATES),
+      supabase
+        .from("candidates")
+        .select("id", { count: "exact", head: true })
+        .gte("sent_to_newsroom_at", todayIso),
+      supabase
+        .from("candidates")
+        .select("id", { count: "exact", head: true })
+        .not("newsroom_send_error", "is", null)
+        .is("sent_to_newsroom_at", null),
+      supabase
+        .from("sweep_runs")
+        .select(
+          "code, status, started_at, completed_at, candidates_total, sites_total, not_reached, parse_failures",
+        )
+        .order("started_at", { ascending: false })
+        .limit(1)
+        .returns<SweepRow[]>(),
+      supabase
+        .from("ops_rr_alerts")
+        .select("id", { count: "exact", head: true })
+        .eq("status", "open"),
+      supabase.from("discovery_sources").select("status").returns<{ status: string }[]>(),
+      supabase
+        .from("candidates")
+        .select("id, code, working_headline, sent_to_newsroom_at, newsroom_record_id")
+        .gte("sent_to_newsroom_at", todayIso)
+        .order("sent_to_newsroom_at", { ascending: false })
+        .limit(8)
+        .returns<SentRow[]>(),
+    ]);
+
+  const readyCount = readyRes.count ?? 0;
+  const heldCount = heldRes.count ?? 0;
+  const sentTodayCount = sentTodayRes.count ?? 0;
+  const failedCount = failedRes.count ?? 0;
   const sweep = sweepRes.data?.[0] ?? null;
   const openOps = opsRes.count ?? 0;
   const sources = sourcesRes.data ?? [];
+  const recent = recentRes.data ?? [];
 
-  const startOfToday = new Date();
-  startOfToday.setHours(0, 0, 0, 0);
-
-  // "Ready" is the working set: surfaced, not held, not yet handed over.
-  const ready = cands.filter(
-    (c) => c.triage_state === "ready" && !c.sent_to_newsroom_at,
-  );
-  const sentToday = cands.filter(
-    (c) => c.sent_to_newsroom_at && new Date(c.sent_to_newsroom_at) >= startOfToday,
-  );
-  const held = cands.filter((c) => HELD_STATES.includes(c.triage_state));
-  // A failure that has not since succeeded. Worth its own tile: it is the one
-  // state where a story is stuck with nobody's name against it.
-  const failed = cands.filter((c) => c.newsroom_send_error && !c.sent_to_newsroom_at);
   const activeSources = sources.filter((s) => s.status === "active").length;
 
-  const sweepOk = sweep?.status === "completed" && (sweep.parse_failures ?? 0) === 0;
+  // A sweep that is still running is neither good news nor bad; only a
+  // finished one that failed or dropped feeds earns the red.
+  const sweepRunning = sweep?.status === "running";
+  const sweepOk =
+    sweep?.status === SWEEP_OK &&
+    (sweep.parse_failures ?? 0) === 0 &&
+    (sweep.not_reached ?? 0) === 0;
+  const sweepTone = !sweep ? "warn" : sweepRunning ? undefined : sweepOk ? "success" : "danger";
   const sweepLabel = sweep
-    ? sweep.completed_at
-      ? new Date(sweep.completed_at).toLocaleString("en-GB", {
-          day: "numeric",
-          month: "short",
-          hour: "2-digit",
-          minute: "2-digit",
-          hour12: false,
-        })
-      : "running"
+    ? sweepRunning
+      ? "running"
+      : sweep.completed_at
+        ? new Date(sweep.completed_at).toLocaleString("en-GB", {
+            day: "numeric",
+            month: "short",
+            hour: "2-digit",
+            minute: "2-digit",
+            hour12: false,
+          })
+        : sweep.status
     : "never";
-
-  const recent = [...sentToday]
-    .sort(
-      (a, b) =>
-        new Date(b.sent_to_newsroom_at ?? 0).getTime() -
-        new Date(a.sent_to_newsroom_at ?? 0).getTime(),
-    )
-    .slice(0, 8);
 
   return (
     <div className="space-y-5 px-5 py-5">
       <section className="grid grid-cols-2 gap-2 md:grid-cols-3 lg:grid-cols-6">
         <StatTile
           href="/discovery/inbox?state=ready"
-          value={ready.length.toString()}
+          value={readyCount.toString()}
           label="Ready to send"
           sub="Triaged, not yet handed over"
-          tone={ready.length > 0 ? "success" : undefined}
+          tone={readyCount > 0 ? "success" : undefined}
         />
         <StatTile
           href="/discovery/inbox"
-          value={sentToday.length.toString()}
+          value={sentTodayCount.toString()}
           label="Sent today"
           sub="Now in Newsroom V1"
         />
         <StatTile
           href="/discovery/inbox"
-          value={held.length.toString()}
+          value={heldCount.toString()}
           label="Held"
           sub="Duplicate · source · review"
-          tone={held.length > 0 ? "warn" : undefined}
+          tone={heldCount > 0 ? "warn" : undefined}
         />
         <StatTile
           href="/discovery/sweeps"
           value={(sweep?.candidates_total ?? 0).toString()}
           label="Last sweep"
           sub={`${sweep?.code ?? "—"} · ${sweepLabel}`}
-          tone={sweep ? (sweepOk ? "success" : "danger") : "warn"}
+          tone={sweepTone}
         />
         <StatTile
           href="/system/source-health"
@@ -155,10 +167,10 @@ export default async function DashboardPage() {
         />
         <StatTile
           href="/discovery/ops-rr"
-          value={(openOps + failed.length).toString()}
+          value={(openOps + failedCount).toString()}
           label="Needs attention"
-          sub={`${openOps} OPS-RR · ${failed.length} send failed`}
-          tone={openOps + failed.length > 0 ? "danger" : undefined}
+          sub={`${openOps} OPS-RR · ${failedCount} send failed`}
+          tone={openOps + failedCount > 0 ? "danger" : undefined}
         />
       </section>
 
@@ -203,7 +215,7 @@ export default async function DashboardPage() {
             <li className="px-4 py-8 text-center text-[12.5px] text-um-muted">
               Nothing sent today.{" "}
               <Link href="/discovery/inbox?state=ready" className="text-primary hover:underline">
-                {ready.length} candidate{ready.length === 1 ? "" : "s"} ready
+                {readyCount} candidate{readyCount === 1 ? "" : "s"} ready
               </Link>
               .
             </li>

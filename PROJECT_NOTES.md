@@ -35,6 +35,12 @@ _Last updated: 2026-09-02_
     last sweep, sources active, needs attention. It deliberately does not
     mirror anything past the handoff — two systems reporting the same number
     is how they start disagreeing.
+    - Two bugs in the first version, both found by running the queries against
+      live data rather than reading the code. `sweep_status` is `complete`, not
+      `completed` — the tile would have shown a clean sweep in red. And the
+      counts were taken by reading 500 rows and calling `.length` against 1,092
+      candidates: **ready** would have read 496 instead of 1,063 and **held** 0
+      instead of 6. Both now counted in the database with `count: "exact"`.
   - **WordPress credentials removed from Titles.** All five titles held a
     complete, live app-password for sites V1 already publishes to. The UI is
     gone; migration `0043` nulls the values. Columns kept, not dropped, so it
