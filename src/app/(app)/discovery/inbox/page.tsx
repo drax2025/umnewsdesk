@@ -9,19 +9,7 @@ import {
   escalateCandidateToOpsRr,
   setCandidateTriage,
 } from "@/lib/actions/inbox";
-import {
-  CommissionTitlePicker,
-  type CommissionTitleOption,
-} from "@/components/forms/commission-title-picker";
-import { ScoreButton } from "@/components/forms/score-button";
 import { SendToNewsroomButton } from "@/components/forms/send-to-newsroom-button";
-import type { ScoreBreakdown } from "@/lib/actions/score";
-import { F1TriageCell } from "@/components/forms/f1-triage";
-import type {
-  DefamationTier,
-  FramingBrief,
-  ProductionOption,
-} from "@/lib/spec/f1-triage";
 
 export const dynamic = "force-dynamic";
 
@@ -49,8 +37,6 @@ type CandidateRow = {
     | "escalated"
     | "archived";
   risk: "low" | "med" | "high";
-  score: number | null;
-  score_breakdown: ScoreBreakdown | null;
   embargo_until: string | null;
   embargo_confidence: "high" | "med" | "low" | "none" | null;
   attachment_urls: string[] | null;
@@ -59,9 +45,6 @@ type CandidateRow = {
   raw: { agency_name?: string | null } | null;
   stream_id: string | null;
   sweep_run_id: string | null;
-  production_option: ProductionOption | null;
-  defamation_tier: DefamationTier | null;
-  framing_brief: FramingBrief | null;
 };
 
 type StreamRow = { id: string; name: string; slug: string };
@@ -86,7 +69,7 @@ const TRIAGE_STATES: { state: string; label: string }[] = [
   { state: "held_source", label: "Held — Source" },
   { state: "needs_review", label: "Needs Review" },
   { state: "pointer", label: "Pointer" },
-  { state: "sent_to_f1", label: "Sent to F1" },
+  { state: "sent_to_f1", label: "Sent" },
   { state: "archived", label: "Archived" },
 ];
 
@@ -107,7 +90,7 @@ const TRIAGE_LABEL: Record<string, string> = {
   held_source: "Held · Source",
   needs_review: "Needs review",
   pointer: "Pointer",
-  sent_to_f1: "Sent · F1",
+  sent_to_f1: "Sent",
   escalated: "Escalated",
   archived: "Archived",
 };
@@ -125,39 +108,6 @@ const VERIFY_PILL: Record<string, string> = {
   pending: "text-warn",
   unverified: "text-destructive",
 };
-
-/**
- * Lifecycle labels for the article a commissioned candidate became. Surfaced
- * on the inbox row so the desk can see at a glance that a candidate is already
- * downstream (and how far) without opening commissioning. `live` / `wp_draft`
- * are the "published" end-states the operator was looking for.
- */
-const ARTICLE_STATE_META: Record<string, { label: string; tone: string }> = {
-  pitched: { label: "Pitched", tone: "border-um-muted/40 bg-um-muted/10 text-um-muted" },
-  commissioned: {
-    label: "Commissioned",
-    tone: "border-state-comm/40 bg-state-comm/10 text-state-comm",
-  },
-  filed: { label: "Filed", tone: "border-primary/40 bg-primary/10 text-primary" },
-  subbed: { label: "Sub-edit", tone: "border-primary/40 bg-primary/10 text-primary" },
-  legal: { label: "Legal", tone: "border-state-legal/40 bg-state-legal/10 text-state-legal" },
-  scheduled: { label: "Scheduled", tone: "border-warn/40 bg-warn/10 text-warn" },
-  wp_draft: { label: "WP draft", tone: "border-warn/40 bg-warn/10 text-warn" },
-  live: { label: "● Live", tone: "border-success/45 bg-success/15 text-success" },
-  rejected: { label: "Rejected", tone: "border-um-muted/40 bg-um-muted/10 text-um-muted" },
-  killed: { label: "Killed", tone: "border-destructive/45 bg-destructive/10 text-destructive" },
-};
-
-function articleStateMeta(state: string): { label: string; tone: string } {
-  return (
-    ARTICLE_STATE_META[state] ?? {
-      label: state,
-      tone: "border-border bg-background text-um-muted",
-    }
-  );
-}
-
-type LinkedArticle = { id: string; state: string };
 
 function relTime(iso: string): string {
   const ms = Date.now() - new Date(iso).getTime();
@@ -189,8 +139,7 @@ type SortColumn =
   | "stream"
   | "dedup_state"
   | "verification_state"
-  | "triage_state"
-  | "score";
+  | "triage_state";
 
 type SortDir = "asc" | "desc";
 
@@ -204,15 +153,14 @@ const SORTABLE_COLUMNS: ReadonlySet<SortColumn> = new Set<SortColumn>([
   "dedup_state",
   "verification_state",
   "triage_state",
-  "score",
 ]);
 
 const DEFAULT_SORT: SortColumn = "surfaced_at";
 const DEFAULT_DIR: SortDir = "desc";
 
-/** Sensible default direction per column — score and surfaced_at start desc. */
+/** Sensible default direction per column — surfaced_at starts desc. */
 function defaultDirFor(col: SortColumn): SortDir {
-  return col === "score" || col === "surfaced_at" ? "desc" : "asc";
+  return col === "surfaced_at" ? "desc" : "asc";
 }
 
 export default async function CandidateInboxPage({
@@ -240,12 +188,12 @@ export default async function CandidateInboxPage({
   const activeDir: SortDir = sp.dir === "asc" || sp.dir === "desc" ? sp.dir : DEFAULT_DIR;
 
   const supabase = await createClient();
-  const [candRes, streamsRes, sourcesRes, sweepsRes, opsRes, titlesRes] =
+  const [candRes, streamsRes, sourcesRes, sweepsRes, opsRes] =
     await Promise.all([
       supabase
         .from("candidates")
         .select(
-          "id, code, working_headline, primary_url, image_url, layer, kind, dedup_state, verification_state, triage_state, risk, score, score_breakdown, embargo_until, embargo_confidence, attachment_urls, surfaced_at, source_id, stream_id, sweep_run_id, raw, production_option, defamation_tier, framing_brief, newsroom_record_id, sent_to_newsroom_at, newsroom_send_error",
+          "id, code, working_headline, primary_url, image_url, layer, kind, dedup_state, verification_state, triage_state, risk, embargo_until, embargo_confidence, attachment_urls, surfaced_at, source_id, stream_id, sweep_run_id, raw, newsroom_record_id, sent_to_newsroom_at, newsroom_send_error",
         )
         .order("surfaced_at", { ascending: false })
         .limit(200),
@@ -258,15 +206,6 @@ export default async function CandidateInboxPage({
         .eq("status", "open")
         .order("created_at", { ascending: false })
         .limit(5),
-      // Active publication silos for the per-row title picker. Inactive titles
-      // are filtered out so a deprecated brand doesn't appear in the dropdown
-      // even if a candidate has historically been commissioned into it.
-      supabase
-        .from("titles")
-        .select("id, name")
-        .eq("is_active", true)
-        .order("name", { ascending: true })
-        .returns<CommissionTitleOption[]>(),
     ]);
 
   const cands: CandidateRow[] = candRes.data ?? [];
@@ -274,46 +213,10 @@ export default async function CandidateInboxPage({
   const sources: SourceRow[] = sourcesRes.data ?? [];
   const sweeps: SweepRow[] = sweepsRes.data ?? [];
   const openOps: OpsAlertRow[] = opsRes.data ?? [];
-  const titles: CommissionTitleOption[] = titlesRes.data ?? [];
 
   const streamMap = new Map(streams.map((s) => [s.id, s]));
   const sourceMap = new Map(sources.map((s) => [s.id, s]));
 
-  // Link each candidate to the article it was commissioned into (if any), so
-  // the row can show how far downstream it is — most importantly whether it's
-  // already live. candidate → commission → article(state). A candidate can be
-  // re-commissioned, so prefer the most recent commission.
-  const articleByCandidate = new Map<string, LinkedArticle>();
-  const candidateIds = cands.map((c) => c.id);
-  if (candidateIds.length > 0) {
-    const { data: comms } = await supabase
-      .from("commissions")
-      .select("candidate_id, article_id, commissioned_at")
-      .in("candidate_id", candidateIds)
-      .order("commissioned_at", { ascending: false })
-      .returns<
-        { candidate_id: string | null; article_id: string | null; commissioned_at: string }[]
-      >();
-    const articleIds = Array.from(
-      new Set((comms ?? []).map((x) => x.article_id).filter((x): x is string => Boolean(x))),
-    );
-    const stateById = new Map<string, string>();
-    if (articleIds.length > 0) {
-      const { data: arts } = await supabase
-        .from("articles")
-        .select("id, state")
-        .in("id", articleIds)
-        .returns<{ id: string; state: string }[]>();
-      for (const a of arts ?? []) stateById.set(a.id, a.state);
-    }
-    // comms is newest-first; first write per candidate wins (the latest one).
-    for (const x of comms ?? []) {
-      if (!x.candidate_id || !x.article_id) continue;
-      if (articleByCandidate.has(x.candidate_id)) continue;
-      const state = stateById.get(x.article_id);
-      if (state) articleByCandidate.set(x.candidate_id, { id: x.article_id, state });
-    }
-  }
   // Server Component renders once per request, so a wall-clock snapshot
   // here is stable for the lifetime of the response. Threading it to
   // EmbargoChip keeps the child component pure.
@@ -376,8 +279,6 @@ export default async function CandidateInboxPage({
         return c.verification_state;
       case "triage_state":
         return c.triage_state;
-      case "score":
-        return c.score;
     }
   }
 
@@ -413,23 +314,10 @@ export default async function CandidateInboxPage({
   const acceptanceRate = triaged ? (accepted / triaged) * 100 : 0;
   const dedupRate = cands.length ? (heldDup / cands.length) * 100 : 0;
 
-  // Archived rows are out of the working set — don't include them in
-  // the "unscored" call-to-action; the operator already decided.
-  const unscoredCount = cands.filter(
-    (c) => c.score === null && c.triage_state !== "archived",
-  ).length;
-
-  const readyScores = cands.filter((c) => c.triage_state === "ready" && c.score !== null);
-  const avgScore =
-    readyScores.length > 0
-      ? readyScores.reduce((a, c) => a + Number(c.score), 0) / readyScores.length
-      : 0;
-
   // Pre-format time-sensitive labels for the right panel — keeps the
   // client component a pure presentation surface and avoids hydration
   // mismatches around Date.now().
   const oldestReadyLabel = oldestReady ? relTime(oldestReady) : null;
-  const avgScoreLabel = avgScore ? `${avgScore.toFixed(1)}/22` : "—";
   const lastSweepCode = sweeps.length > 0 ? (sweeps[0]?.code ?? null) : null;
 
   // Sort/filter preservation helpers. Sort gets dropped from the URL
@@ -553,10 +441,6 @@ export default async function CandidateInboxPage({
           ]}
         />
 
-        <div className="mx-2 h-5 w-px bg-border" />
-
-        <ScoreButton unscoredCount={unscoredCount} />
-
         <form action="/discovery/inbox" className="ml-auto flex items-center gap-2">
           {activeState !== "all" ? <input type="hidden" name="state" value={activeState} /> : null}
           {activeLayer ? <input type="hidden" name="layer" value={activeLayer} /> : null}
@@ -656,16 +540,6 @@ export default async function CandidateInboxPage({
                       activeDir={activeDir}
                       preserve={filterPreserveParams}
                     />
-                    <Th>F1</Th>
-                    <SortHeader
-                      column="score"
-                      label="Score"
-                      className="text-right"
-                      alignRight
-                      activeSort={activeSort}
-                      activeDir={activeDir}
-                      preserve={filterPreserveParams}
-                    />
                     <Th className="text-right">Newsroom</Th>
                     <Th className="text-right">Actions</Th>
                   </tr>
@@ -674,7 +548,6 @@ export default async function CandidateInboxPage({
                   {filtered.map((c) => {
                     const stream = c.stream_id ? streamMap.get(c.stream_id) : null;
                     const source = c.source_id ? sourceMap.get(c.source_id) : null;
-                    const article = articleByCandidate.get(c.id) ?? null;
                     return (
                       <tr
                         key={c.id}
@@ -714,7 +587,6 @@ export default async function CandidateInboxPage({
                                   nowMs={nowMs}
                                 />
                                 <AttachmentChip names={c.attachment_urls} />
-                                {article ? <ArticleStateChip article={article} /> : null}
                               </div>
                             </div>
                           </div>
@@ -776,20 +648,6 @@ export default async function CandidateInboxPage({
                             {TRIAGE_LABEL[c.triage_state] ?? c.triage_state}
                           </span>
                         </td>
-                        <td className="px-3 py-2.5">
-                          <F1TriageCell
-                            candidateId={c.id}
-                            candidateCode={c.code}
-                            scorecard={{
-                              production_option: c.production_option,
-                              defamation_tier: c.defamation_tier,
-                              framing_brief: c.framing_brief,
-                            }}
-                          />
-                        </td>
-                        <td className="whitespace-nowrap px-3 py-2.5 text-right">
-                          <ScorePill score={c.score} breakdown={c.score_breakdown} />
-                        </td>
                         {/* The handoff. Everything downstream of this - editing,
                             embargoes, publishing, the agency reply - belongs to
                             the newsroom, so this is where News Desk's job ends. */}
@@ -803,12 +661,7 @@ export default async function CandidateInboxPage({
                           </div>
                         </td>
                         <td className="whitespace-nowrap px-3 py-2.5 text-right">
-                          <TriageActions
-                            id={c.id}
-                            state={c.triage_state}
-                            titles={titles}
-                            article={article}
-                          />
+                          <TriageActions id={c.id} state={c.triage_state} />
                         </td>
                       </tr>
                     );
@@ -841,7 +694,6 @@ export default async function CandidateInboxPage({
           oldestReadyLabel={oldestReadyLabel}
           acceptanceRate={acceptanceRate}
           dedupRate={dedupRate}
-          avgScoreLabel={avgScoreLabel}
           lastSweepCode={lastSweepCode}
           openOps={openOps.map((o) => ({ code: o.code, description: o.description }))}
         />
@@ -850,51 +702,18 @@ export default async function CandidateInboxPage({
   );
 }
 
-function ArticleStateChip({ article }: { article: LinkedArticle }) {
-  const meta = articleStateMeta(article.state);
-  return (
-    <Link
-      href={`/articles/${article.id}`}
-      title={`Commissioned — article is ${article.state}. Open the dossier.`}
-      className={cn(
-        "inline-flex items-center rounded-sm border px-1.5 py-0.5 font-mono text-[10px] font-semibold uppercase tracking-wider transition-colors hover:brightness-110",
-        meta.tone,
-      )}
-    >
-      {meta.label}
-    </Link>
-  );
-}
-
 function TriageActions({
   id,
   state,
-  titles,
-  article,
 }: {
   id: string;
   state: CandidateRow["triage_state"];
-  titles: CommissionTitleOption[];
-  article: LinkedArticle | null;
 }) {
-  // Already commissioned (article exists) — show a path to it and its
-  // lifecycle state instead of a Commission button, regardless of the
-  // candidate's own triage_state. This is what makes a published candidate
-  // obvious from the inbox and prevents accidental double-commissioning.
-  if (article) {
-    const meta = articleStateMeta(article.state);
-    return (
-      <Link
-        href={`/articles/${article.id}`}
-        className="inline-flex h-6 items-center gap-1 rounded-sm border border-border bg-background px-2 text-[10.5px] font-medium text-fg-2 transition-colors hover:bg-secondary"
-        title={`Open the article dossier (state: ${article.state}).`}
-      >
-        Open article · {meta.label}
-      </Link>
-    );
-  }
+  // `sent_to_f1` is kept as the enum value because it is what the database
+  // holds, but F1 no longer exists — a sent candidate is one the newsroom has.
+  // The Newsroom column carries the record id; this only reports the state.
   if (state === "sent_to_f1") {
-    return <span className="text-[10.5px] text-um-muted">commissioned</span>;
+    return <span className="text-[10.5px] text-um-muted">sent</span>;
   }
   if (state === "escalated") {
     return <span className="text-[10.5px] text-warn">in OPS-RR</span>;
@@ -902,12 +721,6 @@ function TriageActions({
   if (state === "ready") {
     return (
       <div className="inline-flex items-center gap-1">
-        <CommissionTitlePicker
-          candidateId={id}
-          titles={titles}
-          variant="success"
-          label="Commission"
-        />
         <OpsEscalateMenu id={id} />
         <form action={dismissCandidate} className="inline-block">
           <input type="hidden" name="id" value={id} />
@@ -1113,57 +926,6 @@ function Thumb({ url, alt }: { url: string | null; alt: string }) {
       referrerPolicy="no-referrer"
       className="h-9 w-12 rounded-sm border border-border bg-background object-cover"
     />
-  );
-}
-
-function ScorePill({
-  score,
-  breakdown,
-}: {
-  score: number | null;
-  breakdown: ScoreBreakdown | null;
-}) {
-  if (score === null) {
-    return (
-      <span className="font-mono text-[11px] text-um-muted" title="Not yet scored">
-        —
-      </span>
-    );
-  }
-  const n = Math.round(Number(score));
-  const tone =
-    n >= 17
-      ? "border-success/40 bg-success/10 text-success"
-      : n >= 13
-        ? "border-primary/40 bg-primary/10 text-primary"
-        : n >= 8
-          ? "border-warn/40 bg-warn/10 text-warn"
-          : "border-border bg-secondary text-um-muted";
-  const tooltip = breakdown
-    ? [
-        `Scottish ${breakdown.scottish_relevance}/5`,
-        `Sector ${breakdown.sector_relevance}/4`,
-        `Recency ${breakdown.recency}/4`,
-        `Multi-source ${breakdown.multi_source}/3`,
-        `Audience ${breakdown.audience_impact}/3`,
-        `Angle ${breakdown.editorial_angle}/2`,
-        `PR quality ${breakdown.press_release_quality}/1`,
-        breakdown.rationale ? `\n${breakdown.rationale}` : "",
-      ]
-        .filter(Boolean)
-        .join(" · ")
-    : `Score ${n}/22`;
-  return (
-    <span
-      title={tooltip}
-      className={cn(
-        "inline-flex items-center rounded-full border px-2 py-0.5 font-mono text-[11px] font-semibold tabular-nums",
-        tone,
-      )}
-    >
-      {n}
-      <span className="ml-0.5 text-um-muted/80">/22</span>
-    </span>
   );
 }
 

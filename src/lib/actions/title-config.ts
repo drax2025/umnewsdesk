@@ -6,13 +6,10 @@ import { createServiceClient } from "@/lib/supabase/service";
 import {
   GEO_TIERS,
   PRIMARY_FRAMES,
-  WP_DEFAULT_STATUSES,
   isValidHexColor,
-  isValidHttpsUrl,
   parseListField,
   type GeoTier,
   type PrimaryFrame,
-  type WpDefaultStatus,
 } from "@/lib/spec/a7-title-config";
 
 /**
@@ -85,16 +82,6 @@ function parseGeoTier(raw: FormDataEntryValue | null): GeoTier | null {
   return GEO_TIERS.some((t) => t.value === v) ? (v as GeoTier) : null;
 }
 
-function parseWpStatus(
-  raw: FormDataEntryValue | null,
-): WpDefaultStatus | null {
-  const v = trimOrNull(raw, 12);
-  if (!v) return null;
-  return WP_DEFAULT_STATUSES.some((s) => s.value === v)
-    ? (v as WpDefaultStatus)
-    : null;
-}
-
 function parseWeekday(raw: FormDataEntryValue | null): number | null {
   if (raw === null) return null;
   const s = String(raw).trim();
@@ -109,13 +96,6 @@ function parseDateOrNull(raw: FormDataEntryValue | null): string | null {
   return /^\d{4}-\d{2}-\d{2}$/.test(v) ? v : null;
 }
 
-function parseIntOrNull(raw: FormDataEntryValue | null): number | null {
-  if (raw === null) return null;
-  const s = String(raw).trim();
-  if (!s) return null;
-  const n = Number(s);
-  return Number.isInteger(n) && n >= 0 ? n : null;
-}
 
 /* -------------------------------------------------------------------------- */
 /*  createTitle — new publication silo                                        */
@@ -178,12 +158,6 @@ export async function updateTitleConfig(
   const defaultFrame = parseFrame(fd.get("default_frame"));
 
   // WordPress
-  const wpBaseUrl = trimOrNull(fd.get("wp_base_url"), 600);
-  const wpUsername = trimOrNull(fd.get("wp_username"), 240);
-  const wpAppPasswordRaw = trimOrNull(fd.get("wp_app_password"), 240);
-  const wpAppPasswordClear = fd.get("wp_app_password_clear") === "1";
-  const wpDefaultStatus = parseWpStatus(fd.get("wp_default_status"));
-  const wpDefaultCategoryId = parseIntOrNull(fd.get("wp_default_category_id"));
 
   // Editorial
   const defaultSectors = parseListField(String(fd.get("default_sectors") ?? ""));
@@ -220,10 +194,6 @@ export async function updateTitleConfig(
   if (primaryColor && !isValidHexColor(primaryColor)) {
     return { ok: false, error: "Primary colour must be a hex like #1A2B3C." };
   }
-  if (wpBaseUrl && !isValidHttpsUrl(wpBaseUrl)) {
-    return { ok: false, error: "WP base URL must be http/https." };
-  }
-
   const uid = await currentUserId();
   const admin = createServiceClient();
 
@@ -233,10 +203,6 @@ export async function updateTitleConfig(
     tagline,
     primary_color: primaryColor,
     default_frame: defaultFrame,
-    wp_base_url: wpBaseUrl,
-    wp_username: wpUsername,
-    wp_default_status: wpDefaultStatus,
-    wp_default_category_id: wpDefaultCategoryId,
     default_sectors: defaultSectors,
     silo_options: siloOptions,
     default_geo_tier: defaultGeoTier,
@@ -248,14 +214,6 @@ export async function updateTitleConfig(
     config_updated_by: uid,
   };
   if (configJson !== null) update.config = configJson;
-
-  // Only touch the app-password if the user typed a new one OR explicitly
-  // cleared it. Otherwise leave the stored secret alone.
-  if (wpAppPasswordClear) {
-    update.wp_app_password = null;
-  } else if (wpAppPasswordRaw) {
-    update.wp_app_password = wpAppPasswordRaw;
-  }
 
   const { error } = await admin.from("titles").update(update).eq("id", id);
   if (error) return { ok: false, error: error.message };
@@ -296,96 +254,3 @@ export async function setTitleActive(
   return { ok: true };
 }
 
-/* -------------------------------------------------------------------------- */
-/*  testWordPressConnection — live ping                                       */
-/* -------------------------------------------------------------------------- */
-
-export async function testWordPressConnection(
-  fd: FormData,
-): Promise<WpTestResult> {
-  const gate = await requireSeniorEditor();
-  if (gate && !gate.ok) return { ok: false, error: gate.error };
-
-  const id = trimOrNull(fd.get("id"), 40);
-  if (!id) return { ok: false, error: "Missing title id" };
-
-  const admin = createServiceClient();
-  const { data: row } = await admin
-    .from("titles")
-    .select("wp_base_url, wp_username, wp_app_password")
-    .eq("id", id)
-    .maybeSingle<{
-      wp_base_url: string | null;
-      wp_username: string | null;
-      wp_app_password: string | null;
-    }>();
-  if (!row) return { ok: false, error: "Title not found." };
-
-  const base = row.wp_base_url;
-  const user = row.wp_username;
-  const pass = row.wp_app_password;
-  if (!base || !user || !pass) {
-    return {
-      ok: false,
-      error: "WordPress credentials incomplete — set base URL, user, and app password.",
-    };
-  }
-
-  // /wp-json/ returns site discovery doc.
-  const discoveryUrl = `${base.replace(/\/+$/, "")}/wp-json/`;
-  let discoveryRes: Response;
-  try {
-    discoveryRes = await fetch(discoveryUrl, {
-      headers: {
-        Authorization:
-          "Basic " + Buffer.from(`${user}:${pass}`).toString("base64"),
-      },
-      cache: "no-store",
-    });
-  } catch (e) {
-    return { ok: false, error: `Network: ${(e as Error).message}` };
-  }
-  if (!discoveryRes.ok) {
-    return {
-      ok: false,
-      status: discoveryRes.status,
-      error: `Discovery failed: ${discoveryRes.status} ${discoveryRes.statusText}`,
-    };
-  }
-  const disc = (await discoveryRes.json().catch(() => null)) as
-    | { name?: string; url?: string }
-    | null;
-
-  // /wp-json/wp/v2/users/me verifies the credentials are accepted.
-  const meUrl = `${base.replace(/\/+$/, "")}/wp-json/wp/v2/users/me`;
-  let meRes: Response;
-  try {
-    meRes = await fetch(meUrl, {
-      headers: {
-        Authorization:
-          "Basic " + Buffer.from(`${user}:${pass}`).toString("base64"),
-      },
-      cache: "no-store",
-    });
-  } catch (e) {
-    return { ok: false, error: `Network (users/me): ${(e as Error).message}` };
-  }
-  if (!meRes.ok) {
-    return {
-      ok: false,
-      status: meRes.status,
-      error: `Credentials rejected: ${meRes.status} ${meRes.statusText}`,
-    };
-  }
-  const meJson = (await meRes.json().catch(() => null)) as
-    | { id?: number }
-    | null;
-
-  return {
-    ok: true,
-    status: meRes.status,
-    site_name: disc?.name ?? null,
-    site_url: disc?.url ?? null,
-    user_id: meJson?.id ?? null,
-  };
-}

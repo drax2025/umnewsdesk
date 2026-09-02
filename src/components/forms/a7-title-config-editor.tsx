@@ -6,11 +6,9 @@ import {
   CheckCircle2,
   ChevronRight,
   Globe2,
-  KeyRound,
   Loader2,
   Newspaper,
   Pause,
-  PlugZap,
   Save,
   Settings,
 } from "lucide-react";
@@ -18,26 +16,14 @@ import {
   GEO_TIERS,
   PRIMARY_FRAMES,
   WEEKDAYS,
-  WP_DEFAULT_STATUSES,
   type TitleConfigRow,
 } from "@/lib/spec/a7-title-config";
 import {
   setTitleActive,
-  testWordPressConnection,
   updateTitleConfig,
   type TitleConfigActionResult,
-  type WpTestResult,
 } from "@/lib/actions/title-config";
 import { cn } from "@/lib/utils";
-
-type MaskedWp = {
-  base_url: string | null;
-  username: string | null;
-  password_state: "set" | "missing";
-  default_status: string | null;
-  default_category_id: number | null;
-  configured: boolean;
-};
 
 type Completeness = {
   score: number;
@@ -47,11 +33,9 @@ type Completeness = {
 
 export function TitleConfigEditor({
   row,
-  wpStatus,
   completeness,
 }: {
   row: TitleConfigRow;
-  wpStatus: MaskedWp;
   completeness: Completeness;
 }) {
   // Brand
@@ -61,20 +45,6 @@ export function TitleConfigEditor({
   const [primaryColor, setPrimaryColor] = useState(row.primary_color ?? "");
   const [defaultFrame, setDefaultFrame] = useState<string>(
     row.default_frame ?? "",
-  );
-
-  // WordPress
-  const [wpBaseUrl, setWpBaseUrl] = useState(row.wp_base_url ?? "");
-  const [wpUsername, setWpUsername] = useState(row.wp_username ?? "");
-  const [wpAppPassword, setWpAppPassword] = useState("");
-  const [wpAppPasswordClear, setWpAppPasswordClear] = useState(false);
-  const [wpDefaultStatus, setWpDefaultStatus] = useState<string>(
-    row.wp_default_status ?? "",
-  );
-  const [wpDefaultCategoryId, setWpDefaultCategoryId] = useState(
-    row.wp_default_category_id != null
-      ? String(row.wp_default_category_id)
-      : "",
   );
 
   // Editorial
@@ -107,10 +77,6 @@ export function TitleConfigEditor({
   const [saved, setSaved] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  // WP test
-  const [pendingTest, startTestTransition] = useTransition();
-  const [testResult, setTestResult] = useState<WpTestResult | null>(null);
-
   function save() {
     setError(null);
     setSaved(false);
@@ -121,12 +87,6 @@ export function TitleConfigEditor({
     fd.set("tagline", tagline);
     fd.set("primary_color", primaryColor);
     fd.set("default_frame", defaultFrame);
-    fd.set("wp_base_url", wpBaseUrl);
-    fd.set("wp_username", wpUsername);
-    fd.set("wp_app_password", wpAppPassword);
-    if (wpAppPasswordClear) fd.set("wp_app_password_clear", "1");
-    fd.set("wp_default_status", wpDefaultStatus);
-    fd.set("wp_default_category_id", wpDefaultCategoryId);
     fd.set("default_sectors", defaultSectors);
     fd.set("silo_options", siloOptions);
     fd.set("default_geo_tier", defaultGeoTier);
@@ -143,8 +103,6 @@ export function TitleConfigEditor({
         return;
       }
       setSaved(true);
-      setWpAppPassword("");
-      setWpAppPasswordClear(false);
       setTimeout(() => setSaved(false), 2200);
     });
   }
@@ -160,16 +118,6 @@ export function TitleConfigEditor({
         return;
       }
       setIsActive(!isActive);
-    });
-  }
-
-  function testConnection() {
-    setTestResult(null);
-    const fd = new FormData();
-    fd.set("id", row.id);
-    startTestTransition(async () => {
-      const res = await testWordPressConnection(fd);
-      setTestResult(res);
     });
   }
 
@@ -281,123 +229,6 @@ export function TitleConfigEditor({
             </select>
           </Field>
         </Grid2>
-      </Panel>
-
-      {/* WordPress panel */}
-      <Panel
-        icon={PlugZap}
-        title="WordPress connection"
-        hint="F8 publishArticle pushes to this title's WP install. App-password is stored encrypted at rest; UI never re-displays it."
-      >
-        <Grid2>
-          <Field label="Base URL" full>
-            <input
-              value={wpBaseUrl}
-              onChange={(e) => setWpBaseUrl(e.target.value)}
-              maxLength={600}
-              placeholder="https://wp.unionmedia.example"
-              className="input font-mono text-[12px]"
-            />
-          </Field>
-          <Field label="Username">
-            <input
-              value={wpUsername}
-              onChange={(e) => setWpUsername(e.target.value)}
-              maxLength={240}
-              placeholder="newsroom-publisher"
-              className="input font-mono text-[12px]"
-            />
-          </Field>
-          <Field label="App password">
-            <div className="mt-1 flex h-8 items-center gap-2">
-              <input
-                type="password"
-                value={wpAppPassword}
-                onChange={(e) => {
-                  setWpAppPassword(e.target.value);
-                  if (e.target.value) setWpAppPasswordClear(false);
-                }}
-                maxLength={240}
-                placeholder={
-                  wpStatus.password_state === "set"
-                    ? "••• set — leave blank to keep"
-                    : "(not set)"
-                }
-                className="h-8 flex-1 rounded-md border border-border bg-background px-2.5 font-mono text-[12px] text-foreground focus:border-primary/40 focus:outline-none"
-              />
-              {wpStatus.password_state === "set" ? (
-                <label className="flex items-center gap-1 text-[10.5px] text-fg-2">
-                  <input
-                    type="checkbox"
-                    checked={wpAppPasswordClear}
-                    onChange={(e) => {
-                      setWpAppPasswordClear(e.target.checked);
-                      if (e.target.checked) setWpAppPassword("");
-                    }}
-                    className="h-3 w-3"
-                  />
-                  clear
-                </label>
-              ) : null}
-            </div>
-          </Field>
-          <Field label="Default WP post status">
-            <select
-              value={wpDefaultStatus}
-              onChange={(e) => setWpDefaultStatus(e.target.value)}
-              className="select"
-            >
-              <option value="">publish (default)</option>
-              {WP_DEFAULT_STATUSES.map((s) => (
-                <option key={s.value} value={s.value}>
-                  {s.label}
-                </option>
-              ))}
-            </select>
-          </Field>
-          <Field label="Default category id">
-            <input
-              type="number"
-              value={wpDefaultCategoryId}
-              onChange={(e) => setWpDefaultCategoryId(e.target.value)}
-              min={0}
-              placeholder="—"
-              className="input font-mono text-[12px]"
-            />
-          </Field>
-        </Grid2>
-
-        <div className="mt-2 flex flex-wrap items-center gap-2 rounded-md border border-dashed border-border bg-background/40 px-2.5 py-1.5">
-          <button
-            type="button"
-            onClick={testConnection}
-            disabled={pendingTest}
-            className="flex h-7 items-center gap-1 rounded-md border border-primary/40 bg-primary/10 px-2.5 text-[11px] font-semibold text-primary hover:bg-primary/15 disabled:opacity-50"
-          >
-            {pendingTest ? (
-              <Loader2 className="h-3 w-3 animate-spin" />
-            ) : (
-              <KeyRound className="h-3 w-3" />
-            )}
-            Test connection
-          </button>
-          <span className="text-[10.5px] text-um-muted">
-            Calls <code>/wp-json/</code> + <code>/wp-json/wp/v2/users/me</code> with saved credentials.
-          </span>
-          {testResult ? (
-            testResult.ok ? (
-              <span className="flex items-center gap-1 text-[10.5px] text-success">
-                <CheckCircle2 className="h-3 w-3" />
-                {testResult.site_name ?? "site"} · user #{testResult.user_id ?? "?"}
-              </span>
-            ) : (
-              <span className="flex items-center gap-1 text-[10.5px] text-destructive">
-                <AlertCircle className="h-3 w-3" />
-                {testResult.error}
-              </span>
-            )
-          ) : null}
-        </div>
       </Panel>
 
       {/* Editorial defaults */}

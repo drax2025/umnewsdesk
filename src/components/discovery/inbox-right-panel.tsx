@@ -36,7 +36,6 @@ export type InboxRightPanelProps = {
   acceptanceRate: number;
   dedupRate: number;
   /** Pre-formatted "12.5/22" or "—" when no scored ready candidates. */
-  avgScoreLabel: string;
   lastSweepCode: string | null;
   openOps: InboxOpsAlert[];
 };
@@ -50,7 +49,6 @@ export function InboxRightPanel({
   oldestReadyLabel,
   acceptanceRate,
   dedupRate,
-  avgScoreLabel,
   lastSweepCode,
   openOps,
 }: InboxRightPanelProps) {
@@ -203,7 +201,6 @@ export function InboxRightPanel({
           v={oldestReadyLabel ?? "—"}
           tone={oldestReadyLabel ? "warn" : undefined}
         />
-        <StatRow k="Avg score (ready)" v={avgScoreLabel} />
         <StatRow
           k="Last sweep"
           v={

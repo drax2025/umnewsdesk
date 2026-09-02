@@ -1,5 +1,13 @@
 # Silicon Scotland Editorial Production Process â€” v3.0
 
+> **Historical — not the running system.**
+> This document describes the V2 editorial pipeline (stages F1–F8: commissioning,
+> drafting, sub-editing, legal, pre-flight, WordPress publishing), which was
+> retired on 2 September 2026. News Desk now does discovery and hands selected
+> candidates to Newsroom V1, which owns everything downstream. Kept as a record
+> of what was built and why. See `PROJECT_NOTES.md` and `README.md` for the
+> system as it stands.
+
 **Owner:** Alex Graham, Senior Editor, Union Media
 **Author of this document:** AI editorial collaborator (Number One)
 **Version date:** 19 May 2026
