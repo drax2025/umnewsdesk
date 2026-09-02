@@ -14,6 +14,7 @@ import {
   type CommissionTitleOption,
 } from "@/components/forms/commission-title-picker";
 import { ScoreButton } from "@/components/forms/score-button";
+import { SendToNewsroomButton } from "@/components/forms/send-to-newsroom-button";
 import type { ScoreBreakdown } from "@/lib/actions/score";
 import { F1TriageCell } from "@/components/forms/f1-triage";
 import type {
@@ -27,6 +28,10 @@ export const dynamic = "force-dynamic";
 type CandidateRow = {
   id: string;
   code: string;
+  /** Set once the candidate has been handed to Newsroom V1. */
+  newsroom_record_id: string | null;
+  sent_to_newsroom_at: string | null;
+  newsroom_send_error: string | null;
   working_headline: string;
   primary_url: string | null;
   image_url: string | null;
@@ -240,7 +245,7 @@ export default async function CandidateInboxPage({
       supabase
         .from("candidates")
         .select(
-          "id, code, working_headline, primary_url, image_url, layer, kind, dedup_state, verification_state, triage_state, risk, score, score_breakdown, embargo_until, embargo_confidence, attachment_urls, surfaced_at, source_id, stream_id, sweep_run_id, raw, production_option, defamation_tier, framing_brief",
+          "id, code, working_headline, primary_url, image_url, layer, kind, dedup_state, verification_state, triage_state, risk, score, score_breakdown, embargo_until, embargo_confidence, attachment_urls, surfaced_at, source_id, stream_id, sweep_run_id, raw, production_option, defamation_tier, framing_brief, newsroom_record_id, sent_to_newsroom_at, newsroom_send_error",
         )
         .order("surfaced_at", { ascending: false })
         .limit(200),
@@ -661,6 +666,7 @@ export default async function CandidateInboxPage({
                       activeDir={activeDir}
                       preserve={filterPreserveParams}
                     />
+                    <Th className="text-right">Newsroom</Th>
                     <Th className="text-right">Actions</Th>
                   </tr>
                 </thead>
@@ -783,6 +789,18 @@ export default async function CandidateInboxPage({
                         </td>
                         <td className="whitespace-nowrap px-3 py-2.5 text-right">
                           <ScorePill score={c.score} breakdown={c.score_breakdown} />
+                        </td>
+                        {/* The handoff. Everything downstream of this - editing,
+                            embargoes, publishing, the agency reply - belongs to
+                            the newsroom, so this is where News Desk's job ends. */}
+                        <td className="whitespace-nowrap px-3 py-2.5 text-right">
+                          <div className="flex justify-end">
+                            <SendToNewsroomButton
+                              candidateId={c.id}
+                              sentRecordId={c.newsroom_record_id}
+                              lastError={c.newsroom_send_error}
+                            />
+                          </div>
                         </td>
                         <td className="whitespace-nowrap px-3 py-2.5 text-right">
                           <TriageActions
