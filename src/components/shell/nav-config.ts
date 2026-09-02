@@ -23,32 +23,18 @@
 
 export type NavIconName =
   | "LayoutGrid"
-  | "Workflow"
-  | "Columns3"
-  | "Calendar"
-  | "ClipboardList"
-  | "FileText"
-  | "CheckSquare"
-  | "Package"
-  | "ShieldAlert"
-  | "Siren"
-  | "Users"
-  | "Building2"
   | "Search"
   | "Inbox"
   | "AlertTriangle"
   | "Clock"
-  | "Activity"
   | "Cog"
+  | "Activity"
   | "ScrollText"
-  | "Grid2x2"
-  | "Settings"
   | "TestTube2"
-  | "Sparkles"
-  | "Library"
-  | "ListTodo"
   | "Newspaper"
-  | "FileWarning"
+  | "Users"
+  | "Building2"
+  | "Settings"
   | "Lock";
 
 export type NavItem = {
@@ -81,39 +67,15 @@ export const NAV_SECTIONS: NavSection[] = [
     ],
   },
   {
-    label: "Editorial",
+    label: "Admin",
     items: [
-      { key: "pipeline", label: "Pipeline", href: "/pipeline", iconName: "Workflow" },
-      { key: "board", label: "Board", href: "/board", iconName: "Columns3" },
-      { key: "commissioning", label: "Commissioning", href: "/commissioning", iconName: "ClipboardList" },
-      { key: "calendar", label: "Calendar", href: "/calendar", iconName: "Calendar" },
-      { key: "article_dossier", label: "Article Dossier", href: "/articles", iconName: "FileText" },
-      { key: "inventory", label: "Master Inventory (A2)", href: "/inventory", iconName: "Library" },
-      { key: "opportunities", label: "Opportunities (A3 / K5)", href: "/opportunities", iconName: "ListTodo" },
-      { key: "f5_edit_preview", label: "F5 Edit (preview)", href: "/design/f5-edit", iconName: "Sparkles" },
-    ],
-  },
-  {
-    label: "Management",
-    items: [
-      { key: "approvals", label: "Approvals", href: "/approvals", iconName: "CheckSquare" },
-      { key: "pre_publish", label: "Pre-Flight [PUB]", href: "/approvals/pre-flight", iconName: "Package" },
-      { key: "d_reject_queue", label: "D-Reject Queue", href: "/queues/reject", iconName: "ShieldAlert" },
-      { key: "corrections", label: "Corrections (Stage 13)", href: "/corrections", iconName: "FileWarning" },
-      { key: "d0_escalation", label: "D0 Escalation [ESC]", href: "/queues/escalation", iconName: "Siren" },
-      { key: "team", label: "Team", href: "/team", iconName: "Users" },
-      { key: "press_agencies", label: "Press Agencies", href: "/team/agencies", iconName: "Building2" },
-    ],
-  },
-  {
-    label: "System",
-    items: [
-      { key: "system_titles", label: "Titles (Section G)", href: "/system/titles", iconName: "Newspaper" },
       { key: "system_discovery_config", label: "Discovery Config", href: "/system/discovery-config", iconName: "Cog" },
       { key: "system_source_health", label: "Source Health Monitor", href: "/system/source-health", iconName: "Activity" },
       { key: "system_audit_log", label: "Discovery Audit Log", href: "/system/audit-log", iconName: "ScrollText" },
       { key: "system_test_ingest", label: "Test Ingest", href: "/system/test-ingest", iconName: "TestTube2" },
-      { key: "system_design", label: "Design System", href: "/system/design", iconName: "Grid2x2" },
+      { key: "system_titles", label: "Titles", href: "/system/titles", iconName: "Newspaper" },
+      { key: "team", label: "Team", href: "/team", iconName: "Users" },
+      { key: "press_agencies", label: "Press Agencies", href: "/team/agencies", iconName: "Building2" },
       { key: "system_settings", label: "Settings", href: "/system/settings", iconName: "Settings" },
       { key: "system_permissions", label: "Permissions", href: "/system/permissions", iconName: "Lock" },
     ],

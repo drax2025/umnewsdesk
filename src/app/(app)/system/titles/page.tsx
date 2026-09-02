@@ -5,7 +5,6 @@ import { createClient } from "@/lib/supabase/server";
 import { createServiceClient } from "@/lib/supabase/service";
 import {
   configCompleteness,
-  maskedWpStatus,
   type TitleConfigRow,
 } from "@/lib/spec/a7-title-config";
 import { CreateTitleForm } from "@/components/forms/a7-create-title";
@@ -17,7 +16,7 @@ export const dynamic = "force-dynamic";
  * A7 / Section G — `/system/titles`.
  *
  * Senior-only management of publication silos. Each title gets a row with
- * its launch state, WordPress configuration status, and configuration
+ * its launch state and configuration
  * completeness score. Per-row "Configure" deep-links to the title editor.
  */
 
@@ -40,7 +39,7 @@ export default async function TitlesIndexPage() {
   const { data: titles } = await admin
     .from("titles")
     .select(
-      "id, slug, name, domain, tagline, primary_color, default_frame, wp_base_url, wp_username, wp_app_password, wp_default_status, wp_default_category_id, default_sectors, silo_options, default_geo_tier, slug_prefix, is_active, launched_at, weekly_issue_day, config, created_at, updated_at, config_updated_at, config_updated_by",
+      "id, slug, name, domain, tagline, primary_color, default_frame, default_sectors, silo_options, default_geo_tier, slug_prefix, is_active, launched_at, weekly_issue_day, config, created_at, updated_at, config_updated_at, config_updated_by",
     )
     .order("is_active", { ascending: false })
     .order("name", { ascending: true })
@@ -49,7 +48,10 @@ export default async function TitlesIndexPage() {
   const rows = titles ?? [];
   const activeCount = rows.filter((r) => r.is_active).length;
   const launchReady = rows.filter(
-    (r) => configCompleteness(r).score === 5,
+    (r) => {
+      const c = configCompleteness(r);
+      return c.score === c.total;
+    },
   ).length;
 
   return (
@@ -74,11 +76,10 @@ export default async function TitlesIndexPage() {
       <div className="mx-auto max-w-[1320px] space-y-3 px-6 py-4">
         <p className="rounded-md border border-dashed border-border bg-background/40 px-3 py-2 text-[10.5px] leading-[1.5] text-um-muted">
           <strong className="text-fg-2">Section G policy:</strong> each title
-          carries its own WordPress endpoint, brand frame defaults, silo
-          taxonomy, and Friday-sweep day. F8 publishArticle reads wp_*
-          per-title; the WORDPRESS_* env vars are the legacy fallback only.
-          Inactive titles still appear in the inventory and discovery
-          surfaces, but commissioning is gated to active titles.
+          carries its brand frame defaults, silo taxonomy and Friday-sweep day.
+          Publishing credentials are <em>not</em> held here — Newsroom V1 owns
+          publishing, and one copy of a WordPress app-password is safer than
+          two. Inactive titles still appear in the discovery surfaces.
         </p>
 
         <div className="overflow-hidden rounded-md border border-border bg-card">
@@ -90,9 +91,6 @@ export default async function TitlesIndexPage() {
                 </th>
                 <th className="px-3 py-2 font-mono text-[10.5px] font-semibold uppercase tracking-[0.06em] text-um-muted">
                   Active
-                </th>
-                <th className="px-3 py-2 font-mono text-[10.5px] font-semibold uppercase tracking-[0.06em] text-um-muted">
-                  WP
                 </th>
                 <th className="px-3 py-2 font-mono text-[10.5px] font-semibold uppercase tracking-[0.06em] text-um-muted">
                   Config
@@ -118,7 +116,6 @@ export default async function TitlesIndexPage() {
                 </tr>
               ) : (
                 rows.map((t) => {
-                  const wp = maskedWpStatus(t);
                   const cc = configCompleteness(t);
                   const ratio = cc.score / cc.total;
                   return (
@@ -162,22 +159,6 @@ export default async function TitlesIndexPage() {
                           <span className="inline-flex items-center gap-1 rounded-sm border border-border bg-secondary px-1.5 py-0.5 font-mono text-[10px] uppercase tracking-[0.05em] text-um-muted">
                             <XCircle className="h-3 w-3" />
                             inactive
-                          </span>
-                        )}
-                      </td>
-                      <td className="px-3 py-2 align-top">
-                        {wp.configured ? (
-                          <div className="space-y-0.5">
-                            <span className="inline-flex items-center gap-1 rounded-sm border border-success/45 bg-success/10 px-1.5 py-0.5 font-mono text-[10px] uppercase tracking-[0.05em] text-success">
-                              ready
-                            </span>
-                            <p className="font-mono text-[10.5px] text-um-muted">
-                              {wp.username} · {wp.default_status ?? "publish"}
-                            </p>
-                          </div>
-                        ) : (
-                          <span className="inline-flex items-center gap-1 rounded-sm border border-warn/45 bg-warn/10 px-1.5 py-0.5 font-mono text-[10px] uppercase tracking-[0.05em] text-warn">
-                            not set
                           </span>
                         )}
                       </td>

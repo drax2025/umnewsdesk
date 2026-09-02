@@ -1,5 +1,13 @@
 # Silicon Scotland â€” Ad-Hoc Prompt (v1.0)
 
+> **Historical — not the running system.**
+> This document describes the V2 editorial pipeline (stages F1–F8: commissioning,
+> drafting, sub-editing, legal, pre-flight, WordPress publishing), which was
+> retired on 2 September 2026. News Desk now does discovery and hands selected
+> candidates to Newsroom V1, which owns everything downstream. Kept as a record
+> of what was built and why. See `PROJECT_NOTES.md` and `README.md` for the
+> system as it stands.
+
 **Owner:** Alex Graham, Senior Editor, Union Media
 **Purpose:** Launch artefact for running the Silicon Scotland pipeline on an ad-hoc basis â€” outside the recurring 07:00 UK daily schedule â€” focused on a specific editorial purpose. The operator pastes this prompt into a clean Perplexity Spaces thread, fills in the Purpose Statement at the top, and submits.
 **Version date:** 19 May 2026

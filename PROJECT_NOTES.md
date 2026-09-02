@@ -7,9 +7,52 @@
 > "Recently landed" describing what landed. Update the notes as part of the same
 > commit — never commit code without a notes entry.
 
-_Last updated: 2026-08-31_
+_Last updated: 2026-09-02_
 
 ## Recently landed (this session)
+
+- **The editorial pipeline is retired** (2 Sep 2026, Phase 3). News Desk now
+  does discovery and hands the result to Newsroom V1; V1 does the editing,
+  images, embargoes, publishing and the agency reply. Removed: `/approvals`,
+  `/articles`, `/board`, `/calendar`, `/commissioning`, `/corrections`,
+  `/design/f5-edit`, `/inventory`, `/opportunities`, `/pipeline`, `/queues/*`,
+  plus `POST /api/ingest/email` and the embargo-release cron. 24 route files
+  and 63 files of code they were the only callers of; 49 routes down to 25.
+  Nothing was deleted for tidiness — each file had no remaining importer,
+  established by repeated scan until the set was stable.
+  - **The tables are untouched.** 41 articles and 37 commissions still exist
+    in Supabase and can be read there. Nothing in the app links to them: the
+    read-only archive view was offered and declined. If those 19 written
+    pieces are ever wanted back in the UI, it is a new page, not a revert.
+  - **The inbox row is now send / OPS-RR / dismiss.** Commission, the F1
+    triage cell, the per-row title picker and scoring are gone with the
+    pipeline they fed. `sent_to_f1` survives as an enum value because it is
+    what the database holds, but it is labelled "Sent" — F1 no longer exists.
+  - **Nav is Overview, Discovery, Admin.** The `system_design` key pointed at
+    `/system/design`, which was never built — it has only ever guarded a 404,
+    and it goes with the rest.
+  - **Dashboard rebuilt around discovery**: ready to send, sent today, held,
+    last sweep, sources active, needs attention. It deliberately does not
+    mirror anything past the handoff — two systems reporting the same number
+    is how they start disagreeing.
+  - **WordPress credentials removed from Titles.** All five titles held a
+    complete, live app-password for sites V1 already publishes to. The UI is
+    gone; migration `0043` nulls the values. Columns kept, not dropped, so it
+    is reversible.
+  - Migrations `0042` (retired menu keys) and `0043` (credentials) are
+    **written but not applied** — they need running in the Supabase editor.
+  - Typecheck clean, build clean, lint clean apart from two pre-existing
+    `set-state-in-effect` errors in the two right-hand panels, which are
+    unchanged on the base branch.
+  - Left in place deliberately: `GET /api/packs/[ref]/markdown`. It renders the
+    F1–F7 pre-flight pack and nothing links to it any more, but it was not in
+    the removal list, and it is the only reason `pack-render.ts`,
+    `pack-renderer.ts`, `pre-flight.ts` and the F1 triage spec still compile.
+    Removing it would take those four with it.
+  - Also found, not touched: 13 files under `src/components/ui/` (shadcn
+    primitives — card, badge, table, tabs, select, sidebar, …) have **no
+    importer anywhere**, and had none before this change either. Pre-existing
+    dead scaffolding, out of scope here.
 
 - **RSS sweep now reads the source registry** (`discovery_sources` is
   authoritative): new `GET /api/ingest/sources?method=rss` (bearer

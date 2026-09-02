@@ -1,5 +1,13 @@
 # Silicon Scotland â€” Master Prompt (v1.0, Phase A)
 
+> **Historical — not the running system.**
+> This document describes the V2 editorial pipeline (stages F1–F8: commissioning,
+> drafting, sub-editing, legal, pre-flight, WordPress publishing), which was
+> retired on 2 September 2026. News Desk now does discovery and hands selected
+> candidates to Newsroom V1, which owns everything downstream. Kept as a record
+> of what was built and why. See `PROJECT_NOTES.md` and `README.md` for the
+> system as it stands.
+
 **Owner:** Alex Graham, Senior Editor, Union Media
 **Purpose:** Launch artefact for the Silicon Scotland daily production run. The recurring scheduled task in Perplexity Spaces reads this file as the prompt body. The master prompt is also pasteable into a clean Spaces thread for manual operation.
 **Version date:** 19 May 2026

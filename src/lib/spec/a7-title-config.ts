@@ -14,8 +14,9 @@
  *                              sweeps
  *
  * Everything is server-rendered through the senior-only `/system/titles`
- * surface; F8 publishArticle reads wp_* off the title row when present and
- * falls back to env vars only if the title hasn't been configured.
+ * surface. Publishing credentials are deliberately not here: Newsroom V1
+ * owns publishing, and a second copy of a WordPress app-password is a
+ * second thing to rotate and a second thing to leak.
  */
 
 export const PRIMARY_FRAMES = [
@@ -34,13 +35,6 @@ export const GEO_TIERS = [
   { value: "global_origin" as const, label: "Global origin (anchor Scottish stake)" },
 ];
 export type GeoTier = (typeof GEO_TIERS)[number]["value"];
-
-export const WP_DEFAULT_STATUSES = [
-  { value: "publish" as const, label: "Publish immediately" },
-  { value: "draft" as const, label: "Draft (manual publish on WP)" },
-  { value: "future" as const, label: "Future (scheduled via WP)" },
-];
-export type WpDefaultStatus = (typeof WP_DEFAULT_STATUSES)[number]["value"];
 
 export const WEEKDAYS = [
   { value: 0, label: "Sunday" },
@@ -62,13 +56,6 @@ export type TitleConfigRow = {
   tagline: string | null;
   primary_color: string | null;
   default_frame: PrimaryFrame | null;
-
-  // Section G — WordPress
-  wp_base_url: string | null;
-  wp_username: string | null;
-  wp_app_password: string | null;
-  wp_default_status: WpDefaultStatus | null;
-  wp_default_category_id: number | null;
 
   // Section G — editorial defaults
   default_sectors: string[];
@@ -107,10 +94,6 @@ export function configCompleteness(row: TitleConfigRow): {
   missing: string[];
 } {
   const checks: { ok: boolean; label: string }[] = [
-    {
-      ok: Boolean(row.wp_base_url && row.wp_username && row.wp_app_password),
-      label: "WordPress credentials",
-    },
     { ok: Boolean(row.default_frame), label: "Default frame" },
     {
       ok: row.default_sectors.length > 0,
@@ -125,30 +108,6 @@ export function configCompleteness(row: TitleConfigRow): {
   const score = checks.filter((c) => c.ok).length;
   const missing = checks.filter((c) => !c.ok).map((c) => c.label);
   return { score, total: checks.length, missing };
-}
-
-/**
- * Public-safe view of WordPress credentials — the app-password never
- * leaves the server in plaintext.
- */
-export function maskedWpStatus(row: TitleConfigRow): {
-  base_url: string | null;
-  username: string | null;
-  password_state: "set" | "missing";
-  default_status: WpDefaultStatus | null;
-  default_category_id: number | null;
-  configured: boolean;
-} {
-  return {
-    base_url: row.wp_base_url,
-    username: row.wp_username,
-    password_state: row.wp_app_password ? "set" : "missing",
-    default_status: row.wp_default_status,
-    default_category_id: row.wp_default_category_id,
-    configured: Boolean(
-      row.wp_base_url && row.wp_username && row.wp_app_password,
-    ),
-  };
 }
 
 /**
@@ -174,11 +133,3 @@ export function isValidHexColor(v: string): boolean {
   return /^#([0-9a-f]{3}|[0-9a-f]{6})$/i.test(v.trim());
 }
 
-export function isValidHttpsUrl(v: string): boolean {
-  try {
-    const u = new URL(v.trim());
-    return u.protocol === "http:" || u.protocol === "https:";
-  } catch {
-    return false;
-  }
-}

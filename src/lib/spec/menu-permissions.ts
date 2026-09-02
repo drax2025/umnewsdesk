@@ -85,32 +85,23 @@ export const DEFAULT_PERMISSIONS: Record<Role, Record<string, AccessLevel>> = {
   ),
   reviewer: Object.fromEntries(
     MENU_KEYS.map((k) => {
-      if (k.startsWith("system_")) return [k, "hidden"];
-      if (
-        k === "approvals" ||
-        k === "d_reject_queue" ||
-        k === "corrections"
-      )
-        return [k, "full"];
-      if (
-        k === "commissioning" ||
-        k === "opportunities" ||
-        k === "f5_edit_preview" ||
-        k === "team"
-      )
+      if (k.startsWith("system_") || k === "team" || k === "press_agencies")
         return [k, "hidden"];
       return [k, "read_only"];
     }),
   ),
+  // A viewer sees discovery and the dashboard, and nothing that configures
+  // anything. The editorial pipeline these used to name was retired with
+  // Phase 3 — the keys are gone from NAV_SECTIONS, so naming them here would
+  // be describing screens that no longer exist.
   viewer: Object.fromEntries(
     MENU_KEYS.map((k) => {
       if (
         k === "dashboard" ||
-        k === "pipeline" ||
-        k === "board" ||
-        k === "calendar" ||
-        k === "article_dossier" ||
-        k === "inventory"
+        k === "discovery_overview" ||
+        k === "candidate_inbox" ||
+        k === "ops_rr_queue" ||
+        k === "sweep_run_detail"
       )
         return [k, "read_only"];
       return [k, "hidden"];

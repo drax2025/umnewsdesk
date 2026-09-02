@@ -2,193 +2,210 @@ import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
 import { cn } from "@/lib/utils";
 
-type ArticleRow = {
+/**
+ * The landing screen.
+ *
+ * News Desk's job is now one sentence long — find stories, check them, hand
+ * the good ones to the newsroom — so this answers the three questions that
+ * job raises: did the last sweep work, what is waiting for a decision, and
+ * what went across. Anything past the handoff belongs to Newsroom V1 and is
+ * deliberately not mirrored here; two systems reporting the same number is
+ * how they start disagreeing.
+ */
+
+export const dynamic = "force-dynamic";
+
+type CandidateRow = {
   id: string;
-  slug: string | null;
-  headline: string;
-  state: string;
-  sectors: string[];
-  updated_at: string;
-  published_at: string | null;
+  code: string;
+  working_headline: string;
+  triage_state: string;
+  surfaced_at: string;
+  sent_to_newsroom_at: string | null;
+  newsroom_record_id: string | null;
+  newsroom_send_error: string | null;
 };
 
-const STATE_LABEL: Record<string, string> = {
-  pitched: "Pitched",
-  commissioned: "Commissioned",
-  filed: "Filed",
-  subbed: "Subbed",
-  legal: "Legal",
-  scheduled: "Scheduled",
-  live: "Live",
-  rejected: "Rejected",
-  killed: "Killed",
+type SweepRow = {
+  code: string;
+  status: string;
+  started_at: string | null;
+  completed_at: string | null;
+  candidates_total: number | null;
+  sites_total: number | null;
+  not_reached: number | null;
+  parse_failures: number | null;
 };
 
-const STATE_CLASS: Record<string, string> = {
-  pitched: "bg-state-pitched/15 text-state-pitched border-state-pitched/30",
-  commissioned: "bg-state-comm/15 text-state-comm border-state-comm/30",
-  filed: "bg-state-filed/15 text-state-filed border-state-filed/30",
-  subbed: "bg-state-sub/15 text-state-sub border-state-sub/30",
-  legal: "bg-state-legal/15 text-state-legal border-state-legal/30",
-  scheduled: "bg-state-sched/15 text-state-sched border-state-sched/30",
-  live: "bg-state-live/15 text-state-live border-state-live/30",
-  rejected: "bg-destructive/15 text-destructive border-destructive/30",
-  killed: "bg-um-muted/15 text-um-muted border-um-muted/30",
-};
+const HELD_STATES = ["held_dedup", "held_source", "needs_review", "pointer"];
 
 export default async function DashboardPage() {
   const supabase = await createClient();
 
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  const { data: meRow } = user
-    ? await supabase
-        .from("profiles")
-        .select("role")
-        .eq("id", user.id)
-        .single<{ role: string | null }>()
-    : { data: null };
-  const isSenior = meRow?.role === "editor" || meRow?.role === "admin";
-
-  const [articlesRes, correctionsDraftRes] = await Promise.all([
+  const [candRes, sweepRes, opsRes, sourcesRes] = await Promise.all([
     supabase
-      .from("articles")
-      .select("id, slug, headline, state, sectors, updated_at, published_at")
-      .order("updated_at", { ascending: false }),
-    // Stage 13 — Senior-only queue size for the awaiting-approval tile.
+      .from("candidates")
+      .select(
+        "id, code, working_headline, triage_state, surfaced_at, sent_to_newsroom_at, newsroom_record_id, newsroom_send_error",
+      )
+      .order("surfaced_at", { ascending: false })
+      .limit(500)
+      .returns<CandidateRow[]>(),
     supabase
-      .from("article_corrections")
+      .from("sweep_runs")
+      .select(
+        "code, status, started_at, completed_at, candidates_total, sites_total, not_reached, parse_failures",
+      )
+      .order("started_at", { ascending: false })
+      .limit(1)
+      .returns<SweepRow[]>(),
+    supabase
+      .from("ops_rr_alerts")
       .select("id", { count: "exact", head: true })
-      .eq("status", "draft"),
+      .eq("status", "open"),
+    supabase
+      .from("discovery_sources")
+      .select("status")
+      .returns<{ status: string }[]>(),
   ]);
 
-  const rows: ArticleRow[] = articlesRes.data ?? [];
-  const correctionsDraftCount = correctionsDraftRes.count ?? 0;
+  const cands = candRes.data ?? [];
+  const sweep = sweepRes.data?.[0] ?? null;
+  const openOps = opsRes.count ?? 0;
+  const sources = sourcesRes.data ?? [];
 
   const startOfToday = new Date();
   startOfToday.setHours(0, 0, 0, 0);
 
-  const counts = {
-    publishedToday: rows.filter(
-      (r) =>
-        r.state === "live" &&
-        r.published_at &&
-        new Date(r.published_at) >= startOfToday,
-    ).length,
-    inFlight: rows.filter(
-      (r) => !["pitched", "live", "rejected", "killed"].includes(r.state),
-    ).length,
-    awaitingApproval: rows.filter((r) =>
-      ["filed", "subbed", "legal"].includes(r.state),
-    ).length,
-    publishReady: rows.filter((r) => r.state === "scheduled").length,
-    escalations: 0, // placeholder — wire to gates table later
-    rejectQueue: rows.filter((r) => r.state === "rejected").length,
-    correctionsDraft: correctionsDraftCount,
-  };
+  // "Ready" is the working set: surfaced, not held, not yet handed over.
+  const ready = cands.filter(
+    (c) => c.triage_state === "ready" && !c.sent_to_newsroom_at,
+  );
+  const sentToday = cands.filter(
+    (c) => c.sent_to_newsroom_at && new Date(c.sent_to_newsroom_at) >= startOfToday,
+  );
+  const held = cands.filter((c) => HELD_STATES.includes(c.triage_state));
+  // A failure that has not since succeeded. Worth its own tile: it is the one
+  // state where a story is stuck with nobody's name against it.
+  const failed = cands.filter((c) => c.newsroom_send_error && !c.sent_to_newsroom_at);
+  const activeSources = sources.filter((s) => s.status === "active").length;
 
-  const target = 14;
+  const sweepOk = sweep?.status === "completed" && (sweep.parse_failures ?? 0) === 0;
+  const sweepLabel = sweep
+    ? sweep.completed_at
+      ? new Date(sweep.completed_at).toLocaleString("en-GB", {
+          day: "numeric",
+          month: "short",
+          hour: "2-digit",
+          minute: "2-digit",
+          hour12: false,
+        })
+      : "running"
+    : "never";
+
+  const recent = [...sentToday]
+    .sort(
+      (a, b) =>
+        new Date(b.sent_to_newsroom_at ?? 0).getTime() -
+        new Date(a.sent_to_newsroom_at ?? 0).getTime(),
+    )
+    .slice(0, 8);
 
   return (
-    <div className="px-5 py-5 space-y-5">
-      {/* Stats strip */}
+    <div className="space-y-5 px-5 py-5">
       <section className="grid grid-cols-2 gap-2 md:grid-cols-3 lg:grid-cols-6">
         <StatTile
-          href="/pipeline"
-          value={`${counts.publishedToday}`}
-          denom={`/ ${target}`}
-          label="Published today"
-          sub={`${Math.max(0, target - counts.publishedToday)} behind target`}
-          tone={counts.publishedToday < target ? "warn" : "success"}
+          href="/discovery/inbox?state=ready"
+          value={ready.length.toString()}
+          label="Ready to send"
+          sub="Triaged, not yet handed over"
+          tone={ready.length > 0 ? "success" : undefined}
         />
         <StatTile
-          href="/board"
-          value={counts.inFlight.toString()}
-          label="In-flight"
-          sub="Across all states"
+          href="/discovery/inbox"
+          value={sentToday.length.toString()}
+          label="Sent today"
+          sub="Now in Newsroom V1"
         />
         <StatTile
-          href="/approvals"
-          value={counts.awaitingApproval.toString()}
-          label="Awaiting approval"
-          sub="Filed · Subbed · Legal"
-          tone={counts.awaitingApproval > 0 ? "warn" : undefined}
+          href="/discovery/inbox"
+          value={held.length.toString()}
+          label="Held"
+          sub="Duplicate · source · review"
+          tone={held.length > 0 ? "warn" : undefined}
         />
         <StatTile
-          value={counts.publishReady.toString()}
-          label="Publish-ready"
-          sub="Cleared for release"
-          tone={counts.publishReady > 0 ? "success" : undefined}
+          href="/discovery/sweeps"
+          value={(sweep?.candidates_total ?? 0).toString()}
+          label="Last sweep"
+          sub={`${sweep?.code ?? "—"} · ${sweepLabel}`}
+          tone={sweep ? (sweepOk ? "success" : "danger") : "warn"}
         />
-        {isSenior ? (
-          <StatTile
-            href="/corrections?status=draft"
-            value={counts.correctionsDraft.toString()}
-            label="Corrections to review"
-            sub="Stage 13 · Approval"
-            tone={counts.correctionsDraft > 0 ? "warn" : undefined}
-          />
-        ) : (
-          <StatTile
-            value={counts.escalations.toString()}
-            label="Escalations"
-            sub="Admin only"
-            tone={counts.escalations > 0 ? "danger" : undefined}
-          />
-        )}
         <StatTile
-          value={counts.rejectQueue.toString()}
-          label="Reject queue"
-          sub="Pending review"
+          href="/system/source-health"
+          value={activeSources.toString()}
+          denom={`/ ${sources.length}`}
+          label="Sources active"
+          sub={
+            sweep?.not_reached
+              ? `${sweep.not_reached} not reached last run`
+              : "All reached last run"
+          }
+          tone={sweep?.not_reached ? "warn" : undefined}
+        />
+        <StatTile
+          href="/discovery/ops-rr"
+          value={(openOps + failed.length).toString()}
+          label="Needs attention"
+          sub={`${openOps} OPS-RR · ${failed.length} send failed`}
+          tone={openOps + failed.length > 0 ? "danger" : undefined}
         />
       </section>
 
-      {/* Recent activity */}
       <section className="rounded-lg border border-border bg-card">
         <header className="flex items-center justify-between border-b border-border px-4 py-3">
           <h2 className="text-[13px] font-semibold tracking-[-0.01em]">
-            Recent activity
+            Handed to the newsroom today
           </h2>
           <Link
-            href="/pipeline"
+            href="/discovery/inbox"
             className="text-[11.5px] text-primary hover:underline"
           >
-            View all
+            Candidate inbox
           </Link>
         </header>
         <ul className="divide-y divide-border">
-          {rows.slice(0, 8).map((r) => (
+          {recent.map((c) => (
             <li
-              key={r.id}
+              key={c.id}
               className="flex items-center gap-3 px-4 py-2.5 text-[12.5px] hover:bg-secondary"
             >
-              <span
-                className={cn(
-                  "rounded-md border px-2 py-0.5 font-mono text-[10.5px] uppercase tracking-wider",
-                  STATE_CLASS[r.state],
-                )}
-              >
-                {STATE_LABEL[r.state]}
+              <span className="rounded-md border border-success/30 bg-success/15 px-2 py-0.5 font-mono text-[10.5px] uppercase tracking-wider text-success">
+                {c.newsroom_record_id ?? "sent"}
               </span>
-              <span className="flex-1 truncate">{r.headline}</span>
-              <span className="text-um-muted text-[11px]">
-                {r.sectors.slice(0, 2).join(" · ")}
-              </span>
+              <span className="flex-1 truncate">{c.working_headline}</span>
+              <span className="font-mono text-[10.5px] text-um-muted">{c.code}</span>
               <time
                 className="font-mono text-[10.5px] text-um-muted"
-                dateTime={r.updated_at}
+                dateTime={c.sent_to_newsroom_at ?? undefined}
               >
-                {new Date(r.updated_at).toLocaleDateString("en-GB", {
-                  day: "2-digit",
-                  month: "short",
-                })}
+                {c.sent_to_newsroom_at
+                  ? new Date(c.sent_to_newsroom_at).toLocaleTimeString("en-GB", {
+                      hour: "2-digit",
+                      minute: "2-digit",
+                      hour12: false,
+                    })
+                  : "—"}
               </time>
             </li>
           ))}
-          {rows.length === 0 ? (
+          {recent.length === 0 ? (
             <li className="px-4 py-8 text-center text-[12.5px] text-um-muted">
-              No articles yet. Seed the database or create one.
+              Nothing sent today.{" "}
+              <Link href="/discovery/inbox?state=ready" className="text-primary hover:underline">
+                {ready.length} candidate{ready.length === 1 ? "" : "s"} ready
+              </Link>
+              .
             </li>
           ) : null}
         </ul>
@@ -226,9 +243,7 @@ function StatTile({
       <div className={cn("text-[22px] font-semibold tracking-[-0.02em]", toneClass)}>
         {value}
         {denom ? (
-          <span className="ml-1 text-[13px] font-normal text-um-muted">
-            {denom}
-          </span>
+          <span className="ml-1 text-[13px] font-normal text-um-muted">{denom}</span>
         ) : null}
       </div>
       <div className="mt-0.5 text-[11.5px] font-medium text-fg-2">{label}</div>

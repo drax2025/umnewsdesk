@@ -5,7 +5,6 @@ import { createClient } from "@/lib/supabase/server";
 import { createServiceClient } from "@/lib/supabase/service";
 import {
   configCompleteness,
-  maskedWpStatus,
   type TitleConfigRow,
 } from "@/lib/spec/a7-title-config";
 import { TitleConfigEditor } from "@/components/forms/a7-title-config-editor";
@@ -16,8 +15,7 @@ export const dynamic = "force-dynamic";
  * A7 / Section G — single-title editor at `/system/titles/[id]`.
  *
  * Senior-only. Renders the full Section G surface for one publication
- * silo, with the WordPress connection tester and the brand / editorial /
- * operational form panels.
+ * silo: the brand, editorial and operational form panels.
  */
 
 export default async function TitleConfigPage({
@@ -45,7 +43,7 @@ export default async function TitleConfigPage({
   const { data: row } = await admin
     .from("titles")
     .select(
-      "id, slug, name, domain, tagline, primary_color, default_frame, wp_base_url, wp_username, wp_app_password, wp_default_status, wp_default_category_id, default_sectors, silo_options, default_geo_tier, slug_prefix, is_active, launched_at, weekly_issue_day, config, created_at, updated_at, config_updated_at, config_updated_by",
+      "id, slug, name, domain, tagline, primary_color, default_frame, default_sectors, silo_options, default_geo_tier, slug_prefix, is_active, launched_at, weekly_issue_day, config, created_at, updated_at, config_updated_at, config_updated_by",
     )
     .eq("id", id)
     .maybeSingle<TitleConfigRow>();
@@ -53,7 +51,6 @@ export default async function TitleConfigPage({
   if (!row) notFound();
 
   const cc = configCompleteness(row);
-  const wp = maskedWpStatus(row);
 
   return (
     <div className="min-h-screen bg-background text-foreground">
@@ -93,7 +90,6 @@ export default async function TitleConfigPage({
       <div className="mx-auto max-w-[1100px] px-6 py-4">
         <TitleConfigEditor
           row={row}
-          wpStatus={wp}
           completeness={cc}
         />
       </div>
