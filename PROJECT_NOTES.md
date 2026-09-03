@@ -7,9 +7,37 @@
 > "Recently landed" describing what landed. Update the notes as part of the same
 > commit — never commit code without a notes entry.
 
-_Last updated: 2026-09-02_
+_Last updated: 2026-09-03_
 
 ## Recently landed (this session)
+
+- **Inbox triage moved here from V1** (3 Sep 2026). `GET /api/cron/triage-inbox`
+  sorts the unsorted Zoho INBOX: press releases to `PR/To Process` where the
+  poller takes them, commercial mail to its own folders, wire traffic and
+  anything unrecognised left for a person. Nothing is ever routed to Spam.
+  - `src/lib/ingest/triage.ts` is V1's rules **ported unchanged in behaviour**.
+    They carry a week of tuning against live mail — the narrow HIGH_VALUE list
+    exists because "partnership" matched an agency's own signature, and
+    `looksLikeAgency` exists because the first preview missed every
+    `…pr.co.uk` sender. Rewriting them would have meant rediscovering that.
+  - The four tests came with them (`tests/triage.test.ts`, run with
+    `npx tsx`): the cases that were wrong on live mail first time round.
+  - Progress is a UID high-water mark in `app_settings`, not the unseen flag,
+    so someone reading mail in Zoho cannot make messages invisible to it. The
+    mark advances only after the moves succeed, so a failure retries.
+  - `?dry=1` classifies without moving; `?preview=N` classifies the last N
+    regardless of the mark. Decisions are logged to `triage_log` (migration
+    `0045`) **including the ones that moved nothing** — "why is this still in
+    my inbox" is the question people actually ask.
+  - `readNewInbox` and `moveMessages` added to `src/lib/ingest/mailbox.ts`.
+- **V1 stopped reading the mailbox the same day** (its commit `806c426`): both
+  cron endpoints and the triage rules removed, and the ten-minute crontab entry
+  taken off the box. It keeps only the agency reply, which files one known
+  message after publication rather than competing for a queue.
+  - This was not theoretical. For a morning on 3 September both apps polled
+    `PR/To Process` every ten minutes and **ingested the same two releases
+    twice** — message ids `ema76f79f6@opusintegrity…` and `LO2P123MB7260879B5…`
+    are in both systems, minutes apart.
 
 - **V2 can now hand over emailed press releases** (cross-repo change). The
   "Send to newsroom" button rejected every email candidate with *"No source
