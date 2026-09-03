@@ -12,8 +12,14 @@
  *   GET /api/cron/poll-mailbox?limit=5      cap the batch
  *
  * Auth: Vercel cron sends `Authorization: Bearer $CRON_SECRET`. The same token
- * is accepted in the query string so a run can be triggered by hand while
- * testing.
+ * is accepted in the query string so a run can be triggered by hand, and so an
+ * external scheduler can drive it.
+ *
+ * Cadence: the Vercel cron is a once-daily **backstop** — the account is on the
+ * Hobby plan, which allows at most two cron jobs and only daily schedules. Real
+ * polling is driven every 30 minutes by n8n (`n8n/workflows/poll-mailbox.json`),
+ * the same runner that already drives the RSS sweep. If that ever moves to a
+ * Pro plan, drop the n8n job and set the schedule here to the cadence you want.
  *
  * Node runtime, not edge: IMAP is a long-lived TLS socket.
  */

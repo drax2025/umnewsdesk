@@ -11,6 +11,15 @@ _Last updated: 2026-09-02_
 
 ## Recently landed (this session)
 
+- **Cron cadence moved to n8n — the Vercel plan is Hobby.** The first preview
+  deploy of the mailbox work **failed**: Hobby allows at most two cron jobs and
+  only **daily** schedules, so `*/30` and `*/15` were rejected outright (this is
+  why the previous config had a single `0 6 * * *` entry). `vercel.json` now runs
+  both crons once daily as a backstop, and `n8n/workflows/poll-mailbox.json`
+  drives the real 30-minute cadence through the runner that already handles the
+  RSS sweep. Note it needs a **second** header-auth credential — the cron routes
+  use `CRON_SECRET`, not `INGEST_TOKEN`.
+
 - **Mailbox verified against the live Zoho account** (3 Sep 2026). Folder check
   passed: connected, 75 folders, and `PR/To Process` / `PR/Ingested` /
   `PR/Failed` all exist under exactly the configured names (Zoho's delimiter is
