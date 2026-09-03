@@ -11,6 +11,32 @@ _Last updated: 2026-09-02_
 
 ## Recently landed (this session)
 
+- **Embargo parsing on the mailbox path** (`src/lib/ingest/embargo.ts`, ported
+  from V1) — an embargoed release is now **held** rather than offered to the
+  desk. `detectEmbargo` reads the release's own date, so "FRIDAY 28 AUGUST"
+  with no year resolves from when the agency sent it, not when we polled.
+  - **The trap it exists for:** "Embargo: For immediate release" and "EMBARGO:
+    IMMEDIATE" are common and mean the story is free to run *now*. A keyword
+    match holds those, which is a story missed. An agency *asking* whether you
+    want releases under embargo is likewise not an embargo. Both are excluded.
+  - **Cautious the other way:** a release that mentions an embargo but whose
+    date cannot be read is still held, with no lift time and
+    `embargo_confidence = 'low'`, so a person decides. Publishing an embargoed
+    release early is the mistake agencies do not forgive.
+  - BST/GMT handled without a timezone library (last-Sunday rule, deterministic
+    and testable) — the desk works in one zone and the answer must be checkable.
+    Verified: `00:01 25 August 2026` → `2026-08-24T23:01Z`; January stays GMT.
+  - The line the parser read is kept in `raw.embargo_evidence` (there is no
+    dedicated column) so a person can check the machine's work.
+  - Exercised against 11 cases covering every real wording V1 recorded, all
+    three traps, and the GMT/BST boundary — all correct.
+- **`/api/cron/embargo-release` restored** (deleted in `feed7a3`), every 15 min.
+  Without it the poller's holds would never lift. Two deliberate behaviours: a
+  hold with **no** `embargo_until` is never auto-released (we could not read a
+  lift time, so a person supplies one), and the release now moves **only**
+  `triage_state` — the old version also reset `verification_state` to 'pending',
+  which would undo the attribution the IMAP path establishes.
+
 - **PR mailbox now read over IMAP, on a cron** (ported from Newsroom V1):
   `GET /api/cron/poll-mailbox` (Node runtime, `maxDuration` 300) polls the Zoho
   folder every 30 minutes and turns what is waiting into `candidates`.

@@ -2,6 +2,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import type { ParsedMail } from "mailparser";
 import { nextCandidateCode } from "@/lib/ingest/codes";
 import { checkDedup } from "@/lib/ingest/dedup";
+import { detectEmbargo } from "@/lib/ingest/embargo";
 import { normalizeHeadline, safeIso, safeTrim } from "@/lib/ingest/normalize";
 
 /**
@@ -14,7 +15,14 @@ import { normalizeHeadline, safeIso, safeTrim } from "@/lib/ingest/normalize";
  */
 
 export type EmailIngestResult =
-  | { state: "clear"; candidate_id: string; candidate_code: string; agency: string | null }
+  | {
+      state: "clear";
+      candidate_id: string;
+      candidate_code: string;
+      agency: string | null;
+      embargoed?: boolean;
+      embargo_until?: string | null;
+    }
   | { state: "duplicate"; reason: string; matched_candidate_id: string | null }
   | { state: "rejected"; reason: string };
 
@@ -112,6 +120,10 @@ export async function ingestEmailMessage(
   const bodyText = bodyOf(parsed);
   const headlineNorm = normalizeHeadline(subject);
 
+  // Read against the message's own date, so "FRIDAY 28 AUGUST" with no year
+  // resolves from when the agency sent it rather than when we happened to poll.
+  const embargo = detectEmbargo(subject, bodyText ?? "", parsed.date ?? new Date());
+
   // Catches the same release reaching us twice under different Message-IDs,
   // and a release that also turned up on a feed.
   const dedup = await checkDedup(supabase, {
@@ -139,6 +151,8 @@ export async function ingestEmailMessage(
       candidate_id: "(dry-run)",
       candidate_code: "(dry-run)",
       agency: agency?.name ?? null,
+      embargoed: embargo.embargoed,
+      embargo_until: embargo.until?.toISOString() ?? null,
     };
   }
 
@@ -160,7 +174,12 @@ export async function ingestEmailMessage(
       fetched_at: now,
       published_at: safeIso(parsed.date),
       dedup_state: "clear",
-      triage_state: "ready",
+      // An embargoed release is held rather than offered to the desk. No lift
+      // time still holds it: we cannot say an embargo has expired when we could
+      // not read when it ends, and a person has to supply the date.
+      triage_state: embargo.embargoed ? "held_source" : "ready",
+      embargo_until: embargo.until?.toISOString() ?? null,
+      embargo_confidence: embargo.confidence,
       // Read straight from the mailbox, so the sender is the real sender rather
       // than whoever forwarded it. A known agency domain is therefore genuinely
       // 'verified' here, which it never was over the webhook.
@@ -178,6 +197,9 @@ export async function ingestEmailMessage(
         agency_match: agency ? "envelope" : null,
         trust_tier: agency?.trust_tier ?? null,
         attachment_count: parsed.attachments?.length ?? 0,
+        // No embargo_evidence column, so the line the machine read is kept
+        // here — a person must be able to check its work.
+        embargo_evidence: embargo.evidence,
         ingest_path: "imap",
       },
     })

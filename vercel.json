@@ -4,6 +4,10 @@
     {
       "path": "/api/cron/poll-mailbox",
       "schedule": "*/30 * * * *"
+    },
+    {
+      "path": "/api/cron/embargo-release",
+      "schedule": "*/15 * * * *"
     }
   ]
 }
