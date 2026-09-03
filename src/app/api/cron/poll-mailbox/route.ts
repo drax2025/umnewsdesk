@@ -1,6 +1,19 @@
 /**
  * Poll the PR mailbox and turn what is waiting into candidates.
  *
+ * ⚠️ NOT SCHEDULED. Newsroom V1 (newsroom.unionmedianc.com) polls the SAME
+ * folder every five minutes and is the system that actually publishes press
+ * releases. Two pollers on one folder race: whichever runs first moves the
+ * message to PR/Ingested and the other never sees it. Running this on a
+ * schedule takes releases away from the publisher.
+ *
+ * The route is kept because it works and is verified, but it is manual-only
+ * until either (a) it is pointed at a folder of its own that the desk routes to
+ * deliberately, or (b) V1's ingest contract accepts a Message-ID as story
+ * identity, which it currently cannot — it derives identity by hashing the
+ * source URL, and an emailed release has no URL. That is also why "Send to
+ * newsroom" refuses every email candidate.
+ *
  * Replaces the Postmark inbound webhook, which stopped delivering on
  * 3 July 2026 and which — even when it worked — only ever saw forwarded
  * copies. See `src/lib/ingest/mailbox.ts` for why reading IMAP directly is the
