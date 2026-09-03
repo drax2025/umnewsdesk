@@ -3,6 +3,7 @@ import type { ParsedMail } from "mailparser";
 import { nextCandidateCode } from "@/lib/ingest/codes";
 import { checkDedup } from "@/lib/ingest/dedup";
 import { detectEmbargo } from "@/lib/ingest/embargo";
+import { mirrorImageAttachments } from "@/lib/ingest/mirror-attachments";
 import { normalizeHeadline, safeIso, safeTrim } from "@/lib/ingest/normalize";
 
 /**
@@ -214,6 +215,18 @@ export async function ingestEmailMessage(
       return { state: "duplicate", reason: "message_id", matched_candidate_id: null };
     }
     throw new Error(error?.message ?? "Failed to insert candidate");
+  }
+
+  // After the insert, because the storage path is keyed on the candidate id.
+  // Best-effort by design: a picture that will not upload must not cost us the
+  // release. See mirror-attachments.ts.
+  try {
+    const mirrored = await mirrorImageAttachments(supabase, inserted.id, parsed.attachments);
+    if (mirrored.length) {
+      await supabase.from("candidates").update({ attachments: mirrored }).eq("id", inserted.id);
+    }
+  } catch (e) {
+    console.error(`[INGEST] ${inserted.code} attachment mirror failed: ${(e as Error).message}`);
   }
 
   return {

@@ -10,6 +10,7 @@ import {
   setCandidateTriage,
 } from "@/lib/actions/inbox";
 import { SendToNewsroomButton } from "@/components/forms/send-to-newsroom-button";
+import { CandidatePreviewButton } from "@/components/discovery/candidate-preview-panel";
 
 export const dynamic = "force-dynamic";
 
@@ -652,7 +653,11 @@ export default async function CandidateInboxPage({
                             embargoes, publishing, the agency reply - belongs to
                             the newsroom, so this is where News Desk's job ends. */}
                         <td className="whitespace-nowrap px-3 py-2.5 text-right">
-                          <div className="flex justify-end">
+                          <div className="flex items-center justify-end gap-1">
+                            {/* Read it before sending it. Placed beside the
+                                handoff because this is the moment the decision
+                                is actually made. */}
+                            <CandidatePreviewButton candidateId={c.id} />
                             <SendToNewsroomButton
                               candidateId={c.id}
                               sentRecordId={c.newsroom_record_id}

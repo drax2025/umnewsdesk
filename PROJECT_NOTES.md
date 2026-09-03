@@ -11,6 +11,27 @@ _Last updated: 2026-09-03_
 
 ## Recently landed (this session)
 
+- **Preview a candidate before sending it** — new slide-out pane on
+  `/discovery/inbox`, opened by an eye button beside "Send to newsroom", which
+  is where the decision is actually taken. Shows the full body, mirrored
+  images, attachment names, sender/agency, dates, state, and banners for
+  embargo, signal-only sourcing and already-sent. Escape or the backdrop
+  closes it.
+  - Content is loaded **on demand** (`getCandidatePreview`), not with the list:
+    the inbox pulls 200 rows and a release body runs to several thousand
+    characters, so carrying it for every row to show one would be a large
+    payload for a panel that is usually closed.
+  - **Image mirroring restored** (`src/lib/ingest/mirror-attachments.ts`). The
+    producer was deleted with the Postmark path, so `attachment_urls` held
+    filenames and nothing else — you could tell a release came with "hero.jpg"
+    but not whether it was usable. The IMAP poller now copies image attachments
+    into the existing `candidate-attachments` bucket in the shape migration
+    0033 documents. Images only and 5 MB a file, per that migration: documents
+    are the release text and belong in `body_text`. Never throws — a candidate
+    that arrived is worth more than its pictures.
+  - **Only new releases will have images.** The four most recent arrived before
+    the mirror existed, so they show filenames only; nothing backfills them.
+
 - **Three loose ends from the mailbox handover, closed** (3 Sep 2026).
   - **Triage digest moved here** (`GET /api/cron/triage-digest`). V1's copy read
     V1's `triage_log`, which stopped filling the moment triage moved — it would
