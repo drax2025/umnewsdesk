@@ -11,6 +11,21 @@ _Last updated: 2026-09-03_
 
 ## Recently landed (this session)
 
+- **Backfilled images for releases ingested before the mirror existed**
+  (`scripts/backfill-attachments.mjs`, one-off). Matched candidates to their
+  original mail in `PR/Ingested` by Message-ID and recovered the pictures:
+  **13 messages matched, 24 images mirrored, 10 rows updated**. Verified all
+  32 mirrored image URLs return 200 publicly, so the preview pane renders them
+  without auth. Dry run by default; `--commit` to write.
+  - The script deliberately duplicates the few constants in
+    `mirror-attachments.ts` rather than importing it — it runs outside Next,
+    where the `@/` alias does not resolve. If those constants change, the
+    script is throwaway and can be deleted rather than kept in step.
+  - Three matched messages yielded nothing: one is a forwarded release whose
+    images were inline in the quoted wrapper rather than attachments — the case
+    reading IMAP directly is supposed to avoid, and does for anything arriving
+    first-hand.
+
 - **Preview a candidate before sending it** — new slide-out pane on
   `/discovery/inbox`, opened by an eye button beside "Send to newsroom", which
   is where the decision is actually taken. Shows the full body, mirrored
