@@ -11,6 +11,28 @@ _Last updated: 2026-09-03_
 
 ## Recently landed (this session)
 
+- **Three loose ends from the mailbox handover, closed** (3 Sep 2026).
+  - **Triage digest moved here** (`GET /api/cron/triage-digest`). V1's copy read
+    V1's `triage_log`, which stopped filling the moment triage moved — it would
+    have mailed zeros every morning while News Desk quietly did the work. Sent
+    over the same Zoho account the mailbox authenticates as, carrying the
+    `X-Union-Newsroom` header so the next triage run does not read it back as a
+    press release. It keeps V1's stale warning: an empty digest reads the same
+    whether nothing arrived or triage stopped, so silence is called out.
+    `?dry=1` renders without sending. Needs `TRIAGE_DIGEST_TO`, which has no
+    default — unset refuses to send rather than mailing a stranger.
+  - **Poll batch 25 → 15.** Measured on live mail at ~14s a message;
+    `maxDuration` is 300, so 25 could never finish and the run would be killed
+    part-way. 15 leaves headroom, and at a ten-minute cadence what does not fit
+    is not lost, it is next.
+  - **`vercel.json` no longer polls the mailbox.** It ran daily at 07:00 while
+    n8n ran every ten minutes; two schedulers on one queue is precisely what
+    made both apps ingest the same releases this morning. n8n owns the
+    schedule. The embargo-release cron stays.
+  - `nodemailer` added — with **pnpm**, not npm. This repo has a
+    `pnpm-lock.yaml`, and `npm install` fails on it with a null-property error
+    rather than saying so.
+
 - **Inbox triage moved here from V1** (3 Sep 2026). `GET /api/cron/triage-inbox`
   sorts the unsorted Zoho INBOX: press releases to `PR/To Process` where the
   poller takes them, commercial mail to its own folders, wire traffic and

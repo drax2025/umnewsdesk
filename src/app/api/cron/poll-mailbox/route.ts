@@ -86,8 +86,15 @@ export async function GET(req: Request) {
   }
 
   const dryRun = !!url.searchParams.get("dry");
+  // Measured on live mail: a message costs roughly 14 seconds — download,
+  // parse, extract attachments, dedup, insert, move. maxDuration is 300, so a
+  // batch of 25 could not finish and the run would be killed part-way through.
+  // 15 leaves headroom, and the poll runs every ten minutes: what does not fit
+  // is not lost, it is next.
+  const DEFAULT_BATCH = 15;
   const limitRaw = Number(url.searchParams.get("limit"));
-  const limit = Number.isFinite(limitRaw) && limitRaw > 0 ? Math.min(limitRaw, 100) : 25;
+  const limit =
+    Number.isFinite(limitRaw) && limitRaw > 0 ? Math.min(limitRaw, 100) : DEFAULT_BATCH;
 
   const supabase = createServiceClient();
 
