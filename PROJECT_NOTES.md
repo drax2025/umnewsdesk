@@ -11,6 +11,39 @@ _Last updated: 2026-09-02_
 
 ## Recently landed (this session)
 
+- **PR mailbox now read over IMAP, on a cron** (ported from Newsroom V1):
+  `GET /api/cron/poll-mailbox` (Node runtime, `maxDuration` 300) polls the Zoho
+  folder every 30 minutes and turns what is waiting into `candidates`.
+  - `src/lib/ingest/mailbox.ts` — transport. Port of V1's hardened service:
+    UID-based search (sequence numbers shift as messages move out and silently
+    read the wrong mail), an `error` listener on every ImapFlow client because
+    an unhandled event takes the process down, explicit greeting/socket
+    timeouts, and **folder-as-queue** semantics — a message is *moved* to
+    `PR/Ingested` once stored, so what remains is what still needs attention
+    and a re-run cannot double-process. Unparseable mail goes to `PR/Failed`
+    so one bad message cannot block the queue.
+  - `src/lib/ingest/email-candidate.ts` — mapping. Idempotent on the RFC822
+    Message-ID, then the existing fuzzy/URL `checkDedup`. Sender domain is
+    matched against `press_agencies` for attribution.
+  - **Why this replaces Postmark:** the webhook only ever saw what somebody
+    *forwarded*, so sender/date/Message-ID had to be reconstructed from a quoted
+    wrapper — which is why all 21 existing email candidates are `Fwd:` and
+    mostly `unverified`. Reading the mailbox gets the agency's original message,
+    so a known agency domain is now genuinely `verified`. V2's Postmark path had
+    also been dead since **3 July 2026**; V1 retired its own on 24 August.
+  - Modes for first run: `?test=1` checks credentials and folder names without
+    touching mail (the usual first failure is a folder named slightly
+    differently), `?dry=1` reports what it *would* create and moves nothing,
+    `?limit=n` caps the batch.
+  - Verified: typecheck + lint clean; 401 unauthenticated, 401 bad token, 503
+    when IMAP env is absent, token accepted via header **and** query string.
+    DB preconditions confirmed (PRESS_MAILBOX active, 21 agencies,
+    `message_id`/`pr_contact`/`attachment_urls` all writable). **The IMAP leg
+    itself is untested — it needs real Zoho credentials.**
+  - `vercel.json`: added the poller and **removed the stale
+    `/api/cron/embargo-release` entry**, whose route no longer exists — that
+    cron had been 404ing daily since the pipeline retirement.
+
 - **Advisory fact-check on the way out** (2 Sep 2026, Phase 4). `sendToNewsroom`
   now fetches the source page, compares the candidate against it in one model
   pass, and attaches the result to the payload and to the candidate row.
