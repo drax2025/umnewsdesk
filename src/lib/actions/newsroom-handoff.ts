@@ -46,12 +46,20 @@ type CandidateRow = {
   verification_state: string | null;
   sent_to_newsroom_at: string | null;
   newsroom_record_id: string | null;
+  kind: string | null;
+  message_id: string | null;
+  raw: { agency_name?: string | null } | null;
   discovery_sources: { name: string | null } | null;
 };
 
 /** Checks that must hold before a story is worth another newsroom's time. */
 function blockingReason(c: CandidateRow): string | null {
-  if (!c.primary_url) return "No source URL — the newsroom uses it as the story identity";
+  // Identity is the source URL for a swept page, or the Message-ID for a press
+  // release, which has no page of its own. One of the two must be there or the
+  // newsroom cannot recognise the story on a re-send.
+  if (!c.primary_url && !c.message_id) {
+    return "No source URL or Message-ID — the newsroom needs one as the story identity";
+  }
   if (!c.body_text || c.body_text.trim().length < 50) {
     return "No article text — the desk cannot work from a headline and a link";
   }
@@ -71,8 +79,8 @@ export async function sendToNewsroom(candidateId: string): Promise<HandoffResult
     .from("candidates")
     .select(
       "id, code, working_headline, primary_url, summary, body_text, image_url, " +
-      "published_at, layer, score, dedup_state, verification_state, " +
-      "sent_to_newsroom_at, newsroom_record_id, discovery_sources(name)",
+      "published_at, layer, score, dedup_state, verification_state, kind, " +
+      "message_id, raw, sent_to_newsroom_at, newsroom_record_id, discovery_sources(name)",
     )
     .eq("id", candidateId)
     .single();
@@ -97,20 +105,33 @@ export async function sendToNewsroom(candidateId: string): Promise<HandoffResult
   // are only useful to the person who picks the story up, so they have to
   // travel with it. factCheckCandidate never throws — every failure comes back
   // as state "unavailable" with a reason attached.
-  const factCheck = await factCheckCandidate({
-    sourceUrl: candidate.primary_url as string,
-    title: candidate.working_headline,
-    body: candidate.body_text as string,
-  });
+  // A fact-check reads the story against the page it came from. A press release
+  // has no such page — it *is* the source — so there is nothing to check it
+  // against and the pass is skipped rather than faked. Sending a hollow
+  // "unavailable" would read to the desk as "we tried and failed", which is
+  // worse than saying nothing.
+  const factCheck = candidate.primary_url
+    ? await factCheckCandidate({
+        sourceUrl: candidate.primary_url,
+        title: candidate.working_headline,
+        body: candidate.body_text as string,
+      })
+    : null;
 
   const payload = {
     candidateId: candidate.code,
-    sourceUrl: candidate.primary_url,
+    sourceUrl: candidate.primary_url ?? undefined,
+    // Identity for a release that arrived as mail. The newsroom hashes this the
+    // same way its own mailbox poll does, so a release reaching it down both
+    // routes makes one story.
+    messageId: candidate.message_id ?? undefined,
     title: candidate.working_headline,
     body: candidate.body_text,
     summary: candidate.summary ?? undefined,
     publishedAt: candidate.published_at ?? undefined,
-    sourceName: candidate.discovery_sources?.name ?? undefined,
+    // The agency is a better attribution than "Press mailbox (unattributed)".
+    sourceName:
+      candidate.raw?.agency_name ?? candidate.discovery_sources?.name ?? undefined,
     layer: candidate.layer ?? undefined,
     score: candidate.score ?? undefined,
     imageUrl: candidate.image_url ?? undefined,
@@ -141,7 +162,7 @@ export async function sendToNewsroom(candidateId: string): Promise<HandoffResult
             sent_to_newsroom_at: new Date().toISOString(),
             newsroom_send_error: null,
             fact_check: factCheck,
-            fact_checked_at: factCheck.checkedAt,
+            fact_checked_at: factCheck?.checkedAt ?? null,
             triage_state: "sent_to_f1",
           })
           .eq("id", candidateId);

@@ -11,6 +11,29 @@ _Last updated: 2026-09-02_
 
 ## Recently landed (this session)
 
+- **V2 can now hand over emailed press releases** (cross-repo change). The
+  "Send to newsroom" button rejected every email candidate with *"No source
+  URL"*, because V1 derives story identity by hashing the source URL and a
+  release has no page of its own.
+  - **V1** (`services/candidateIngest.ts`, separate repo, branch
+    `feat/fact-check-notes`): identity falls back to the RFC822 Message-ID,
+    hashed **exactly** the way `workflowIdForMessage` hashes it in V1's own
+    mailbox path — same `pr-` prefix, same digest — so a release reaching V1
+    down both routes makes **one** story and the upsert absorbs the second.
+    7 new tests, 33 passing.
+  - **Content source matters editorially:** a release stays **Canonical** (the
+    issuer's own words, may go out on a light rewrite); only a swept page is
+    **Public Domain** and must go through the full rewrite. Marking a release
+    Public Domain would force pointless rewrites.
+  - **V2** (`newsroom-handoff.ts`): sends `messageId`, allows a missing
+    `primary_url` when one is present, prefers the agency name over "Press
+    mailbox (unattributed)" for attribution, and **skips the fact-check for
+    releases** — a fact-check reads a story against the page it came from, and
+    a release *is* the source, so there is nothing to check against. Sending a
+    hollow "unavailable" would read as "we tried and failed".
+  - **Not yet live.** V1 must be deployed and **its own mailbox poll disabled**
+    before V2's poller is re-scheduled, or the two race for the same folder.
+
 - **Cron cadence moved to n8n — the Vercel plan is Hobby.** The first preview
   deploy of the mailbox work **failed**: Hobby allows at most two cron jobs and
   only **daily** schedules, so `*/30` and `*/15` were rejected outright (this is
