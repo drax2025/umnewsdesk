@@ -11,6 +11,18 @@ _Last updated: 2026-09-02_
 
 ## Recently landed (this session)
 
+- **Mailbox verified against the live Zoho account** (3 Sep 2026). Folder check
+  passed: connected, 75 folders, and `PR/To Process` / `PR/Ingested` /
+  `PR/Failed` all exist under exactly the configured names (Zoho's delimiter is
+  `/`, so no `IMAP_FOLDER*` overrides needed). Dry run read a real release and
+  **matched its sending domain to the agency "Tiger Bond"** — so it would store
+  as `verification_state = 'verified'`, which the forwarded-mail path could
+  never establish. Correctly reported it as not embargoed.
+  - Dry-run output now includes the embargo verdict; it was computed but never
+    surfaced, which made the dry run less useful than claimed.
+  - Still unproven: a real (non-dry) store, and the embargo *hold* path against
+    a genuinely embargoed message.
+
 - **Embargo parsing on the mailbox path** (`src/lib/ingest/embargo.ts`, ported
   from V1) — an embargoed release is now **held** rather than offered to the
   desk. `detectEmbargo` reads the release's own date, so "FRIDAY 28 AUGUST"

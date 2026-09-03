@@ -84,7 +84,12 @@ export async function GET(req: Request) {
         const result = await ingestEmailMessage(supabase, parsed, { dryRun: dry });
         const subject = (parsed.subject ?? "(no subject)").slice(0, 80);
         if (result.state === "clear") {
-          return `${result.candidate_code} ${result.agency ? `[${result.agency}] ` : ""}${subject}`;
+          // The embargo verdict is the whole point of a dry run: it is the one
+          // decision that changes whether the desk sees the story at all.
+          const embargo = result.embargoed
+            ? ` EMBARGOED${result.embargo_until ? ` until ${result.embargo_until}` : " (no lift time read — held for a person)"}`
+            : "";
+          return `${result.candidate_code} ${result.agency ? `[${result.agency}] ` : ""}${subject}${embargo}`;
         }
         if (result.state === "duplicate") {
           return `duplicate (${result.reason}) ${subject}`;
