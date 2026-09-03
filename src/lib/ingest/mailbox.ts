@@ -27,6 +27,8 @@ export interface MailboxConfig {
   done: string;
   /** Messages that cannot be parsed, so one bad message cannot block the queue. */
   failed: string;
+  /** The unsorted mailbox triage reads from. */
+  source: string;
 }
 
 export function mailboxConfigFromEnv(): MailboxConfig | null {
@@ -40,6 +42,9 @@ export function mailboxConfigFromEnv(): MailboxConfig | null {
     inbox: process.env.IMAP_FOLDER || "PR/To Process",
     done: process.env.IMAP_FOLDER_DONE || "PR/Ingested",
     failed: process.env.IMAP_FOLDER_FAILED || "PR/Failed",
+    // Triage reads the unsorted INBOX and files into the folders the poller
+    // and the commercial team work from.
+    source: process.env.IMAP_FOLDER_SOURCE || "INBOX",
   };
 }
 
@@ -199,4 +204,95 @@ export async function testMailbox(config: MailboxConfig) {
   } finally {
     await client.logout().catch(() => client.close());
   }
+}
+
+
+/* ────────────────────────────────────────────────────────────────────────── *
+ *  Triage: reading the unsorted inbox and filing what it recognises.
+ * ────────────────────────────────────────────────────────────────────────── */
+
+export interface InboxMessage {
+  uid: number;
+  parsed: ParsedMail;
+}
+
+/**
+ * Read messages newer than `sinceUid`.
+ *
+ * A high-water mark rather than the unseen flag, because a person reading mail
+ * in Zoho marks things read and would otherwise make them invisible here. UIDs
+ * only ever increase within a folder, so the mark is a reliable "everything
+ * after this point".
+ *
+ * An unreadable message is skipped, not fatal: one malformed mail must not
+ * stop the rest of the run.
+ */
+export async function readNewInbox(
+  config: MailboxConfig,
+  folder: string,
+  sinceUid: number,
+  limit = 60,
+): Promise<{ messages: InboxMessage[]; highestUid: number }> {
+  const client = newClient(config, "inbox read");
+  await client.connect();
+  try {
+    const lock = await client.getMailboxLock(folder);
+    try {
+      const uids = ((await client.search({ all: true }, { uid: true })) || [])
+        .filter((uid) => uid > sinceUid)
+        .sort((a, b) => a - b);
+      const highestUid = uids.length ? uids[uids.length - 1] : sinceUid;
+      const messages: InboxMessage[] = [];
+      for (const uid of uids.slice(0, limit)) {
+        try {
+          const raw = await client.download(String(uid), undefined, { uid: true });
+          if (!raw?.content) continue;
+          messages.push({ uid, parsed: await simpleParser(raw.content) });
+        } catch {
+          // Unreadable — leave it in place for a person and carry on.
+        }
+      }
+      return { messages, highestUid };
+    } finally {
+      lock.release();
+    }
+  } finally {
+    await client.logout().catch(() => client.close());
+  }
+}
+
+/**
+ * Move specific UIDs out of a folder.
+ *
+ * Decisions are collected first and applied here in one connection: moving as
+ * you go renumbers what you are still iterating over.
+ */
+export async function moveMessages(
+  config: MailboxConfig,
+  from: string,
+  moves: Array<{ uid: number; to: string }>,
+): Promise<{ moved: number; errors: string[] }> {
+  if (!moves.length) return { moved: 0, errors: [] };
+  const client = newClient(config, "inbox triage move");
+  const errors: string[] = [];
+  let moved = 0;
+  await client.connect();
+  try {
+    const lock = await client.getMailboxLock(from);
+    try {
+      for (const move of moves) {
+        try {
+          await client.messageMove(String(move.uid), move.to, { uid: true });
+          moved++;
+        } catch (e) {
+          errors.push(`uid ${move.uid} -> ${move.to}: ${(e as Error).message}`);
+        }
+      }
+    } finally {
+      lock.release();
+    }
+  } finally {
+    await client.logout().catch(() => client.close());
+  }
+  return { moved, errors };
 }
