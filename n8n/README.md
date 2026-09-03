@@ -116,3 +116,37 @@ workflow per kind rather than overloading `rss-sweep.json`:
 
 The dedup pipeline (external_id → canonical URL → fuzzy headline) is
 identical across kinds, so cross-kind duplicates collapse correctly.
+
+## PR mailbox poll — `poll-mailbox.json`
+
+Drives `/api/cron/poll-mailbox` every 30 minutes.
+
+**Why n8n and not a Vercel cron:** the account is on the **Hobby** plan, which
+allows at most two cron jobs and only **daily** schedules. `vercel.json` keeps a
+once-daily run as a backstop; this workflow provides the real cadence. On a Pro
+plan you could delete this and set the schedule in `vercel.json` instead.
+
+Setup:
+
+1. Import `workflows/poll-mailbox.json`.
+2. Create a **second** HTTP Header Auth credential — this endpoint uses
+   `CRON_SECRET`, **not** `INGEST_TOKEN`:
+   - Name: `UM Newsroom — CRON_SECRET`
+   - Header name: `Authorization`
+   - Header value: `Bearer <the same string as CRON_SECRET in Vercel>`
+3. Re-bind credentials on both HTTP nodes. **Poll PR mailbox** takes the
+   CRON_SECRET credential; **File OPS-RR alert** takes the existing
+   INGEST_TOKEN one.
+4. Activate.
+
+The poller is safe to run on a schedule: the watched folder *is* the queue, so a
+run with nothing waiting returns `found: 0` and does nothing. A run that fails to
+parse a message files an OPS-RR alert rather than failing silently.
+
+Useful by hand (same token):
+
+```
+GET {UM_BASE_URL}/api/cron/poll-mailbox?test=1   credentials + folder names, touches no mail
+GET {UM_BASE_URL}/api/cron/poll-mailbox?dry=1    reports what it would create, moves nothing
+GET {UM_BASE_URL}/api/cron/poll-mailbox?limit=1  process a single message
+```

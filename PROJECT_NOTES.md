@@ -11,6 +11,86 @@ _Last updated: 2026-09-02_
 
 ## Recently landed (this session)
 
+- **Cron cadence moved to n8n — the Vercel plan is Hobby.** The first preview
+  deploy of the mailbox work **failed**: Hobby allows at most two cron jobs and
+  only **daily** schedules, so `*/30` and `*/15` were rejected outright (this is
+  why the previous config had a single `0 6 * * *` entry). `vercel.json` now runs
+  both crons once daily as a backstop, and `n8n/workflows/poll-mailbox.json`
+  drives the real 30-minute cadence through the runner that already handles the
+  RSS sweep. Note it needs a **second** header-auth credential — the cron routes
+  use `CRON_SECRET`, not `INGEST_TOKEN`.
+
+- **Mailbox verified against the live Zoho account** (3 Sep 2026). Folder check
+  passed: connected, 75 folders, and `PR/To Process` / `PR/Ingested` /
+  `PR/Failed` all exist under exactly the configured names (Zoho's delimiter is
+  `/`, so no `IMAP_FOLDER*` overrides needed). Dry run read a real release and
+  **matched its sending domain to the agency "Tiger Bond"** — so it would store
+  as `verification_state = 'verified'`, which the forwarded-mail path could
+  never establish. Correctly reported it as not embargoed.
+  - Dry-run output now includes the embargo verdict; it was computed but never
+    surfaced, which made the dry run less useful than claimed.
+  - Still unproven: a real (non-dry) store, and the embargo *hold* path against
+    a genuinely embargoed message.
+
+- **Embargo parsing on the mailbox path** (`src/lib/ingest/embargo.ts`, ported
+  from V1) — an embargoed release is now **held** rather than offered to the
+  desk. `detectEmbargo` reads the release's own date, so "FRIDAY 28 AUGUST"
+  with no year resolves from when the agency sent it, not when we polled.
+  - **The trap it exists for:** "Embargo: For immediate release" and "EMBARGO:
+    IMMEDIATE" are common and mean the story is free to run *now*. A keyword
+    match holds those, which is a story missed. An agency *asking* whether you
+    want releases under embargo is likewise not an embargo. Both are excluded.
+  - **Cautious the other way:** a release that mentions an embargo but whose
+    date cannot be read is still held, with no lift time and
+    `embargo_confidence = 'low'`, so a person decides. Publishing an embargoed
+    release early is the mistake agencies do not forgive.
+  - BST/GMT handled without a timezone library (last-Sunday rule, deterministic
+    and testable) — the desk works in one zone and the answer must be checkable.
+    Verified: `00:01 25 August 2026` → `2026-08-24T23:01Z`; January stays GMT.
+  - The line the parser read is kept in `raw.embargo_evidence` (there is no
+    dedicated column) so a person can check the machine's work.
+  - Exercised against 11 cases covering every real wording V1 recorded, all
+    three traps, and the GMT/BST boundary — all correct.
+- **`/api/cron/embargo-release` restored** (deleted in `feed7a3`), every 15 min.
+  Without it the poller's holds would never lift. Two deliberate behaviours: a
+  hold with **no** `embargo_until` is never auto-released (we could not read a
+  lift time, so a person supplies one), and the release now moves **only**
+  `triage_state` — the old version also reset `verification_state` to 'pending',
+  which would undo the attribution the IMAP path establishes.
+
+- **PR mailbox now read over IMAP, on a cron** (ported from Newsroom V1):
+  `GET /api/cron/poll-mailbox` (Node runtime, `maxDuration` 300) polls the Zoho
+  folder every 30 minutes and turns what is waiting into `candidates`.
+  - `src/lib/ingest/mailbox.ts` — transport. Port of V1's hardened service:
+    UID-based search (sequence numbers shift as messages move out and silently
+    read the wrong mail), an `error` listener on every ImapFlow client because
+    an unhandled event takes the process down, explicit greeting/socket
+    timeouts, and **folder-as-queue** semantics — a message is *moved* to
+    `PR/Ingested` once stored, so what remains is what still needs attention
+    and a re-run cannot double-process. Unparseable mail goes to `PR/Failed`
+    so one bad message cannot block the queue.
+  - `src/lib/ingest/email-candidate.ts` — mapping. Idempotent on the RFC822
+    Message-ID, then the existing fuzzy/URL `checkDedup`. Sender domain is
+    matched against `press_agencies` for attribution.
+  - **Why this replaces Postmark:** the webhook only ever saw what somebody
+    *forwarded*, so sender/date/Message-ID had to be reconstructed from a quoted
+    wrapper — which is why all 21 existing email candidates are `Fwd:` and
+    mostly `unverified`. Reading the mailbox gets the agency's original message,
+    so a known agency domain is now genuinely `verified`. V2's Postmark path had
+    also been dead since **3 July 2026**; V1 retired its own on 24 August.
+  - Modes for first run: `?test=1` checks credentials and folder names without
+    touching mail (the usual first failure is a folder named slightly
+    differently), `?dry=1` reports what it *would* create and moves nothing,
+    `?limit=n` caps the batch.
+  - Verified: typecheck + lint clean; 401 unauthenticated, 401 bad token, 503
+    when IMAP env is absent, token accepted via header **and** query string.
+    DB preconditions confirmed (PRESS_MAILBOX active, 21 agencies,
+    `message_id`/`pr_contact`/`attachment_urls` all writable). **The IMAP leg
+    itself is untested — it needs real Zoho credentials.**
+  - `vercel.json`: added the poller and **removed the stale
+    `/api/cron/embargo-release` entry**, whose route no longer exists — that
+    cron had been 404ing daily since the pipeline retirement.
+
 - **Advisory fact-check on the way out** (2 Sep 2026, Phase 4). `sendToNewsroom`
   now fetches the source page, compares the candidate against it in one model
   pass, and attaches the result to the payload and to the candidate row.
