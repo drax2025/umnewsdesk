@@ -2,6 +2,10 @@
   "$schema": "https://openapi.vercel.sh/vercel.json",
   "crons": [
     {
+      "path": "/api/cron/poll-mailbox",
+      "schedule": "0 7 * * *"
+    },
+    {
       "path": "/api/cron/embargo-release",
       "schedule": "0 6 * * *"
     }

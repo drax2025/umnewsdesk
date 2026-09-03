@@ -1,18 +1,13 @@
 /**
  * Poll the PR mailbox and turn what is waiting into candidates.
  *
- * ⚠️ NOT SCHEDULED. Newsroom V1 (newsroom.unionmedianc.com) polls the SAME
- * folder every five minutes and is the system that actually publishes press
- * releases. Two pollers on one folder race: whichever runs first moves the
- * message to PR/Ingested and the other never sees it. Running this on a
- * schedule takes releases away from the publisher.
+ * V2 owns this folder as of 3 September 2026. Newsroom V1's own mailbox poll
+ * was disabled the same day (its crontab line is commented, not deleted) —
+ * two pollers on one folder race, and whichever runs first moves the message
+ * out. V1 still *fills* the folder: its triage job files press releases from
+ * INBOX into PR/To Process every ten minutes, and we consume from there.
  *
- * The route is kept because it works and is verified, but it is manual-only
- * until either (a) it is pointed at a folder of its own that the desk routes to
- * deliberately, or (b) V1's ingest contract accepts a Message-ID as story
- * identity, which it currently cannot — it derives identity by hashing the
- * source URL, and an emailed release has no URL. That is also why "Send to
- * newsroom" refuses every email candidate.
+ * Do not re-enable V1's poll without disabling this one.
  *
  * Replaces the Postmark inbound webhook, which stopped delivering on
  * 3 July 2026 and which — even when it worked — only ever saw forwarded
