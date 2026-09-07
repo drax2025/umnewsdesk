@@ -11,6 +11,22 @@ _Last updated: 2026-09-03_
 
 ## Recently landed (this session)
 
+- **Discovery inbox tidied for the desk** (7 Sep 2026):
+  - **Source filter** added, first in the filter row. Filters on the source
+    *code* rather than its uuid, so the URL reads sensibly and survives a
+    reseed. Carried through the state pills, the other selects, the search form
+    and the sort links, so it composes with every existing filter.
+  - **Surfaced column now shows date and time** (`03 Sep 14:22`). Time alone was
+    ambiguous the moment the inbox held more than a day of candidates.
+  - **OPS-RR pill removed** from the row actions. Note this takes the *only*
+    escalation route out of the inbox — the `escalateCandidateToOpsRr` action
+    still exists and open alerts still show in the right-hand panel, but nothing
+    files a new one from here now.
+  - **Dedup / Verify / Triage columns hidden.** The filters for them still work
+    and the states still show in the preview pane, so nothing is unreachable.
+    Their colour palettes are kept with an eslint suppression and a comment —
+    deleting them would mean rebuilding all three to restore the columns.
+
 - **Backfilled images for releases ingested before the mirror existed**
   (`scripts/backfill-attachments.mjs`, one-off). Matched candidates to their
   original mail in `PR/Ingested` by Message-ID and recovered the pictures:

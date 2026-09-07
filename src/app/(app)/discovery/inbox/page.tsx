@@ -4,11 +4,7 @@ import { createClient } from "@/lib/supabase/server";
 import { cn } from "@/lib/utils";
 import { AutoSubmitSelect } from "@/components/forms/auto-submit-select";
 import { InboxRightPanel } from "@/components/discovery/inbox-right-panel";
-import {
-  dismissCandidate,
-  escalateCandidateToOpsRr,
-  setCandidateTriage,
-} from "@/lib/actions/inbox";
+import { dismissCandidate, setCandidateTriage } from "@/lib/actions/inbox";
 import { SendToNewsroomButton } from "@/components/forms/send-to-newsroom-button";
 import { CandidatePreviewButton } from "@/components/discovery/candidate-preview-panel";
 
@@ -74,6 +70,12 @@ const TRIAGE_STATES: { state: string; label: string }[] = [
   { state: "archived", label: "Archived" },
 ];
 
+/*
+ * Kept, unused, on purpose: the Dedup / Verify / Triage columns were hidden on
+ * 2026-09-07 and are expected back. Deleting these would mean rebuilding the
+ * palettes from scratch to restore three columns.
+ */
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 const TRIAGE_PILL: Record<string, string> = {
   ready: "border-success/35 bg-success/10 text-success",
   held_dedup: "border-warn/35 bg-warn/10 text-warn",
@@ -85,6 +87,7 @@ const TRIAGE_PILL: Record<string, string> = {
   archived: "border-um-muted/40 bg-um-muted/15 text-um-muted",
 };
 
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 const TRIAGE_LABEL: Record<string, string> = {
   ready: "Ready",
   held_dedup: "Held · Dup",
@@ -96,6 +99,7 @@ const TRIAGE_LABEL: Record<string, string> = {
   archived: "Archived",
 };
 
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 const DEDUP_LABEL: Record<string, string> = {
   clear: "Clear",
   duplicate: "Duplicate",
@@ -104,6 +108,7 @@ const DEDUP_LABEL: Record<string, string> = {
   pointer: "Pointer",
 };
 
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 const VERIFY_PILL: Record<string, string> = {
   verified: "text-success",
   pending: "text-warn",
@@ -121,8 +126,15 @@ function relTime(iso: string): string {
   return `${d}d ago`;
 }
 
-function fmtTime(iso: string): string {
-  return new Date(iso).toLocaleTimeString("en-GB", { hour12: false }).slice(0, 5);
+/**
+ * Date and time. Time alone was ambiguous the moment the inbox held more than
+ * a day of candidates — "09:14" says nothing about which morning.
+ */
+function fmtDateTime(iso: string): string {
+  const d = new Date(iso);
+  return `${d.toLocaleDateString("en-GB", { day: "2-digit", month: "short" })} ${d
+    .toLocaleTimeString("en-GB", { hour12: false })
+    .slice(0, 5)}`;
 }
 
 /**
@@ -169,6 +181,7 @@ export default async function CandidateInboxPage({
 }: {
   searchParams: Promise<{
     state?: string;
+    source?: string;
     layer?: string;
     stream?: string;
     verified?: string;
@@ -179,6 +192,7 @@ export default async function CandidateInboxPage({
 }) {
   const sp = await searchParams;
   const activeState = sp.state ?? "all";
+  const activeSource = sp.source ?? "";
   const activeLayer = sp.layer ?? "";
   const activeStream = sp.stream ?? "";
   const activeVerified = sp.verified ?? "";
@@ -235,6 +249,13 @@ export default async function CandidateInboxPage({
     activeState === "all"
       ? cands.filter((c) => c.triage_state !== "archived")
       : cands.filter((c) => c.triage_state === activeState);
+  // Filtered on the source's code rather than its uuid: it survives a reseed
+  // and reads sensibly in the URL.
+  if (activeSource) {
+    filtered = filtered.filter(
+      (c) => (c.source_id ? sourceMap.get(c.source_id)?.code : null) === activeSource,
+    );
+  }
   if (activeLayer) filtered = filtered.filter((c) => c.layer === activeLayer);
   if (activeStream)
     filtered = filtered.filter((c) => {
@@ -329,6 +350,7 @@ export default async function CandidateInboxPage({
     : { sort: activeSort, dir: activeDir };
   const filterPreserveParams = new URLSearchParams();
   if (activeState !== "all") filterPreserveParams.set("state", activeState);
+  if (activeSource) filterPreserveParams.set("source", activeSource);
   if (activeLayer) filterPreserveParams.set("layer", activeLayer);
   if (activeStream) filterPreserveParams.set("stream", activeStream);
   if (activeVerified) filterPreserveParams.set("verified", activeVerified);
@@ -347,6 +369,7 @@ export default async function CandidateInboxPage({
             const c = counts.get(s.state) ?? 0;
             const params = new URLSearchParams();
             if (s.state !== "all") params.set("state", s.state);
+            if (activeSource) params.set("source", activeSource);
             if (activeLayer) params.set("layer", activeLayer);
             if (activeStream) params.set("stream", activeStream);
             if (activeVerified) params.set("verified", activeVerified);
@@ -384,11 +407,33 @@ export default async function CandidateInboxPage({
         <div className="mx-2 h-5 w-px bg-border" />
 
         <AutoSubmitSelect
+          name="source"
+          value={activeSource}
+          basePath="/discovery/inbox"
+          preserve={{
+            state: activeState !== "all" ? activeState : undefined,
+            layer: activeLayer || undefined,
+            stream: activeStream || undefined,
+            verified: activeVerified || undefined,
+            q: q || undefined,
+            sort: sortPreserve.sort,
+            dir: sortPreserve.dir,
+          }}
+          options={[
+            { value: "", label: "Source — All" },
+            ...[...sources]
+              .sort((a, b) => a.name.localeCompare(b.name))
+              .map((s) => ({ value: s.code, label: s.name })),
+          ]}
+        />
+
+        <AutoSubmitSelect
           name="layer"
           value={activeLayer}
           basePath="/discovery/inbox"
           preserve={{
             state: activeState !== "all" ? activeState : undefined,
+            source: activeSource || undefined,
             stream: activeStream || undefined,
             verified: activeVerified || undefined,
             q: q || undefined,
@@ -410,6 +455,7 @@ export default async function CandidateInboxPage({
           basePath="/discovery/inbox"
           preserve={{
             state: activeState !== "all" ? activeState : undefined,
+            source: activeSource || undefined,
             layer: activeLayer || undefined,
             verified: activeVerified || undefined,
             q: q || undefined,
@@ -428,6 +474,7 @@ export default async function CandidateInboxPage({
           basePath="/discovery/inbox"
           preserve={{
             state: activeState !== "all" ? activeState : undefined,
+            source: activeSource || undefined,
             layer: activeLayer || undefined,
             stream: activeStream || undefined,
             q: q || undefined,
@@ -444,6 +491,7 @@ export default async function CandidateInboxPage({
 
         <form action="/discovery/inbox" className="ml-auto flex items-center gap-2">
           {activeState !== "all" ? <input type="hidden" name="state" value={activeState} /> : null}
+          {activeSource ? <input type="hidden" name="source" value={activeSource} /> : null}
           {activeLayer ? <input type="hidden" name="layer" value={activeLayer} /> : null}
           {activeStream ? <input type="hidden" name="stream" value={activeStream} /> : null}
           {activeVerified ? <input type="hidden" name="verified" value={activeVerified} /> : null}
@@ -491,6 +539,10 @@ export default async function CandidateInboxPage({
                       preserve={filterPreserveParams}
                     />
                     <Th className="w-[56px]">Image</Th>
+                    {/* Dedup / Verify / Triage columns hidden 2026-09-07 at the
+                        desk's request — the state pills are still rendered in
+                        the preview pane, and the filters above still apply.
+                        Restore from git history if they are wanted back. */}
                     <SortHeader
                       column="source"
                       label="Source"
@@ -516,27 +568,6 @@ export default async function CandidateInboxPage({
                       column="stream"
                       label="Stream"
                       className="w-[110px]"
-                      activeSort={activeSort}
-                      activeDir={activeDir}
-                      preserve={filterPreserveParams}
-                    />
-                    <SortHeader
-                      column="dedup_state"
-                      label="Dedup"
-                      activeSort={activeSort}
-                      activeDir={activeDir}
-                      preserve={filterPreserveParams}
-                    />
-                    <SortHeader
-                      column="verification_state"
-                      label="Verify"
-                      activeSort={activeSort}
-                      activeDir={activeDir}
-                      preserve={filterPreserveParams}
-                    />
-                    <SortHeader
-                      column="triage_state"
-                      label="Triage"
                       activeSort={activeSort}
                       activeDir={activeDir}
                       preserve={filterPreserveParams}
@@ -609,7 +640,7 @@ export default async function CandidateInboxPage({
                           ) : null}
                         </td>
                         <td className="whitespace-nowrap px-3 py-2.5 font-mono text-[11px] tabular-nums text-um-muted">
-                          {fmtTime(c.surfaced_at)}
+                          {fmtDateTime(c.surfaced_at)}
                         </td>
                         <td className="px-3 py-2.5">
                           <span className="rounded-sm border border-border-mid bg-background px-1.5 py-0.5 font-mono text-[10px] font-semibold uppercase tracking-wider text-fg-2">
@@ -619,34 +650,6 @@ export default async function CandidateInboxPage({
                         <td className="w-[110px] max-w-[110px] px-3 py-2.5 text-[11.5px] text-fg-2">
                           <span className="block truncate" title={stream?.name ?? undefined}>
                             {stream?.name ?? "—"}
-                          </span>
-                        </td>
-                        <td className="px-3 py-2.5 text-[11px]">
-                          <span
-                            className={cn(
-                              c.dedup_state === "clear" && "text-success",
-                              c.dedup_state === "duplicate" && "text-warn",
-                              c.dedup_state === "held" && "text-warn",
-                              c.dedup_state === "needs_review" && "text-destructive",
-                              c.dedup_state === "pointer" && "text-um-muted",
-                            )}
-                          >
-                            {DEDUP_LABEL[c.dedup_state] ?? c.dedup_state}
-                          </span>
-                        </td>
-                        <td className="px-3 py-2.5 text-[11px]">
-                          <span className={VERIFY_PILL[c.verification_state] ?? "text-um-muted"}>
-                            {c.verification_state}
-                          </span>
-                        </td>
-                        <td className="px-3 py-2.5">
-                          <span
-                            className={cn(
-                              "inline-flex rounded-full border px-2 py-0.5 text-[10.5px] font-medium",
-                              TRIAGE_PILL[c.triage_state] ?? "border-border text-um-muted",
-                            )}
-                          >
-                            {TRIAGE_LABEL[c.triage_state] ?? c.triage_state}
                           </span>
                         </td>
                         {/* The handoff. Everything downstream of this - editing,
@@ -726,7 +729,6 @@ function TriageActions({
   if (state === "ready") {
     return (
       <div className="inline-flex items-center gap-1">
-        <OpsEscalateMenu id={id} />
         <form action={dismissCandidate} className="inline-block">
           <input type="hidden" name="id" value={id} />
           <button
@@ -759,80 +761,6 @@ function TriageActions({
   );
 }
 
-/**
- * Native disclosure (<details>) → absolutely-positioned form panel.
- * No client component needed: submit triggers revalidate and the
- * details element re-renders closed.
- */
-function OpsEscalateMenu({ id }: { id: string }) {
-  return (
-    <details className="relative inline-block [&[open]>summary]:bg-warn/15">
-      <summary
-        className="flex h-6 cursor-pointer list-none items-center gap-0.5 rounded-sm border border-warn/40 bg-warn/10 px-2 text-[10.5px] font-medium text-warn transition-colors hover:bg-warn/15 [&::-webkit-details-marker]:hidden"
-      >
-        OPS-RR
-        <span className="text-[8px]">▾</span>
-      </summary>
-      <div className="absolute right-0 top-full z-20 mt-1 w-[280px] rounded-md border border-border bg-card p-3 shadow-lg">
-        <form action={escalateCandidateToOpsRr} className="flex flex-col gap-2">
-          <input type="hidden" name="id" value={id} />
-          <div className="grid grid-cols-2 gap-2">
-            <label className="flex flex-col gap-0.5">
-              <span className="text-[9.5px] font-semibold uppercase tracking-wide text-um-muted">
-                Severity
-              </span>
-              <select
-                name="severity"
-                defaultValue="p2"
-                className="h-6 rounded-sm border border-border bg-background px-1.5 text-[11px] focus:border-primary focus:outline-none"
-              >
-                <option value="p1">p1 — 1h</option>
-                <option value="p2">p2 — 4h</option>
-                <option value="p3">p3 — 24h</option>
-              </select>
-            </label>
-            <label className="flex flex-col gap-0.5">
-              <span className="text-[9.5px] font-semibold uppercase tracking-wide text-um-muted">
-                Issue
-              </span>
-              <select
-                name="issue_type"
-                defaultValue="config"
-                className="h-6 rounded-sm border border-border bg-background px-1.5 text-[11px] focus:border-primary focus:outline-none"
-              >
-                <option value="config">config</option>
-                <option value="parse_failure">parse_failure</option>
-                <option value="schema_drift">schema_drift</option>
-                <option value="wordpress_check">wordpress_check</option>
-                <option value="volume_anomaly">volume_anomaly</option>
-                <option value="unreachable">unreachable</option>
-              </select>
-            </label>
-          </div>
-          <label className="flex flex-col gap-0.5">
-            <span className="text-[9.5px] font-semibold uppercase tracking-wide text-um-muted">
-              Note (required)
-            </span>
-            <textarea
-              name="note"
-              rows={2}
-              required
-              minLength={4}
-              placeholder="What needs the desk's attention?"
-              className="rounded-sm border border-border bg-background px-1.5 py-1 text-[11.5px] focus:border-primary focus:outline-none"
-            />
-          </label>
-          <button
-            type="submit"
-            className="h-6 rounded-sm border border-warn/40 bg-warn/10 px-2 text-[10.5px] font-semibold text-warn transition-colors hover:bg-warn/15"
-          >
-            File OPS-RR alert
-          </button>
-        </form>
-      </div>
-    </details>
-  );
-}
 
 function EmbargoChip({
   until,
