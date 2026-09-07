@@ -4,7 +4,11 @@ import { createClient } from "@/lib/supabase/server";
 import { cn } from "@/lib/utils";
 import { AutoSubmitSelect } from "@/components/forms/auto-submit-select";
 import { InboxRightPanel } from "@/components/discovery/inbox-right-panel";
-import { dismissCandidate, setCandidateTriage } from "@/lib/actions/inbox";
+import {
+  dismissCandidate,
+  escalateCandidateToOpsRr,
+  setCandidateTriage,
+} from "@/lib/actions/inbox";
 import { SendToNewsroomButton } from "@/components/forms/send-to-newsroom-button";
 import { CandidatePreviewButton } from "@/components/discovery/candidate-preview-panel";
 
@@ -729,6 +733,7 @@ function TriageActions({
   if (state === "ready") {
     return (
       <div className="inline-flex items-center gap-1">
+        <OpsEscalateMenu id={id} />
         <form action={dismissCandidate} className="inline-block">
           <input type="hidden" name="id" value={id} />
           <button
@@ -761,6 +766,81 @@ function TriageActions({
   );
 }
 
+
+/**
+ * Native disclosure (<details>) → absolutely-positioned form panel.
+ * No client component needed: submit triggers revalidate and the
+ * details element re-renders closed.
+ */
+function OpsEscalateMenu({ id }: { id: string }) {
+  return (
+    <details className="relative inline-block [&[open]>summary]:bg-warn/15">
+      <summary
+        className="flex h-6 cursor-pointer list-none items-center gap-0.5 rounded-sm border border-warn/40 bg-warn/10 px-2 text-[10.5px] font-medium text-warn transition-colors hover:bg-warn/15 [&::-webkit-details-marker]:hidden"
+      >
+        OPS-RR
+        <span className="text-[8px]">▾</span>
+      </summary>
+      <div className="absolute right-0 top-full z-20 mt-1 w-[280px] rounded-md border border-border bg-card p-3 shadow-lg">
+        <form action={escalateCandidateToOpsRr} className="flex flex-col gap-2">
+          <input type="hidden" name="id" value={id} />
+          <div className="grid grid-cols-2 gap-2">
+            <label className="flex flex-col gap-0.5">
+              <span className="text-[9.5px] font-semibold uppercase tracking-wide text-um-muted">
+                Severity
+              </span>
+              <select
+                name="severity"
+                defaultValue="p2"
+                className="h-6 rounded-sm border border-border bg-background px-1.5 text-[11px] focus:border-primary focus:outline-none"
+              >
+                <option value="p1">p1 — 1h</option>
+                <option value="p2">p2 — 4h</option>
+                <option value="p3">p3 — 24h</option>
+              </select>
+            </label>
+            <label className="flex flex-col gap-0.5">
+              <span className="text-[9.5px] font-semibold uppercase tracking-wide text-um-muted">
+                Issue
+              </span>
+              <select
+                name="issue_type"
+                defaultValue="config"
+                className="h-6 rounded-sm border border-border bg-background px-1.5 text-[11px] focus:border-primary focus:outline-none"
+              >
+                <option value="config">config</option>
+                <option value="parse_failure">parse_failure</option>
+                <option value="schema_drift">schema_drift</option>
+                <option value="wordpress_check">wordpress_check</option>
+                <option value="volume_anomaly">volume_anomaly</option>
+                <option value="unreachable">unreachable</option>
+              </select>
+            </label>
+          </div>
+          <label className="flex flex-col gap-0.5">
+            <span className="text-[9.5px] font-semibold uppercase tracking-wide text-um-muted">
+              Note (required)
+            </span>
+            <textarea
+              name="note"
+              rows={2}
+              required
+              minLength={4}
+              placeholder="What needs the desk's attention?"
+              className="rounded-sm border border-border bg-background px-1.5 py-1 text-[11.5px] focus:border-primary focus:outline-none"
+            />
+          </label>
+          <button
+            type="submit"
+            className="h-6 rounded-sm border border-warn/40 bg-warn/10 px-2 text-[10.5px] font-semibold text-warn transition-colors hover:bg-warn/15"
+          >
+            File OPS-RR alert
+          </button>
+        </form>
+      </div>
+    </details>
+  );
+}
 
 function EmbargoChip({
   until,

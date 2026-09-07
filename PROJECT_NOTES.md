@@ -18,10 +18,9 @@ _Last updated: 2026-09-03_
     and the sort links, so it composes with every existing filter.
   - **Surfaced column now shows date and time** (`03 Sep 14:22`). Time alone was
     ambiguous the moment the inbox held more than a day of candidates.
-  - **OPS-RR pill removed** from the row actions. Note this takes the *only*
-    escalation route out of the inbox — the `escalateCandidateToOpsRr` action
-    still exists and open alerts still show in the right-hand panel, but nothing
-    files a new one from here now.
+  - **OPS-RR pill removed, then restored the same day** — removing it took the
+    only escalation route out of the inbox, so it is back in the `ready` row
+    actions beside Dismiss.
   - **Dedup / Verify / Triage columns hidden.** The filters for them still work
     and the states still show in the preview pane, so nothing is unreachable.
     Their colour palettes are kept with an eslint suppression and a comment —
