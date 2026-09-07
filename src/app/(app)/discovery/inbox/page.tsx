@@ -175,6 +175,18 @@ const SORTABLE_COLUMNS: ReadonlySet<SortColumn> = new Set<SortColumn>([
   "triage_state",
 ]);
 
+/** Rows per page. The table used to show the newest 200 and nothing else. */
+const PAGE_SIZE = 50;
+
+/**
+ * Supabase's query-builder type is recursive enough that writing these filter
+ * helpers generically over it exceeds TypeScript's instantiation depth. The
+ * same filters are applied to a rows query and to head-count queries, so the
+ * shape is deliberately loose here; the columns are checked by the database.
+ */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+type QueryBuilder = any;
+
 const DEFAULT_SORT: SortColumn = "surfaced_at";
 const DEFAULT_DIR: SortDir = "desc";
 
@@ -195,6 +207,7 @@ export default async function CandidateInboxPage({
     q?: string;
     sort?: string;
     dir?: string;
+    page?: string;
   }>;
 }) {
   const sp = await searchParams;
@@ -210,27 +223,21 @@ export default async function CandidateInboxPage({
   const activeDir: SortDir = sp.dir === "asc" || sp.dir === "desc" ? sp.dir : DEFAULT_DIR;
 
   const supabase = await createClient();
-  const [candRes, streamsRes, sourcesRes, sweepsRes, opsRes] =
-    await Promise.all([
-      supabase
-        .from("candidates")
-        .select(
-          "id, code, working_headline, primary_url, image_url, layer, kind, dedup_state, verification_state, triage_state, risk, embargo_until, embargo_confidence, attachment_urls, surfaced_at, source_id, stream_id, sweep_run_id, raw, newsroom_record_id, sent_to_newsroom_at, newsroom_send_error",
-        )
-        .order("surfaced_at", { ascending: false })
-        .limit(200),
-      supabase.from("discovery_streams").select("id, name, slug"),
-      supabase.from("discovery_sources").select("id, name, code, signal_only_eligible"),
-      supabase.from("sweep_runs").select("id, code"),
-      supabase
-        .from("ops_rr_alerts")
-        .select("code, description, status")
-        .eq("status", "open")
-        .order("created_at", { ascending: false })
-        .limit(5),
-    ]);
 
-  const cands: CandidateRow[] = candRes.data ?? [];
+  // Sources and streams first: the filters arrive as a source *code* and a
+  // stream *slug*, and the query needs their ids.
+  const [streamsRes, sourcesRes, sweepsRes, opsRes] = await Promise.all([
+    supabase.from("discovery_streams").select("id, name, slug"),
+    supabase.from("discovery_sources").select("id, name, code, signal_only_eligible"),
+    supabase.from("sweep_runs").select("id, code"),
+    supabase
+      .from("ops_rr_alerts")
+      .select("code, description, status")
+      .eq("status", "open")
+      .order("created_at", { ascending: false })
+      .limit(5),
+  ]);
+
   const streams: StreamRow[] = streamsRes.data ?? [];
   const sources: SourceRow[] = sourcesRes.data ?? [];
   const sweeps: SweepRow[] = sweepsRes.data ?? [];
@@ -238,117 +245,109 @@ export default async function CandidateInboxPage({
 
   const streamMap = new Map(streams.map((s) => [s.id, s]));
   const sourceMap = new Map(sources.map((s) => [s.id, s]));
+  const sourceId = sources.find((s) => s.code === activeSource)?.id ?? null;
+  const streamId = streams.find((s) => s.slug === activeStream)?.id ?? null;
 
-  // Server Component renders once per request, so a wall-clock snapshot
-  // here is stable for the lifetime of the response. Threading it to
-  // EmbargoChip keeps the child component pure.
+  /**
+   * Everything except the state pill. Filtering happens in the database, not
+   * in memory: the table holds ~1,700 candidates and this page used to fetch
+   * the newest 200 and filter those, so a filter searched an eighth of the
+   * data and reported the result as if it were the whole.
+   */
+  function applyFilters(qb: QueryBuilder): QueryBuilder {
+    let out: QueryBuilder = qb;
+    if (sourceId) out = out.eq("source_id", sourceId);
+    if (activeLayer) out = out.eq("layer", activeLayer);
+    if (streamId) out = out.eq("stream_id", streamId);
+    if (activeVerified) out = out.eq("verification_state", activeVerified);
+    if (q) {
+      // Commas and parentheses are the or() syntax's own separators.
+      const safe = q.replace(/[,()]/g, " ").trim();
+      if (safe) out = out.or(`working_headline.ilike.%${safe}%,code.ilike.%${safe}%`);
+    }
+    return out;
+  }
+
+  // "All" excludes the two terminal states — a rejected or archived candidate
+  // is out of the working set; the dedicated pills are the way back to them.
+  const TERMINAL = ["archived", "rejected"];
+  function applyState(qb: QueryBuilder, state: string): QueryBuilder {
+    return state === "all"
+      ? qb.not("triage_state", "in", `(${TERMINAL.join(",")})`)
+      : qb.eq("triage_state", state);
+  }
+
+  // ── the page of rows ────────────────────────────────────────────────────
+  const page = Math.max(1, Number(sp.page) || 1);
+  const from = (page - 1) * PAGE_SIZE;
+
+  let rowQuery = supabase
+    .from("candidates")
+    .select(
+      "id, code, working_headline, primary_url, image_url, layer, kind, dedup_state, " +
+      "verification_state, triage_state, risk, embargo_until, embargo_confidence, " +
+      "attachment_urls, surfaced_at, source_id, stream_id, sweep_run_id, raw, " +
+      "newsroom_record_id, sent_to_newsroom_at, newsroom_send_error, " +
+      // Embedded so the database can order by source/stream name.
+      "discovery_sources(name), discovery_streams(name)",
+      { count: "exact" },
+    );
+  rowQuery = applyState(applyFilters(rowQuery), activeState);
+
+  const asc = activeDir === "asc";
+  if (activeSort === "source") {
+    rowQuery = rowQuery.order("name", { referencedTable: "discovery_sources", ascending: asc });
+  } else if (activeSort === "stream") {
+    rowQuery = rowQuery.order("name", { referencedTable: "discovery_streams", ascending: asc });
+  } else {
+    rowQuery = rowQuery.order(activeSort, { ascending: asc, nullsFirst: false });
+  }
+  // A stable tiebreak, so a row cannot appear on two pages of the same sort.
+  rowQuery = rowQuery.order("id", { ascending: true });
+
+  const { data: rowData, count: matchedCount } = await rowQuery.range(from, from + PAGE_SIZE - 1);
+  const filtered: CandidateRow[] = (rowData ?? []) as unknown as CandidateRow[];
+  const matched = matchedCount ?? 0;
+  const pageCount = Math.max(1, Math.ceil(matched / PAGE_SIZE));
+
+  // ── pill counts, respecting every filter except the pill itself ─────────
+  const countFor = async (state: string) => {
+    const qb = applyState(
+      applyFilters(supabase.from("candidates").select("id", { count: "exact", head: true })),
+      state,
+    );
+    const { count } = await qb;
+    return count ?? 0;
+  };
+  const countEntries = await Promise.all(
+    TRIAGE_STATES.map(async (t) => [t.state, await countFor(t.state)] as const),
+  );
+  const counts = new Map<string, number>(countEntries);
+
   // eslint-disable-next-line react-hooks/purity
   const nowMs = Date.now();
 
-  // "All" intentionally excludes archived — Dismiss should remove the
-  // row from the operator's default working set. The dedicated
-  // "Archived" pill is the explicit opt-in for reviewing them.
-  const nonArchivedTotal = cands.filter(
-    (c) => c.triage_state !== "archived" && c.triage_state !== "rejected",
-  ).length;
-  const counts = new Map<string, number>([["all", nonArchivedTotal]]);
-  for (const c of cands) counts.set(c.triage_state, (counts.get(c.triage_state) ?? 0) + 1);
-
-  let filtered =
-    activeState === "all"
-      ? cands.filter((c) => c.triage_state !== "archived" && c.triage_state !== "rejected")
-      : cands.filter((c) => c.triage_state === activeState);
-  // Filtered on the source's code rather than its uuid: it survives a reseed
-  // and reads sensibly in the URL.
-  if (activeSource) {
-    filtered = filtered.filter(
-      (c) => (c.source_id ? sourceMap.get(c.source_id)?.code : null) === activeSource,
-    );
-  }
-  if (activeLayer) filtered = filtered.filter((c) => c.layer === activeLayer);
-  if (activeStream)
-    filtered = filtered.filter((c) => {
-      const s = c.stream_id ? streamMap.get(c.stream_id) : null;
-      return s?.slug === activeStream;
-    });
-  if (activeVerified) filtered = filtered.filter((c) => c.verification_state === activeVerified);
-  if (q) {
-    const qq = q.toLowerCase();
-    filtered = filtered.filter(
-      (c) =>
-        c.working_headline.toLowerCase().includes(qq) || c.code.toLowerCase().includes(qq),
-    );
-  }
-
-  // Sort the filtered set. Nulls always sink to the bottom regardless of
-  // direction — an unscored candidate at the top of "score asc" would be
-  // surprising. localeCompare gets {numeric:true} so codes like DC-006501
-  // sort by their numeric tail rather than lexicographically.
-  function getSortKey(c: CandidateRow, col: SortColumn): string | number | null {
-    switch (col) {
-      case "code":
-        return c.code;
-      case "working_headline":
-        return c.working_headline.toLowerCase();
-      case "source":
-        return (
-          c.raw?.agency_name ??
-          (c.source_id ? sourceMap.get(c.source_id)?.name : null) ??
-          ""
-        ).toLowerCase();
-      case "surfaced_at":
-        return c.surfaced_at;
-      case "layer":
-        return c.layer;
-      case "stream":
-        return (
-          (c.stream_id ? streamMap.get(c.stream_id)?.name : null) ?? ""
-        ).toLowerCase();
-      case "dedup_state":
-        return c.dedup_state;
-      case "verification_state":
-        return c.verification_state;
-      case "triage_state":
-        return c.triage_state;
-    }
-  }
-
-  const sortMul = activeDir === "asc" ? 1 : -1;
-  filtered = [...filtered].sort((a, b) => {
-    const av = getSortKey(a, activeSort);
-    const bv = getSortKey(b, activeSort);
-    if (av === null && bv === null) return 0;
-    if (av === null) return 1; // nulls last
-    if (bv === null) return -1;
-    if (typeof av === "number" && typeof bv === "number") return (av - bv) * sortMul;
-    return String(av).localeCompare(String(bv), undefined, { numeric: true }) * sortMul;
-  });
-
-  // Route summary numbers
-  const readyCount = cands.filter((c) => c.triage_state === "ready").length;
-  const heldDup = cands.filter((c) => c.triage_state === "held_dedup").length;
-  const heldSource = cands.filter((c) => c.triage_state === "held_source").length;
-  const pointer = cands.filter((c) => c.triage_state === "pointer").length;
-  const needsReview = cands.filter((c) => c.triage_state === "needs_review").length;
-
-  const oldestReady = cands
-    .filter((c) => c.triage_state === "ready")
-    .reduce<string | null>((a, c) => {
-      if (!a) return c.surfaced_at;
-      return new Date(c.surfaced_at) < new Date(a) ? c.surfaced_at : a;
-    }, null);
-
-  const triaged = cands.filter(
-    (c) => c.triage_state === "sent_to_f1" || c.triage_state === "held_dedup",
-  ).length;
-  const accepted = cands.filter((c) => c.triage_state === "sent_to_f1").length;
+  // Route summary numbers. These come from the same counts as the pills, so
+  // the panel describes the filter the operator is actually looking at rather
+  // than whatever happened to be in the first page.
+  const readyCount = counts.get("ready") ?? 0;
+  const heldDup = counts.get("held_dedup") ?? 0;
+  const heldSource = counts.get("held_source") ?? 0;
+  const pointer = counts.get("pointer") ?? 0;
+  const needsReview = counts.get("needs_review") ?? 0;
+  const accepted = counts.get("sent_to_f1") ?? 0;
+  const triaged = accepted + heldDup;
   const acceptanceRate = triaged ? (accepted / triaged) * 100 : 0;
-  const dedupRate = cands.length ? (heldDup / cands.length) * 100 : 0;
+  const allCount = counts.get("all") ?? 0;
+  const dedupRate = allCount ? (heldDup / allCount) * 100 : 0;
 
-  // Pre-format time-sensitive labels for the right panel — keeps the
-  // client component a pure presentation surface and avoids hydration
-  // mismatches around Date.now().
-  const oldestReadyLabel = oldestReady ? relTime(oldestReady) : null;
+  const { data: oldestRow } = await applyFilters(
+    supabase.from("candidates").select("surfaced_at").eq("triage_state", "ready"),
+  )
+    .order("surfaced_at", { ascending: true })
+    .limit(1)
+    .maybeSingle();
+  const oldestReadyLabel = oldestRow?.surfaced_at ? relTime(oldestRow.surfaced_at) : null;
   const lastSweepCode = sweeps.length > 0 ? (sweeps[0]?.code ?? null) : null;
 
   // Sort/filter preservation helpers. Sort gets dropped from the URL
@@ -713,8 +712,15 @@ export default async function CandidateInboxPage({
               <strong className="font-mono font-semibold tabular-nums text-foreground">
                 {filtered.length}
               </strong>{" "}
-              of {cands.length} candidates
+              of {matched} matching
             </span>
+            <Pager
+              page={page}
+              pageCount={pageCount}
+              matched={matched}
+              params={filterPreserveParams}
+              sort={sortPreserve}
+            />
             <span className="ml-auto text-[11px] text-um-muted">
               Triage actions wired · F1 routing live
             </span>
@@ -1058,5 +1064,64 @@ function SortHeader({
         </span>
       </Link>
     </Th>
+  );
+}
+
+/**
+ * Page through the matched set.
+ *
+ * Deliberately not carried on the filter or sort links: changing what you are
+ * looking at should return you to the first page, because page 7 of a different
+ * filter is a different set of stories and almost never where you meant to be.
+ */
+function Pager({
+  page,
+  pageCount,
+  matched,
+  params,
+  sort,
+}: {
+  page: number;
+  pageCount: number;
+  matched: number;
+  params: URLSearchParams;
+  sort: { sort?: string; dir?: string };
+}) {
+  if (matched === 0) return null;
+
+  const href = (n: number) => {
+    const p = new URLSearchParams(params);
+    if (sort.sort) p.set("sort", sort.sort);
+    if (sort.dir) p.set("dir", sort.dir);
+    if (n > 1) p.set("page", String(n));
+    const qs = p.toString();
+    return qs ? `/discovery/inbox?${qs}` : "/discovery/inbox";
+  };
+
+  const step = (n: number, label: string, enabled: boolean) =>
+    enabled ? (
+      <Link
+        href={href(n)}
+        scroll={false}
+        className="rounded-sm border border-border bg-background px-2 py-0.5 text-[11px] text-fg-2 transition-colors hover:bg-secondary hover:text-foreground"
+      >
+        {label}
+      </Link>
+    ) : (
+      <span className="rounded-sm border border-border/50 px-2 py-0.5 text-[11px] text-um-muted/50">
+        {label}
+      </span>
+    );
+
+  return (
+    <div className="ml-3 flex items-center gap-1.5">
+      {step(1, "«", page > 1)}
+      {step(page - 1, "‹", page > 1)}
+      <span className="px-1 font-mono text-[11px] tabular-nums text-fg-2">
+        {page} / {pageCount}
+      </span>
+      {step(page + 1, "›", page < pageCount)}
+      {step(pageCount, "»", page < pageCount)}
+    </div>
   );
 }

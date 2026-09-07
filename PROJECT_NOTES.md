@@ -11,6 +11,30 @@ _Last updated: 2026-09-03_
 
 ## Recently landed (this session)
 
+- **Discovery inbox paginates, and filters now search the whole table.** There
+  was no way to reach past the first screen because there was no page 2 — but
+  the bigger problem was underneath it: the page fetched the newest **200** rows
+  and filtered *those in memory*, while the table holds **1,717**. A filter
+  therefore searched about an eighth of the data and reported the result as if
+  it were the whole. Filtering by `PRESS_MAILBOX` showed 39 candidates; there
+  are **88**.
+  - Filtering, sorting, counting and paging all moved into the database.
+    50 rows a page, exact match count, `«  ‹  n/N  ›  »` in the footer.
+  - Sorting by **source** and **stream** orders on the joined name via an
+    embedded relation, so it stays alphabetical rather than sorting by uuid.
+  - A secondary `order("id")` is a stable tiebreak — without it, rows sharing a
+    `surfaced_at` can shuffle between pages and the same candidate appears
+    twice, or never. Verified: pages 1 and 2 have **zero overlap**.
+  - The pill counts and the right-hand summary now come from `count: "exact"`
+    head queries that respect the active filters, so they describe the filter
+    you are looking at rather than the first page of it.
+  - `page` is deliberately **not** carried on filter or sort links: changing
+    what you are looking at returns you to page 1, because page 7 of a
+    different filter is a different set of stories.
+  - Note `applyFilters`/`applyState` are typed loosely — Supabase's builder type
+    is recursive enough that a generic over it exceeds TypeScript's
+    instantiation depth. The columns are checked by the database.
+
 - **Rejection, ported from Newsroom V1** (spec of 7 Sep 2026). Replaces the
   reason-less "Dismiss": a story could be closed without the desk ever saying
   why, which is the one thing the process exists to prevent. Both paths built —
