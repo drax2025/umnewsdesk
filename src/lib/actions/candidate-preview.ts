@@ -46,6 +46,10 @@ export type CandidatePreview = {
   otherFiles: string[];
   sentToNewsroomAt: string | null;
   newsroomRecordId: string | null;
+  rejectedReason: string | null;
+  rejectedNote: string | null;
+  rejectedAt: string | null;
+  rejectedBy: string | null;
 };
 
 type Row = {
@@ -57,6 +61,8 @@ type Row = {
   embargo_until: string | null; embargo_confidence: string | null;
   attachment_urls: string[] | null; attachments: unknown;
   sent_to_newsroom_at: string | null; newsroom_record_id: string | null;
+  rejected_reason: string | null; rejected_note: string | null; rejected_at: string | null;
+  profiles: { full_name: string | null } | null;
   raw: { agency_name?: string | null; from_email?: string | null; embargo_evidence?: string | null } | null;
   discovery_sources: { name: string | null; signal_only_eligible: boolean | null } | null;
 };
@@ -74,6 +80,10 @@ export async function getCandidatePreview(
       "layer, score, triage_state, dedup_state, verification_state, surfaced_at, " +
       "published_at, author, embargo_until, embargo_confidence, attachment_urls, " +
       "attachments, sent_to_newsroom_at, newsroom_record_id, raw, " +
+      "rejected_reason, rejected_note, rejected_at, " +
+      // Joined rather than stored as a string: V1 found that renaming a user
+      // rewrote the history of every rejection they had ever made.
+      "profiles:rejected_by(full_name), " +
       "discovery_sources(name, signal_only_eligible)",
     )
     .eq("id", id)
@@ -121,6 +131,10 @@ export async function getCandidatePreview(
       otherFiles,
       sentToNewsroomAt: c.sent_to_newsroom_at,
       newsroomRecordId: c.newsroom_record_id,
+      rejectedReason: c.rejected_reason,
+      rejectedNote: c.rejected_note,
+      rejectedAt: c.rejected_at,
+      rejectedBy: c.profiles?.full_name ?? null,
     },
   };
 }

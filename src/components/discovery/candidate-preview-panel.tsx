@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { Eye, X, ExternalLink, Paperclip, Clock, AlertTriangle } from "lucide-react";
+import { Eye, X, ExternalLink, Paperclip, Clock, AlertTriangle, Ban } from "lucide-react";
 import { cn } from "@/lib/utils";
 import {
   getCandidatePreview,
@@ -152,6 +152,19 @@ function PreviewBody({ d }: { d: CandidatePreview }) {
           <strong>Signal-only source.</strong> Awareness only — not a drafting
           basis. Per the sourcing rule this needs an independent primary source
           before it can run.
+        </Banner>
+      ) : null}
+
+      {d.rejectedAt ? (
+        <Banner tone="warn" icon={<Ban className="h-3.5 w-3.5" />}>
+          <strong>Rejected — {d.rejectedReason}</strong>
+          <span className="mt-0.5 block opacity-90">
+            {d.rejectedBy ? `${d.rejectedBy}, ` : ""}
+            {new Date(d.rejectedAt).toLocaleString("en-GB")}
+          </span>
+          {d.rejectedNote ? (
+            <span className="mt-1 block italic opacity-90">“{d.rejectedNote}”</span>
+          ) : null}
         </Banner>
       ) : null}
 

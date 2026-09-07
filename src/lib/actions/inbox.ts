@@ -12,7 +12,8 @@ type TriageState =
   | "pointer"
   | "sent_to_f1"
   | "escalated"
-  | "archived";
+  | "archived"
+  | "rejected";
 
 const VALID_STATES: TriageState[] = [
   "ready",

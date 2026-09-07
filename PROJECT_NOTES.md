@@ -11,6 +11,37 @@ _Last updated: 2026-09-03_
 
 ## Recently landed (this session)
 
+- **Rejection, ported from Newsroom V1** (spec of 7 Sep 2026). Replaces the
+  reason-less "Dismiss": a story could be closed without the desk ever saying
+  why, which is the one thing the process exists to prevent. Both paths built —
+  single (row button) and bulk (row checkboxes + selection bar).
+  - **The eight reasons are V1's, character for character** (`spec/rejection.ts`).
+    Both systems close stories; reasons differing by a word cannot be counted
+    together. Closed list on purpose — free text gives forty spellings of
+    "duplicate"; "Other" plus a mandatory note is the escape hatch.
+  - **One write path.** Single and bulk both call the `reject_candidate` SQL
+    function, once per candidate. Slower than a set-based update, and a bulk run
+    can stop part-way, but permissions, attribution and the timestamp cannot
+    drift between two paths.
+  - **Attribution and time come from the session**, inside the function:
+    `rejected_by = auth.uid()`, `rejected_at = coalesce(rejected_at, now())` so a
+    repeat cannot move the original moment. Role is checked in the function too —
+    hiding a button is a courtesy, the check on the write is the rule.
+  - **`rejected_by` stores the profile id, not a display name.** V1 lists that as
+    a known gap: renaming a user rewrote the history of their old rejections.
+    The preview pane joins for the name.
+  - Bulk lists the **headlines, not a count** — seeing them is what stops
+    somebody clearing work that should have been done. Selection is keyed on the
+    filter/sort querystring, so changing the view remounts and drops it: a
+    selection can never outlive the list it was made from.
+  - Terminal: `rejected` is excluded from "All", has its own filter pill, and is
+    deliberately **not** in `VALID_STATES`, so the restore path cannot un-reject.
+  - **Not ported:** agency email (V1 sends none on rejection either), deletion
+    (the row stays), un-reject (V1 has none — it is their top known gap), and the
+    weekly-digest/analytics rollups, which V2 has no equivalent of.
+  - ⚠️ **Migrations 0046 + 0047 are NOT yet applied** — PostgREST cannot run DDL.
+    Until they are, rejecting fails with a message naming them.
+
 - **Discovery inbox tidied for the desk** (7 Sep 2026):
   - **Source filter** added, first in the filter row. Filters on the source
     *code* rather than its uuid, so the URL reads sensibly and survives a

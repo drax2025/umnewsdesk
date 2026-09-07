@@ -4,13 +4,14 @@ import { createClient } from "@/lib/supabase/server";
 import { cn } from "@/lib/utils";
 import { AutoSubmitSelect } from "@/components/forms/auto-submit-select";
 import { InboxRightPanel } from "@/components/discovery/inbox-right-panel";
-import {
-  dismissCandidate,
-  escalateCandidateToOpsRr,
-  setCandidateTriage,
-} from "@/lib/actions/inbox";
+import { escalateCandidateToOpsRr, setCandidateTriage } from "@/lib/actions/inbox";
 import { SendToNewsroomButton } from "@/components/forms/send-to-newsroom-button";
 import { CandidatePreviewButton } from "@/components/discovery/candidate-preview-panel";
+import { RejectButton } from "@/components/discovery/reject-dialog";
+import {
+  InboxSelectionProvider,
+  RowCheckbox,
+} from "@/components/discovery/inbox-selection";
 
 export const dynamic = "force-dynamic";
 
@@ -36,7 +37,8 @@ type CandidateRow = {
     | "pointer"
     | "sent_to_f1"
     | "escalated"
-    | "archived";
+    | "archived"
+    | "rejected";
   risk: "low" | "med" | "high";
   embargo_until: string | null;
   embargo_confidence: "high" | "med" | "low" | "none" | null;
@@ -72,6 +74,7 @@ const TRIAGE_STATES: { state: string; label: string }[] = [
   { state: "pointer", label: "Pointer" },
   { state: "sent_to_f1", label: "Sent" },
   { state: "archived", label: "Archived" },
+  { state: "rejected", label: "Rejected" },
 ];
 
 /*
@@ -245,13 +248,15 @@ export default async function CandidateInboxPage({
   // "All" intentionally excludes archived — Dismiss should remove the
   // row from the operator's default working set. The dedicated
   // "Archived" pill is the explicit opt-in for reviewing them.
-  const nonArchivedTotal = cands.filter((c) => c.triage_state !== "archived").length;
+  const nonArchivedTotal = cands.filter(
+    (c) => c.triage_state !== "archived" && c.triage_state !== "rejected",
+  ).length;
   const counts = new Map<string, number>([["all", nonArchivedTotal]]);
   for (const c of cands) counts.set(c.triage_state, (counts.get(c.triage_state) ?? 0) + 1);
 
   let filtered =
     activeState === "all"
-      ? cands.filter((c) => c.triage_state !== "archived")
+      ? cands.filter((c) => c.triage_state !== "archived" && c.triage_state !== "rejected")
       : cands.filter((c) => c.triage_state === activeState);
   // Filtered on the source's code rather than its uuid: it survives a reseed
   // and reads sensibly in the URL.
@@ -359,6 +364,17 @@ export default async function CandidateInboxPage({
   if (activeStream) filterPreserveParams.set("stream", activeStream);
   if (activeVerified) filterPreserveParams.set("verified", activeVerified);
   if (q) filterPreserveParams.set("q", q);
+
+  // Any change to what is on screen clears the selection — see
+  // InboxSelectionProvider.
+  const viewKey = [
+    activeState, activeSource, activeLayer, activeStream, activeVerified, q,
+    activeSort, activeDir,
+  ].join("|");
+  const selectableRows = filtered.map((c) => ({
+    id: c.id,
+    headline: c.working_headline,
+  }));
 
   return (
     <div className="flex h-full flex-col">
@@ -514,7 +530,9 @@ export default async function CandidateInboxPage({
         </form>
       </div>
 
-      {/* Body 2-col */}
+      {/* Body 2-col. Keyed on the view so changing any filter remounts the
+          selection and drops it — see InboxSelectionProvider. */}
+      <InboxSelectionProvider key={viewKey} rows={selectableRows}>
       <div className="flex flex-1 overflow-hidden">
         {/* Table */}
         <div className="flex flex-1 flex-col overflow-hidden">
@@ -527,6 +545,7 @@ export default async function CandidateInboxPage({
               <table className="w-full border-collapse">
                 <thead>
                   <tr>
+                    <Th className="w-[34px]"><span className="sr-only">Select</span></Th>
                     <SortHeader
                       column="code"
                       label="ID"
@@ -589,6 +608,9 @@ export default async function CandidateInboxPage({
                         key={c.id}
                         className="border-b border-border transition-colors hover:bg-secondary"
                       >
+                        <td className="px-3 py-2.5">
+                          <RowCheckbox id={c.id} />
+                        </td>
                         <td className="whitespace-nowrap px-3 py-2.5 font-mono text-[11px] font-semibold tabular-nums text-foreground">
                           {c.code}
                         </td>
@@ -673,7 +695,11 @@ export default async function CandidateInboxPage({
                           </div>
                         </td>
                         <td className="whitespace-nowrap px-3 py-2.5 text-right">
-                          <TriageActions id={c.id} state={c.triage_state} />
+                          <TriageActions
+                            id={c.id}
+                            state={c.triage_state}
+                            headline={c.working_headline}
+                          />
                         </td>
                       </tr>
                     );
@@ -710,6 +736,7 @@ export default async function CandidateInboxPage({
           openOps={openOps.map((o) => ({ code: o.code, description: o.description }))}
         />
       </div>
+      </InboxSelectionProvider>
     </div>
   );
 }
@@ -717,15 +744,20 @@ export default async function CandidateInboxPage({
 function TriageActions({
   id,
   state,
+  headline,
 }: {
   id: string;
   state: CandidateRow["triage_state"];
+  headline: string;
 }) {
   // `sent_to_f1` is kept as the enum value because it is what the database
   // holds, but F1 no longer exists — a sent candidate is one the newsroom has.
   // The Newsroom column carries the record id; this only reports the state.
   if (state === "sent_to_f1") {
     return <span className="text-[10.5px] text-um-muted">sent</span>;
+  }
+  if (state === "rejected") {
+    return <span className="text-[10.5px] text-um-muted">rejected</span>;
   }
   if (state === "escalated") {
     return <span className="text-[10.5px] text-warn">in OPS-RR</span>;
@@ -734,16 +766,10 @@ function TriageActions({
     return (
       <div className="inline-flex items-center gap-1">
         <OpsEscalateMenu id={id} />
-        <form action={dismissCandidate} className="inline-block">
-          <input type="hidden" name="id" value={id} />
-          <button
-            type="submit"
-            className="h-6 rounded-sm border border-border bg-background px-2 text-[10.5px] font-medium text-fg-2 transition-colors hover:bg-secondary"
-            title="Archive — hide from the inbox. Findable via the Archived filter and restorable later."
-          >
-            Dismiss
-          </button>
-        </form>
+        {/* Reject replaced Dismiss on 2026-09-07: Dismiss archived a candidate
+            with no reason, so a story could be closed without the desk ever
+            having to say why — the thing this process exists to prevent. */}
+        <RejectButton candidateId={id} headline={headline} />
       </div>
     );
   }
