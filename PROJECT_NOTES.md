@@ -11,6 +11,29 @@ _Last updated: 2026-09-03_
 
 ## Recently landed (this session)
 
+- **Backfilled the 15 releases stored from a `.eml` wrapper**
+  (`scripts/backfill-eml-bodies.mjs`, one-off, dry-run by default). Recovered
+  the originals from the mailbox by Message-ID: average body **289 → 5,771
+  chars**, **20 images** mirrored, 3 now carrying real agency attribution.
+  - The script aligns `message_id` to the *enclosed* id where no other row
+    holds it — otherwise a repaired candidate whose mail is still in
+    `PR/To Process` would be re-polled and arrive a second time, since the fix
+    keys on the enclosed id.
+  - Two bugs found in the script itself and fixed: an unguarded `simpleParser`
+    on an empty download ended the first run after 14 of 15, and the folder
+    override silently did nothing (the edit missed the real line), so the last
+    candidate appeared unmatchable.
+- **Two of the eight already sent to V1 were repaired there too.** V1 will not
+  overwrite a story the desk has touched, so a re-send is a no-op. Updated
+  `PR-5DD4B9` and `PR-94214A` directly — both `Pending`, `ai_rewritten = 0`,
+  unassigned — with the UPDATE guarded on exactly those conditions, and the
+  prior rows backed up to `/root/v1-prefix-backup-2026-09-08.tsv`. Body,
+  title, description and the true `sender_email` all corrected.
+  - **Six are still wrong on V1** and deliberately untouched: `PR-381823`
+    (**Published**), `PR-3898E1` and `PR-E5B6DC` (Rejected), and `PR-8AB29F`,
+    `PR-8DEECF`, `PR-FAFC84` (In Progress — someone may be mid-edit).
+    `PR-381823` is live with a 276-char covering note as its body.
+
 - **Releases forwarded with the original enclosed as a `.eml` now ingest
   properly.** Editorial triage forwards from `editorial@unionmedianews.com`
   with the original attached as `message/rfc822`, so the message we receive is
