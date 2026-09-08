@@ -11,6 +11,28 @@ _Last updated: 2026-09-03_
 
 ## Recently landed (this session)
 
+- **Stream column and filter dropped from the discovery inbox** (8 Sep 2026).
+  **1,706 of 1,805 candidates — 95% — have no stream**, so the filter mostly
+  selected nothing and the column was mostly blank.
+  - The cause is structural, not missing data: a candidate inherits its stream
+    from its *source*, and only single-subject sources carry one (Skyrora →
+    Space, Sapphire → Cyber, BioQuarter → Life Sciences). Every broad source —
+    BBC Scotland, the Herald, the Scotsman, Silicon Scotland and the press
+    mailbox — has no stream, because a general news feed is not one sector. Of
+    the 99 that do have one, 76 are FinTech or Cyber.
+  - Restoring it means classifying the **story**, not the source — sector
+    detection at ingest, in the way triage already classifies mail into folders.
+    Until then the filter promised more than it delivered.
+  - The `?stream=` query parameter, the slug→id lookup and the sort branch are
+    all kept, so an existing bookmarked URL still works and putting the column
+    back is a small change.
+  - **Layer stays.** It is populated on every candidate (L1 36, L2 1331, L3 438)
+    and carries a real sourcing rule: spec §C2 makes L4 signal-only a hard gate.
+  - Noted while checking: **L4 has produced 0 candidates.** DIGIT FYI and
+    FutureScot are registered as L4 sources but nothing has ever arrived from
+    them — either they are absent from the sweep's source list or failing
+    silently. Worth a look; they are two of the more prolific Scottish outlets.
+
 - **Live n8n workflows synced into the repo** (8 Sep 2026, via the n8n API).
   The repo copies had drifted far enough to mislead: they gave the mailbox poll
   a 30-minute cadence when it runs every **10**, and did not mention triage at

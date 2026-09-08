@@ -243,7 +243,6 @@ export default async function CandidateInboxPage({
   const sweeps: SweepRow[] = sweepsRes.data ?? [];
   const openOps: OpsAlertRow[] = opsRes.data ?? [];
 
-  const streamMap = new Map(streams.map((s) => [s.id, s]));
   const sourceMap = new Map(sources.map((s) => [s.id, s]));
   const sourceId = sources.find((s) => s.code === activeSource)?.id ?? null;
   const streamId = streams.find((s) => s.slug === activeStream)?.id ?? null;
@@ -468,24 +467,6 @@ export default async function CandidateInboxPage({
           ]}
         />
 
-        <AutoSubmitSelect
-          name="stream"
-          value={activeStream}
-          basePath="/discovery/inbox"
-          preserve={{
-            state: activeState !== "all" ? activeState : undefined,
-            source: activeSource || undefined,
-            layer: activeLayer || undefined,
-            verified: activeVerified || undefined,
-            q: q || undefined,
-            sort: sortPreserve.sort,
-            dir: sortPreserve.dir,
-          }}
-          options={[
-            { value: "", label: "Stream — All" },
-            ...streams.map((s) => ({ value: s.slug, label: s.name })),
-          ]}
-        />
 
         <AutoSubmitSelect
           name="verified"
@@ -561,7 +542,12 @@ export default async function CandidateInboxPage({
                       preserve={filterPreserveParams}
                     />
                     <Th className="w-[56px]">Image</Th>
-                    {/* Dedup / Verify / Triage columns hidden 2026-09-07 at the
+                    {/* Stream column hidden 2026-09-08: 95% of candidates have
+                        no stream, because a stream is inherited from the source
+                        and only single-subject sources carry one — a general
+                        feed like BBC Scotland is not one sector. Restoring it
+                        means classifying per candidate at ingest, not per source.
+                        Dedup / Verify / Triage columns hidden 2026-09-07 at the
                         desk's request — the state pills are still rendered in
                         the preview pane, and the filters above still apply.
                         Restore from git history if they are wanted back. */}
@@ -586,21 +572,12 @@ export default async function CandidateInboxPage({
                       activeDir={activeDir}
                       preserve={filterPreserveParams}
                     />
-                    <SortHeader
-                      column="stream"
-                      label="Stream"
-                      className="w-[110px]"
-                      activeSort={activeSort}
-                      activeDir={activeDir}
-                      preserve={filterPreserveParams}
-                    />
                     <Th className="text-right">Newsroom</Th>
                     <Th className="text-right">Actions</Th>
                   </tr>
                 </thead>
                 <tbody>
                   {filtered.map((c) => {
-                    const stream = c.stream_id ? streamMap.get(c.stream_id) : null;
                     const source = c.source_id ? sourceMap.get(c.source_id) : null;
                     return (
                       <tr
@@ -670,11 +647,6 @@ export default async function CandidateInboxPage({
                         <td className="px-3 py-2.5">
                           <span className="rounded-sm border border-border-mid bg-background px-1.5 py-0.5 font-mono text-[10px] font-semibold uppercase tracking-wider text-fg-2">
                             {c.layer}
-                          </span>
-                        </td>
-                        <td className="w-[110px] max-w-[110px] px-3 py-2.5 text-[11.5px] text-fg-2">
-                          <span className="block truncate" title={stream?.name ?? undefined}>
-                            {stream?.name ?? "—"}
                           </span>
                         </td>
                         {/* The handoff. Everything downstream of this - editing,
