@@ -3,26 +3,32 @@
   "nodes": [
     {
       "parameters": {},
-      "id": "f4a9d6c1-0001-4000-8000-000000000001",
+      "id": "22b659c4-cd9b-49a7-96f7-931890e09f3f",
       "name": "Run manually",
       "type": "n8n-nodes-base.manualTrigger",
       "typeVersion": 1,
-      "position": [240, 300]
+      "position": [
+        496,
+        -336
+      ]
     },
     {
       "parameters": {
         "jsCode": "const hour = new Date().getUTCHours();\nconst slot = hour < 12 ? 'am' : 'pm';\nreturn [{ json: { slot, trigger: 'manual' } }];"
       },
-      "id": "f4a9d6c1-0001-4000-8000-000000000002",
+      "id": "06f0f79e-649a-40eb-8929-b36255e1e0ff",
       "name": "Derive slot",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [460, 300]
+      "position": [
+        720,
+        -336
+      ]
     },
     {
       "parameters": {
         "method": "POST",
-        "url": "={{ $env.UM_BASE_URL }}/api/ingest/sweep",
+        "url": "=https://umnewsdesk.vercel.app/api/ingest/sweep",
         "authentication": "predefinedCredentialType",
         "nodeCredentialType": "httpHeaderAuth",
         "sendBody": true,
@@ -30,15 +36,18 @@
         "jsonBody": "={\n  \"slot\": \"{{ $json.slot }}\",\n  \"trigger\": \"{{ $json.trigger }}\"\n}",
         "options": {}
       },
-      "id": "f4a9d6c1-0001-4000-8000-000000000003",
+      "id": "9678287a-b1bd-4ac8-b4d0-b6ff1bbbedad",
       "name": "Open sweep",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
-      "position": [680, 300],
+      "position": [
+        944,
+        -336
+      ],
       "credentials": {
         "httpHeaderAuth": {
           "id": "REPLACE_WITH_CREDENTIAL_ID",
-          "name": "UM Newsroom — INGEST_TOKEN"
+          "name": "Runware N8nLocal"
         }
       }
     },
@@ -46,16 +55,19 @@
       "parameters": {
         "jsCode": "const sweepId = $input.first().json.sweep_id;\nconst sweepCode = $input.first().json.sweep_code;\nconst now = new Date().toISOString();\nreturn [{\n  json: {\n    sweep_id: sweepId,\n    sweep_code: sweepCode,\n    source_code: 'SRC-9011',\n    payload: {\n      sweep_id: sweepId,\n      source_code: 'SRC-9011',\n      kind: 'rss',\n      fetched_at: now,\n      item: {\n        headline: 'Smoke test — n8n wire path OK at ' + now,\n        external_id: 'smoke-' + Date.now(),\n        primary_url: 'https://example.com/smoke-test',\n        published_at: now,\n        summary: 'Synthetic item from the n8n smoke-test workflow.',\n        author: 'n8n smoke test',\n        tags: ['smoke', 'n8n'],\n        raw: { origin: 'n8n-smoke' },\n      }\n    }\n  }\n}];"
       },
-      "id": "f4a9d6c1-0001-4000-8000-000000000004",
+      "id": "3b50786b-af2b-4b82-ab4d-6773563124d4",
       "name": "Build payload",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [900, 300]
+      "position": [
+        1168,
+        -336
+      ]
     },
     {
       "parameters": {
         "method": "POST",
-        "url": "={{ $env.UM_BASE_URL }}/api/ingest/item",
+        "url": "=https://umnewsdesk.vercel.app/api/ingest/item",
         "authentication": "predefinedCredentialType",
         "nodeCredentialType": "httpHeaderAuth",
         "sendBody": true,
@@ -63,22 +75,25 @@
         "jsonBody": "={{ JSON.stringify($json.payload) }}",
         "options": {}
       },
-      "id": "f4a9d6c1-0001-4000-8000-000000000005",
+      "id": "c9c46f81-2c65-4d75-b43c-159051c57667",
       "name": "Post candidate",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
-      "position": [1120, 300],
+      "position": [
+        1376,
+        -336
+      ],
       "credentials": {
         "httpHeaderAuth": {
           "id": "REPLACE_WITH_CREDENTIAL_ID",
-          "name": "UM Newsroom — INGEST_TOKEN"
+          "name": "Runware N8nLocal"
         }
       }
     },
     {
       "parameters": {
         "method": "POST",
-        "url": "={{ $env.UM_BASE_URL }}/api/ingest/sweep/{{ $('Open sweep').first().json.sweep_id }}/complete",
+        "url": "=https://umnewsdesk.vercel.app/api/ingest/sweep/{{ $('Open sweep').first().json.sweep_id }}/complete",
         "authentication": "predefinedCredentialType",
         "nodeCredentialType": "httpHeaderAuth",
         "sendBody": true,
@@ -86,42 +101,82 @@
         "jsonBody": "={\n  \"site_results\": [\n    {\n      \"source_code\": \"SRC-9011\",\n      \"outcome\": \"reached_items\",\n      \"http_status\": 200,\n      \"parse_issue_count\": 0\n    }\n  ]\n}",
         "options": {}
       },
-      "id": "f4a9d6c1-0001-4000-8000-000000000006",
+      "id": "5c3db38d-8b78-49bc-b03f-7b530520d1e5",
       "name": "Complete sweep",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
-      "position": [1340, 300],
+      "position": [
+        1600,
+        -336
+      ],
       "credentials": {
         "httpHeaderAuth": {
           "id": "REPLACE_WITH_CREDENTIAL_ID",
-          "name": "UM Newsroom — INGEST_TOKEN"
+          "name": "Runware N8nLocal"
         }
       }
     }
   ],
   "connections": {
     "Run manually": {
-      "main": [[{ "node": "Derive slot", "type": "main", "index": 0 }]]
+      "main": [
+        [
+          {
+            "node": "Derive slot",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
     },
     "Derive slot": {
-      "main": [[{ "node": "Open sweep", "type": "main", "index": 0 }]]
+      "main": [
+        [
+          {
+            "node": "Open sweep",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
     },
     "Open sweep": {
-      "main": [[{ "node": "Build payload", "type": "main", "index": 0 }]]
+      "main": [
+        [
+          {
+            "node": "Build payload",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
     },
     "Build payload": {
-      "main": [[{ "node": "Post candidate", "type": "main", "index": 0 }]]
+      "main": [
+        [
+          {
+            "node": "Post candidate",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
     },
     "Post candidate": {
-      "main": [[{ "node": "Complete sweep", "type": "main", "index": 0 }]]
+      "main": [
+        [
+          {
+            "node": "Complete sweep",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
     }
   },
   "settings": {
-    "executionOrder": "v1"
-  },
-  "tags": [
-    { "name": "um-newsroom" },
-    { "name": "ingest" },
-    { "name": "smoke-test" }
-  ]
+    "executionOrder": "v1",
+    "binaryMode": "separate",
+    "availableInMCP": false
+  }
 }

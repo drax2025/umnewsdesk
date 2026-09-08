@@ -150,3 +150,47 @@ GET {UM_BASE_URL}/api/cron/poll-mailbox?test=1   credentials + folder names, tou
 GET {UM_BASE_URL}/api/cron/poll-mailbox?dry=1    reports what it would create, moves nothing
 GET {UM_BASE_URL}/api/cron/poll-mailbox?limit=1  process a single message
 ```
+
+## The files here are exports of the live instance
+
+Synced from `automation.graniteseo.com` on **8 September 2026** via the n8n API,
+with credential ids replaced by `REPLACE_WITH_CREDENTIAL_ID` — re-bind them after
+any import. Before this sync the repo copies had drifted badly enough to be
+misleading: they gave the mailbox poll a 30-minute cadence when it runs every 10,
+and they did not mention triage at all.
+
+| Workflow | Active | Cadence |
+|---|---|---|
+| `poll-mailbox.json` | ● yes | every 10 minutes |
+| `rss-sweep.json` | ● yes | `0 8,16 * * *` — see the timezone note |
+| `triage-digest.json` | ● yes | `0 8 * * *` — see the timezone note |
+| `smoke-test.json` | no | manual |
+
+**Triage has no workflow of its own.** `poll-mailbox` calls it: its last node,
+*Triage inbox*, hits `/api/cron/triage-inbox` after the poll. So inbox sorting
+and mailbox polling share the 10-minute cadence, and disabling that one workflow
+stops both.
+
+### ⚠️ The instance timezone is not UK
+
+The cron expressions read `0 8,16` and `0 8`, but executions fire at **12:00 and
+20:00 UTC** — a consistent +4 offset, with no per-workflow timezone set. The
+instance default (`GENERIC_TIMEZONE`) is UTC−4, i.e. America/New_York.
+
+In UK terms that means:
+
+- the "am" RSS sweep runs at **13:00 BST**, the "pm" one at **21:00 BST**
+- the "daily 08:00" triage digest arrives at **13:00 BST**
+
+The schedules are not wrong; the clock they are read against is. Fix it once at
+the instance (`GENERIC_TIMEZONE=Europe/London`) rather than by shifting each cron,
+or the next person to read `0 8 * * *` will draw the same wrong conclusion. Note
+that changing it will move all three schedules at once.
+
+The 10-minute poll is unaffected — it is an interval, not a wall-clock time.
+
+### Production host
+
+The active workflows call **`https://desk.unionmedia.news`**. `smoke-test.json`
+still points at `umnewsdesk.vercel.app`; it is inactive and manual, so it has not
+mattered, but it will mislead whoever runs it next.

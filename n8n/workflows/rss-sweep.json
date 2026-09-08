@@ -12,32 +12,32 @@
           ]
         }
       },
-      "id": "a9b1c2d3-0002-4000-8000-000000000001",
+      "id": "65486d48-3170-4731-8a5e-a920bf68928d",
       "name": "Schedule 08:00 + 16:00",
       "type": "n8n-nodes-base.scheduleTrigger",
       "typeVersion": 1.2,
       "position": [
-        240,
-        300
+        -384,
+        -240
       ]
     },
     {
       "parameters": {
         "jsCode": "const hour = new Date().getUTCHours();\nconst slot = hour < 12 ? 'am' : 'pm';\nreturn [{ json: { slot, trigger: 'scheduled' } }];"
       },
-      "id": "a9b1c2d3-0002-4000-8000-000000000002",
+      "id": "72a3e3e9-0717-4202-9f48-6a3b5b46a80a",
       "name": "Derive slot",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        460,
-        300
+        -160,
+        -240
       ]
     },
     {
       "parameters": {
         "method": "POST",
-        "url": "={{ $env.UM_BASE_URL }}/api/ingest/sweep",
+        "url": "=https://desk.unionmedia.news/api/ingest/sweep",
         "authentication": "predefinedCredentialType",
         "nodeCredentialType": "httpHeaderAuth",
         "sendBody": true,
@@ -45,33 +45,45 @@
         "jsonBody": "={\n  \"slot\": \"{{ $json.slot }}\",\n  \"trigger\": \"{{ $json.trigger }}\"\n}",
         "options": {}
       },
-      "id": "a9b1c2d3-0002-4000-8000-000000000003",
+      "id": "2e647bbb-3e48-4600-ac83-d1d7bf778354",
       "name": "Open sweep",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
       "position": [
-        680,
-        300
+        64,
+        -240
       ],
       "credentials": {
         "httpHeaderAuth": {
           "id": "REPLACE_WITH_CREDENTIAL_ID",
-          "name": "UM Newsroom — INGEST_TOKEN"
+          "name": "Runware N8nLocal"
         }
       }
     },
     {
       "parameters": {
-        "batchSize": 1,
+        "jsCode": "// Sources come from the registry via /api/ingest/sources, not a list\n// held in this node. Adding, pausing or purging a source in the app is\n// enough - a hardcoded list drifted and left the sweep fetching two\n// deleted sources while eleven new ones were never read at all.\nconst res = $input.first().json;\nconst sources = Array.isArray(res.sources) ? res.sources : [];\nif (!sources.length) {\n  throw new Error('Source registry returned no rss sources');\n}\nconst open = $('Open sweep').first().json;\nreturn sources.map((s) => ({\n  json: {\n    code: s.code,\n    feed_url: s.feed_url,\n    name: s.name,\n    layer: s.layer,\n    sweep_id: open.sweep_id,\n    sweep_code: open.sweep_code,\n  },\n}));\n"
+      },
+      "id": "abd2d9b4-fb21-492d-887c-3a991398d069",
+      "name": "Source list",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        400,
+        -240
+      ]
+    },
+    {
+      "parameters": {
         "options": {}
       },
-      "id": "a9b1c2d3-0002-4000-8000-000000000005",
+      "id": "f673c21d-bdcf-4145-9602-d76ce0b5bdbb",
       "name": "Loop sources",
       "type": "n8n-nodes-base.splitInBatches",
       "typeVersion": 3,
       "position": [
-        1240,
-        300
+        512,
+        -240
       ]
     },
     {
@@ -81,13 +93,13 @@
           "ignoreSSL": false
         }
       },
-      "id": "a9b1c2d3-0002-4000-8000-000000000006",
+      "id": "51de196b-803a-4ee0-bc79-7f579cda9456",
       "name": "Fetch RSS",
       "type": "n8n-nodes-base.rssFeedRead",
       "typeVersion": 1.1,
       "position": [
-        1460,
-        220
+        720,
+        -320
       ],
       "onError": "continueErrorOutput"
     },
@@ -95,19 +107,19 @@
       "parameters": {
         "jsCode": "// Map each RSS item into the IngestItem envelope. Trim long bodies;\n// the route caps them too but it's cheaper to do it here.\nconst source = $('Loop sources').item.json;\nconst now = new Date().toISOString();\nconst items = $input.all().slice(0, 50); // soft cap per source per sweep\nreturn items.map((it) => {\n  const r = it.json;\n  const headline = (r.title || '').toString().trim();\n  if (!headline) return null;\n  return {\n    json: {\n      sweep_id: source.sweep_id,\n      source_code: source.code,\n      kind: 'rss',\n      fetched_at: now,\n      item: {\n        headline,\n        external_id: r.guid || r.id || r.link || null,\n        primary_url: r.link || null,\n        published_at: r.isoDate || r.pubDate || null,\n        summary: r.contentSnippet || r.summary || null,\n        body_text: r['content:encoded'] || r.content || null,\n        author: r.creator || r['dc:creator'] || r.author || null,\n        tags: Array.isArray(r.categories) ? r.categories.slice(0, 16) : [],\n        raw: r\n      }\n    }\n  };\n}).filter(Boolean);"
       },
-      "id": "a9b1c2d3-0002-4000-8000-000000000007",
+      "id": "98adda91-6524-40a4-8e1a-e7945ffea6a9",
       "name": "Map RSS → items",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        1680,
-        220
+        944,
+        -320
       ]
     },
     {
       "parameters": {
         "method": "POST",
-        "url": "={{ $env.UM_BASE_URL }}/api/ingest/item",
+        "url": "=https://desk.unionmedia.news/api/ingest/item",
         "authentication": "predefinedCredentialType",
         "nodeCredentialType": "httpHeaderAuth",
         "sendBody": true,
@@ -122,18 +134,18 @@
           }
         }
       },
-      "id": "a9b1c2d3-0002-4000-8000-000000000008",
+      "id": "5f3d5b6b-288a-4075-a9cc-30bbfd67f295",
       "name": "Post item",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
       "position": [
-        1900,
-        220
+        1168,
+        -320
       ],
       "credentials": {
         "httpHeaderAuth": {
           "id": "REPLACE_WITH_CREDENTIAL_ID",
-          "name": "UM Newsroom — INGEST_TOKEN"
+          "name": "Runware N8nLocal"
         }
       }
     },
@@ -141,32 +153,32 @@
       "parameters": {
         "jsCode": "// Roll the per-source outcome up for /complete. The route ignores\n// candidate_count — it counts authoritative rows — but parse_issue_count\n// and outcome are honoured.\nconst source = $('Loop sources').item.json;\nreturn [{\n  json: {\n    source_code: source.code,\n    outcome: 'reached_items',\n    http_status: 200,\n    parse_issue_count: 0\n  }\n}];"
       },
-      "id": "a9b1c2d3-0002-4000-8000-000000000009",
+      "id": "19b4dfb6-5fd1-4bae-a157-ddc8bc182658",
       "name": "Record success",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        2120,
-        220
+        1392,
+        -320
       ]
     },
     {
       "parameters": {
         "jsCode": "// RSS fetch failed — record outcome and raise a P2 alert.\nconst source = $('Loop sources').item.json;\nreturn [{\n  json: {\n    source_code: source.code,\n    outcome: 'parse_failure',\n    http_status: 0,\n    parse_issue_count: 1,\n    _alert: {\n      source_code: source.code,\n      sweep_id: source.sweep_id,\n      severity: 'p2',\n      issue_type: 'unreachable',\n      description: 'RSS fetch failed for ' + source.code + ' (' + source.feed_url + ')'\n    }\n  }\n}];"
       },
-      "id": "a9b1c2d3-0002-4000-8000-000000000010",
+      "id": "03bdd72b-f364-48c5-8e85-e470bab2b5a3",
       "name": "Record failure",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        1680,
-        400
+        944,
+        -144
       ]
     },
     {
       "parameters": {
         "method": "POST",
-        "url": "={{ $env.UM_BASE_URL }}/api/ingest/alert",
+        "url": "=https://desk.unionmedia.news/api/ingest/alert",
         "authentication": "predefinedCredentialType",
         "nodeCredentialType": "httpHeaderAuth",
         "sendBody": true,
@@ -174,25 +186,25 @@
         "jsonBody": "={{ JSON.stringify($json._alert) }}",
         "options": {}
       },
-      "id": "a9b1c2d3-0002-4000-8000-000000000011",
+      "id": "efaa7b81-781c-4fa7-871f-b526eb2994a6",
       "name": "File alert",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
       "position": [
-        1900,
-        400
+        1168,
+        -144
       ],
       "credentials": {
         "httpHeaderAuth": {
           "id": "REPLACE_WITH_CREDENTIAL_ID",
-          "name": "UM Newsroom — INGEST_TOKEN"
+          "name": "Runware N8nLocal"
         }
       }
     },
     {
       "parameters": {
         "method": "POST",
-        "url": "={{ $env.UM_BASE_URL }}/api/ingest/sweep/{{ $('Open sweep').first().json.sweep_id }}/complete",
+        "url": "=https://desk.unionmedia.news/api/ingest/sweep/{{ $('Open sweep').first().json.sweep_id }}/complete",
         "authentication": "predefinedCredentialType",
         "nodeCredentialType": "httpHeaderAuth",
         "sendBody": true,
@@ -200,57 +212,42 @@
         "jsonBody": "={{ JSON.stringify({ site_results: $input.all().map(i => i.json) }) }}",
         "options": {}
       },
-      "id": "a9b1c2d3-0002-4000-8000-000000000012",
+      "id": "ac6cf1e3-f221-4518-bf44-ffac39c8d664",
       "name": "Complete sweep",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
       "position": [
-        2360,
-        300
+        1632,
+        -240
       ],
       "credentials": {
         "httpHeaderAuth": {
           "id": "REPLACE_WITH_CREDENTIAL_ID",
-          "name": "UM Newsroom — INGEST_TOKEN"
+          "name": "Runware N8nLocal"
         }
       }
     },
     {
       "parameters": {
-        "url": "={{ $env.UM_BASE_URL }}/api/ingest/sources?method=rss",
+        "url": "=https://desk.unionmedia.news/api/ingest/sources?method=rss",
         "authentication": "predefinedCredentialType",
         "nodeCredentialType": "httpHeaderAuth",
         "options": {}
       },
-      "id": "fetch-source-list",
-      "name": "Fetch source list",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
       "position": [
-        900,
-        300
+        176,
+        -240
       ],
-      "notes": "Reads discovery_sources from the app so the registry is authoritative. Add/remove sources in /system/discovery-config, not here.",
+      "id": "fetch-source-list-2026-09-02",
+      "name": "Fetch source list",
       "credentials": {
         "httpHeaderAuth": {
           "id": "REPLACE_WITH_CREDENTIAL_ID",
-          "name": "UM Newsroom — INGEST_TOKEN"
+          "name": "Runware N8nLocal"
         }
       }
-    },
-    {
-      "parameters": {
-        "jsCode": "// Source list now comes from the app's registry (discovery_sources) via\n// /api/ingest/sources — do NOT hardcode sources here. Manage them in\n// /system/discovery-config; paused sources are filtered out server-side.\nconst sweep = $('Open sweep').first().json;\nconst payload = $input.first().json;\nconst sources = Array.isArray(payload.sources) ? payload.sources : [];\n\nif (sources.length === 0) {\n  // Nothing to sweep. Returning [] would silently end the run, so surface it.\n  throw new Error('Source registry returned 0 active rss sources — check /system/discovery-config');\n}\n\nreturn sources.map((s) => ({\n  json: {\n    code: s.code,\n    feed_url: s.feed_url,\n    name: s.name,\n    layer: s.layer,\n    signal_only_eligible: s.signal_only_eligible,\n    sweep_id: sweep.sweep_id,\n    sweep_code: sweep.sweep_code,\n  },\n}));"
-      },
-      "id": "build-source-queue",
-      "name": "Build source queue",
-      "type": "n8n-nodes-base.code",
-      "typeVersion": 2,
-      "position": [
-        1010,
-        300
-      ],
-      "notes": "Fans the registry response out to one item per source."
     }
   ],
   "connections": {
@@ -281,6 +278,17 @@
         [
           {
             "node": "Fetch source list",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Source list": {
+      "main": [
+        [
+          {
+            "node": "Loop sources",
             "type": "main",
             "index": 0
           }
@@ -382,18 +390,7 @@
       "main": [
         [
           {
-            "node": "Build source queue",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "Build source queue": {
-      "main": [
-        [
-          {
-            "node": "Loop sources",
+            "node": "Source list",
             "type": "main",
             "index": 0
           }
@@ -402,17 +399,10 @@
     }
   },
   "settings": {
-    "executionOrder": "v1"
-  },
-  "tags": [
-    {
-      "name": "um-newsroom"
-    },
-    {
-      "name": "ingest"
-    },
-    {
-      "name": "rss"
-    }
-  ]
+    "executionOrder": "v1",
+    "binaryMode": "separate",
+    "availableInMCP": false,
+    "timeSavedMode": "fixed",
+    "callerPolicy": "workflowsFromSameOwner"
+  }
 }

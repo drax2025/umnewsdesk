@@ -1,46 +1,74 @@
 {
-  "name": "UM Newsroom — PR mailbox poll (30 min)",
+  "name": "UM Newsroom — PR mailbox poll (10 min)",
   "nodes": [
     {
       "parameters": {
-        "rule": { "interval": [ { "field": "minutes", "minutesInterval": 30 } ] }
+        "rule": {
+          "interval": [
+            {
+              "field": "minutes",
+              "minutesInterval": 10
+            }
+          ]
+        }
       },
-      "id": "schedule-30min",
-      "name": "Every 30 minutes",
+      "id": "0a693dac-c013-48b9-84ae-c99814da9d11",
+      "name": "Every 10 minutes",
       "type": "n8n-nodes-base.scheduleTrigger",
       "typeVersion": 1.2,
-      "position": [ 260, 300 ]
+      "position": [
+        -720,
+        80
+      ]
     },
     {
       "parameters": {
-        "url": "={{ $env.UM_BASE_URL }}/api/cron/poll-mailbox",
+        "url": "=https://desk.unionmedia.news/api/cron/poll-mailbox",
         "authentication": "predefinedCredentialType",
         "nodeCredentialType": "httpHeaderAuth",
-        "options": { "timeout": 300000 }
+        "options": {
+          "timeout": 300000
+        }
       },
-      "id": "poll-mailbox",
+      "id": "724e0d8a-befd-4262-ac6c-9c62cc9d456a",
       "name": "Poll PR mailbox",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
-      "position": [ 500, 300 ],
-      "notes": "Needs a header-auth credential sending Authorization: Bearer <CRON_SECRET>. NOT the INGEST_TOKEN credential used by the sweep — different secret.",
-      "credentials": { "httpHeaderAuth": { "id": "REPLACE_WITH_CREDENTIAL_ID", "name": "UM Newsroom — CRON_SECRET" } }
+      "position": [
+        -480,
+        80
+      ],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "REPLACE_WITH_CREDENTIAL_ID",
+          "name": "News Desk — CRON SECRET"
+        }
+      },
+      "notes": "Needs a header-auth credential sending Authorization: Bearer <CRON_SECRET>. NOT the INGEST_TOKEN credential used by the sweep — different secret."
     },
     {
       "parameters": {
         "conditions": {
-          "number": [ { "value1": "={{ $json.failed }}", "operation": "larger", "value2": 0 } ]
+          "number": [
+            {
+              "value1": "={{ $json.failed }}",
+              "operation": "larger"
+            }
+          ]
         }
       },
-      "id": "any-failures",
+      "id": "24ceeb73-ef40-49ad-af93-10bbab900b65",
       "name": "Any failures?",
       "type": "n8n-nodes-base.if",
       "typeVersion": 1,
-      "position": [ 740, 300 ]
+      "position": [
+        -240,
+        80
+      ]
     },
     {
       "parameters": {
-        "url": "={{ $env.UM_BASE_URL }}/api/ingest/alert",
+        "url": "=https://desk.unionmedia.news/api/ingest/alert",
         "authentication": "predefinedCredentialType",
         "nodeCredentialType": "httpHeaderAuth",
         "sendBody": true,
@@ -48,19 +76,98 @@
         "jsonBody": "={\n  \"severity\": \"p2\",\n  \"issue_type\": \"parse_failure\",\n  \"description\": \"PR mailbox poll: {{ $json.failed }} message(s) failed — {{ $json.errors.join('; ') }}\"\n}",
         "options": {}
       },
-      "id": "file-alert",
+      "id": "7498a5be-f4c2-4588-a6a6-9fd74e4a1b36",
       "name": "File OPS-RR alert",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
-      "position": [ 980, 220 ],
-      "notes": "Uses the INGEST_TOKEN credential, not CRON_SECRET.",
-      "credentials": { "httpHeaderAuth": { "id": "REPLACE_WITH_CREDENTIAL_ID", "name": "UM Newsroom — INGEST_TOKEN" } }
+      "position": [
+        0,
+        0
+      ],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "REPLACE_WITH_CREDENTIAL_ID",
+          "name": "Runware N8nLocal"
+        }
+      },
+      "notes": "Uses the INGEST_TOKEN credential, not CRON_SECRET."
+    },
+    {
+      "parameters": {
+        "url": "=https://desk.unionmedia.news/api/cron/triage-inbox",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "httpHeaderAuth",
+        "options": {
+          "timeout": 300000
+        }
+      },
+      "id": "triage-inbox-node",
+      "name": "Triage inbox",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        -700,
+        80
+      ],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "REPLACE_WITH_CREDENTIAL_ID",
+          "name": "News Desk — CRON SECRET"
+        }
+      },
+      "notes": "Needs a header-auth credential sending Authorization: Bearer <CRON_SECRET>. NOT the INGEST_TOKEN credential used by the sweep — different secret."
     }
   ],
   "connections": {
-    "Every 30 minutes": { "main": [ [ { "node": "Poll PR mailbox", "type": "main", "index": 0 } ] ] },
-    "Poll PR mailbox": { "main": [ [ { "node": "Any failures?", "type": "main", "index": 0 } ] ] },
-    "Any failures?": { "main": [ [ { "node": "File OPS-RR alert", "type": "main", "index": 0 } ], [] ] }
+    "Poll PR mailbox": {
+      "main": [
+        [
+          {
+            "node": "Any failures?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Any failures?": {
+      "main": [
+        [
+          {
+            "node": "File OPS-RR alert",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Every 10 minutes": {
+      "main": [
+        [
+          {
+            "node": "Triage inbox",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Triage inbox": {
+      "main": [
+        [
+          {
+            "node": "Poll PR mailbox",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
   },
-  "settings": { "executionOrder": "v1" }
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate",
+    "availableInMCP": false,
+    "callerPolicy": "workflowsFromSameOwner"
+  }
 }

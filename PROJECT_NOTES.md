@@ -11,6 +11,25 @@ _Last updated: 2026-09-03_
 
 ## Recently landed (this session)
 
+- **Live n8n workflows synced into the repo** (8 Sep 2026, via the n8n API).
+  The repo copies had drifted far enough to mislead: they gave the mailbox poll
+  a 30-minute cadence when it runs every **10**, and did not mention triage at
+  all. Credential ids replaced with `REPLACE_WITH_CREDENTIAL_ID`; verified no
+  token or password literals in the exports.
+  - **Only one mailbox poll is active** — the double-polling worry is cleared.
+    The file previously named `…BROKEN.json` turned out to be a *stale* 30-minute
+    snapshot, not the live one; deleted, superseded by the real export.
+  - **Triage has no workflow of its own** — `poll-mailbox`'s last node calls
+    `/api/cron/triage-inbox`. Inbox sorting and polling therefore share the
+    10-minute cadence, and disabling that one workflow stops both.
+  - **⚠️ The n8n instance timezone is UTC−4, not UK.** Crons read `0 8,16` and
+    `0 8`, but executions fire at 12:00/20:00 UTC. So the "am" sweep runs at
+    **13:00 BST**, the "pm" at **21:00**, and the "daily 08:00" triage digest
+    arrives at **13:00**. The schedules are right; the clock is wrong. Fix once
+    at the instance (`GENERIC_TIMEZONE=Europe/London`) — it will move all three.
+  - Production host is **`desk.unionmedia.news`**. `smoke-test.json` still points
+    at `umnewsdesk.vercel.app` — inactive, so harmless, but wrong.
+
 - **Discovery inbox paginates, and filters now search the whole table.** There
   was no way to reach past the first screen because there was no page 2 — but
   the bigger problem was underneath it: the page fetched the newest **200** rows
