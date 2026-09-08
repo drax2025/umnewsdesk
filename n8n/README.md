@@ -171,7 +171,23 @@ and they did not mention triage at all.
 and mailbox polling share the 10-minute cadence, and disabling that one workflow
 stops both.
 
-### ⚠️ The instance timezone is not UK
+### Timezone — fixed per workflow, 8 September 2026
+
+`rss-sweep` and `triage-digest` now carry `settings.timezone = "Europe/London"`,
+so their crons mean UK time. `poll-mailbox` is deliberately untouched: it uses an
+interval trigger, which no timezone affects, and it is the workflow whose silent
+deactivation would stop mail ingestion.
+
+**The instance default is still UTC−4.** Any *new* scheduled workflow will
+inherit that and be four hours out. The real fix is on the host — set
+`GENERIC_TIMEZONE=Europe/London` on the n8n container in CT 106 and restart it,
+after which the per-workflow settings become redundant but harmless.
+
+Note the public API rejects some settings keys it does not know
+(`binaryMode`, `availableInMCP`, `timeSavedMode`); they were dropped from
+`rss-sweep` on update and n8n re-applies its own defaults.
+
+### ⚠️ The original problem, for the record
 
 The cron expressions read `0 8,16` and `0 8`, but executions fire at **12:00 and
 20:00 UTC** — a consistent +4 offset, with no per-workflow timezone set. The
@@ -182,10 +198,8 @@ In UK terms that means:
 - the "am" RSS sweep runs at **13:00 BST**, the "pm" one at **21:00 BST**
 - the "daily 08:00" triage digest arrives at **13:00 BST**
 
-The schedules are not wrong; the clock they are read against is. Fix it once at
-the instance (`GENERIC_TIMEZONE=Europe/London`) rather than by shifting each cron,
-or the next person to read `0 8 * * *` will draw the same wrong conclusion. Note
-that changing it will move all three schedules at once.
+The schedules were not wrong; the clock they were read against was. Fixed per
+workflow rather than by shifting the crons, so `0 8` still means eight o'clock.
 
 The 10-minute poll is unaffected — it is an interval, not a wall-clock time.
 
