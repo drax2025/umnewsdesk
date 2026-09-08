@@ -11,6 +11,29 @@ _Last updated: 2026-09-03_
 
 ## Recently landed (this session)
 
+- **Releases forwarded with the original enclosed as a `.eml` now ingest
+  properly.** Editorial triage forwards from `editorial@unionmedianews.com`
+  with the original attached as `message/rfc822`, so the message we receive is
+  a two-line covering note and everything that matters is inside the
+  attachment. Read as-is we stored ~280 characters of wrapper, no agency and no
+  images — which is what PR-FAFC84 looked like.
+  - `unwrapEnclosed()` in `email-candidate.ts` parses the attachment and maps
+    from the enclosed message instead: body, sender, date, attachments **and
+    Message-ID**, so the same release forwarded twice — or forwarded once and
+    also sent direct — makes one candidate rather than two. The carrier's
+    address is kept as `raw.forwarded_by`.
+  - Guarded: the enclosed message is preferred **only when it carries more than
+    the wrapper**, so a genuine reply that happens to attach an .eml is not
+    mistaken for a forward of one.
+  - Verified against the real message: body **278 → 6,064 chars**, sender
+    `eve.ferguson@fifthring.com` matching the registered agency **Fifth Ring**
+    (so `verified` rather than `unverified`), true send date, and a JPEG that
+    can now be mirrored.
+  - Entity decoding widened while in there — numeric escapes plus the named
+    ones agency HTML actually uses. "Velonix&reg;" was reaching the desk raw.
+  - **15 existing candidates are affected**, 8 of them already sent to the
+    newsroom carrying the wrapper as their body.
+
 - **Stream column and filter dropped from the discovery inbox** (8 Sep 2026).
   **1,706 of 1,805 candidates — 95% — have no stream**, so the filter mostly
   selected nothing and the column was mostly blank.

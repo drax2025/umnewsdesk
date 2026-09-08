@@ -1,5 +1,5 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
-import type { ParsedMail } from "mailparser";
+import { simpleParser, type Attachment, type ParsedMail } from "mailparser";
 import { nextCandidateCode } from "@/lib/ingest/codes";
 import { checkDedup } from "@/lib/ingest/dedup";
 import { detectEmbargo } from "@/lib/ingest/embargo";
@@ -27,6 +27,48 @@ export type EmailIngestResult =
   | { state: "duplicate"; reason: string; matched_candidate_id: string | null }
   | { state: "rejected"; reason: string };
 
+/**
+ * A release forwarded with the original enclosed as a .eml.
+ *
+ * Editorial triage forwards releases from another mailbox and attaches the
+ * original as `message/rfc822`, so the message we receive is a two-line
+ * wrapper — "the original is attached in full" — and everything that matters
+ * is inside the attachment: the body, the agency's address, the send date and
+ * the pictures.
+ *
+ * Read as-is, such a release stored ~280 characters of covering note, no
+ * agency attribution and no images, which is what PR-FAFC84 looked like.
+ *
+ * The enclosed message is preferred only when it actually carries more than
+ * the wrapper, so a genuine reply that happens to attach an .eml is not
+ * mistaken for a forward of it.
+ */
+async function unwrapEnclosed(
+  outer: ParsedMail,
+): Promise<{ inner: ParsedMail; forwardedBy: string | null } | null> {
+  const eml = (outer.attachments ?? []).find(
+    (a) =>
+      /message\/rfc822/i.test(String(a.contentType ?? "")) ||
+      /\.eml$/i.test(String(a.filename ?? "")),
+  );
+  if (!eml?.content) return null;
+  try {
+    const inner = await simpleParser(eml.content as Buffer);
+    // mailparser types `html` as `string | false`.
+    const len = (m: ParsedMail) =>
+      (typeof m.text === "string" ? m.text.length : 0) +
+      (typeof m.html === "string" ? m.html.length : 0);
+    const innerLen = len(inner);
+    const outerLen = len(outer);
+    if (innerLen <= outerLen) return null;
+    return { inner, forwardedBy: addressOf(outer) };
+  } catch {
+    // An unreadable attachment must not cost us the release; the wrapper
+    // still carries the subject.
+    return null;
+  }
+}
+
 /** "Alice Smith <alice@edelman.co.uk>" → "alice@edelman.co.uk" */
 function addressOf(parsed: ParsedMail): string | null {
   const from = parsed.from?.value?.[0]?.address;
@@ -50,12 +92,17 @@ function bodyOf(parsed: ParsedMail): string | null {
     .replace(/<br\s*\/?>/gi, "\n")
     .replace(/<\/(p|div|h[1-6]|li|tr)>/gi, "\n")
     .replace(/<[^>]+>/g, " ")
-    .replace(/&nbsp;/g, " ")
-    .replace(/&amp;/g, "&")
-    .replace(/&lt;/g, "<")
-    .replace(/&gt;/g, ">")
-    .replace(/&quot;/g, '"')
-    .replace(/&#39;/g, "'")
+    // Entities generally, not a handful by name: agency HTML is full of
+    // &reg;, &rsquo;, &mdash; and numeric escapes, and leaving them raw puts
+    // "Velonix&reg;" in front of the desk.
+    .replace(/&#(\d+);/g, (_, d: string) => String.fromCodePoint(Number(d)))
+    .replace(/&#x([0-9a-f]+);/gi, (_, h: string) => String.fromCodePoint(parseInt(h, 16)))
+    .replace(/&(nbsp|amp|lt|gt|quot|apos|reg|copy|trade|rsquo|lsquo|rdquo|ldquo|ndash|mdash|hellip|pound|euro);/g,
+      (_, name: string) =>
+        ({ nbsp: " ", amp: "&", lt: "<", gt: ">", quot: '"', apos: "'", reg: "\u00ae",
+           copy: "\u00a9", trade: "\u2122", rsquo: "\u2019", lsquo: "\u2018",
+           rdquo: "\u201d", ldquo: "\u201c", ndash: "\u2013", mdash: "\u2014",
+           hellip: "\u2026", pound: "\u00a3", euro: "\u20ac" })[name] ?? _)
     .replace(/[ \t]+/g, " ")
     .replace(/\n{3,}/g, "\n\n")
     .trim();
@@ -69,13 +116,21 @@ function bodyOf(parsed: ParsedMail): string | null {
  */
 export async function ingestEmailMessage(
   supabase: SupabaseClient,
-  parsed: ParsedMail,
+  outer: ParsedMail,
   options: { dryRun?: boolean } = {},
 ): Promise<EmailIngestResult> {
-  const subject = safeTrim(parsed.subject, 400);
+  // Where the real release is enclosed as a .eml, everything below reads from
+  // the enclosed message instead: its body, its sender, its date, its
+  // attachments — and its Message-ID, so the same release forwarded twice, or
+  // forwarded once and also sent direct, makes one candidate rather than two.
+  const unwrapped = await unwrapEnclosed(outer);
+  const parsed = unwrapped ? unwrapped.inner : outer;
+  const forwardedBy = unwrapped?.forwardedBy ?? null;
+
+  const subject = safeTrim(parsed.subject, 400) ?? safeTrim(outer.subject, 400);
   if (!subject) return { state: "rejected", reason: "no subject" };
 
-  const messageId = safeTrim(parsed.messageId, 998);
+  const messageId = safeTrim(parsed.messageId, 998) ?? safeTrim(outer.messageId, 998);
   if (!messageId) return { state: "rejected", reason: "no Message-ID" };
 
   const fromEmail = addressOf(parsed);
@@ -198,6 +253,10 @@ export async function ingestEmailMessage(
         agency_match: agency ? "envelope" : null,
         trust_tier: agency?.trust_tier ?? null,
         attachment_count: parsed.attachments?.length ?? 0,
+        // Who passed it on, when the release came enclosed as a .eml. The
+        // sender above is the agency, recovered from the enclosed message.
+        forwarded_by: forwardedBy,
+        unwrapped_from_eml: !!unwrapped,
         // No embargo_evidence column, so the line the machine read is kept
         // here — a person must be able to check its work.
         embargo_evidence: embargo.evidence,
@@ -221,7 +280,11 @@ export async function ingestEmailMessage(
   // Best-effort by design: a picture that will not upload must not cost us the
   // release. See mirror-attachments.ts.
   try {
-    const mirrored = await mirrorImageAttachments(supabase, inserted.id, parsed.attachments);
+    const mirrored = await mirrorImageAttachments(
+      supabase,
+      inserted.id,
+      parsed.attachments as Attachment[] | undefined,
+    );
     if (mirrored.length) {
       await supabase.from("candidates").update({ attachments: mirrored }).eq("id", inserted.id);
     }
