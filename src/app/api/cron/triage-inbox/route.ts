@@ -69,13 +69,25 @@ type Decision = TriageDecision & {
   messageId: string;
 };
 
-function decide(uid: number, parsed: ParsedMail): Decision {
+function decide(uid: number, parsed: ParsedMail, knownAgencyDomains: Set<string>): Decision {
   const fromEmail = parsed.from?.value?.[0]?.address || "";
+  // Some agency mail carries no plain-text part at all, and reading only
+  // `text` left triage with nothing but the subject to go on.
+  const text = String(parsed.text || "");
+  const body = text.trim()
+    ? text
+    : String(typeof parsed.html === "string" ? parsed.html : "").replace(/<[^>]+>/g, " ");
+  const domain = fromEmail.split("@")[1]?.toLowerCase().trim() || "";
   const d = triage({
     fromEmail,
     fromName: parsed.from?.value?.[0]?.name || "",
     subject: parsed.subject || "",
-    bodySample: String(parsed.text || "").slice(0, 2000),
+    bodySample: body.slice(0, 2000),
+    // ENDS and "Notes to editors" are at the foot of a release, so the whole
+    // body is needed — capped, because a release with a base64 image inline
+    // can be very large.
+    bodyFull: body.slice(0, 60_000),
+    isKnownAgency: !!domain && knownAgencyDomains.has(domain),
     forwardedByUs: isInternal(fromEmail),
     sentByTheApp: sentByTheApp(parsed),
   });
@@ -109,6 +121,21 @@ export async function GET(req: Request) {
   }
 
   const dryRun = url.searchParams.get("dry") === "1";
+
+  // The desk's rule is that anything from a registered agency is a release, so
+  // the registry is consulted rather than guessed at from the domain shape.
+  const knownAgencyDomains = new Set<string>();
+  {
+    const { data: agencies } = await createServiceClient()
+      .from("press_agencies")
+      .select("email_domains");
+    for (const a of agencies ?? []) {
+      for (const d of (a.email_domains as string[] | null) ?? []) {
+        const clean = String(d || "").toLowerCase().trim();
+        if (clean) knownAgencyDomains.add(clean);
+      }
+    }
+  }
   const supabase = createServiceClient();
 
   try {
@@ -133,7 +160,7 @@ export async function GET(req: Request) {
       return NextResponse.json({
         preview: true,
         decisions: messages.slice(-back).map(({ uid, parsed }) => {
-          const d = decide(uid, parsed);
+          const d = decide(uid, parsed, knownAgencyDomains);
           return { ...d, subject: d.subject.slice(0, 70) };
         }),
       });
@@ -156,7 +183,7 @@ export async function GET(req: Request) {
     const sinceUid = Number(mark.value) || 0;
     const { messages, highestUid } = await readNewInbox(config, config.source, sinceUid);
 
-    const decisions = messages.map(({ uid, parsed }) => decide(uid, parsed));
+    const decisions = messages.map(({ uid, parsed }) => decide(uid, parsed, knownAgencyDomains));
     const moves = decisions
       .filter((d) => d.moveTo)
       .map((d) => ({ uid: d.uid, to: d.moveTo as string }));

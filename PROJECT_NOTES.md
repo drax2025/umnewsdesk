@@ -11,6 +11,34 @@ _Last updated: 2026-09-03_
 
 ## Recently landed (this session)
 
+- **Inbox triage was filing nothing.** It ran every 10 minutes and kept up, but
+  of the last 60 messages **0 were classified as a release** — 45 unknown, 15
+  wire — so the whole pile reached the desk by hand. The rules matched on exact
+  inflections (`"launches"` missed *"11 trainees **launch**…"*, `"has been
+  named"` missed *"**has been awarded**"*) and the agency regex missed
+  `rostrum.agency`, `perceptivecommunicators.co.uk`, `spreckley.co.uk`.
+  - Added the markers the desk actually uses: **`ENDS`** on its own line and
+    **`Notes to editors`** — plus `notes for editor`, both numbers — and
+    **anything from a registered press agency**, no wording test.
+  - `ENDS` is anchored to a line. As a bare substring it fires on *trends*,
+    *recommends*, *attends*, *weekends*; tested against all four, and against
+    the six real forms (`ENDS`, `-ENDS-`, `//ENDS`, `**ENDS**`, `– ENDS –`,
+    `Ends.`).
+  - **These markers sit at the foot of a release**, past the 2,000 characters
+    triage read, so `bodyFull` was added and the whole body (capped at 60k) is
+    searched for the structural ones. The intent checks still use the opening
+    sample, where intent actually is.
+  - The route now consults `press_agencies` rather than guessing from the
+    domain shape, and falls back to stripped HTML when a message has no plain
+    text part — some agency mail has none, leaving triage only the subject.
+  - **Measured on live mail: 0 → 23 of 60 filed as PR.** By reason: notes to
+    editors 9, ENDS 10, registered agency 4. Confirmed through the route's own
+    `?preview=` mode: 15 of 40 would move, where none did before.
+  - 19 of 60 still land manually, most correctly — an events invitation, a
+    WordPress SMTP summary, a website contact form. One that should not:
+    `screamingfrog.co.uk` *"Potential editorial contribution"* is a link-builder
+    pitch the commercial rules still miss.
+
 - **Backfilled the 15 releases stored from a `.eml` wrapper**
   (`scripts/backfill-eml-bodies.mjs`, one-off, dry-run by default). Recovered
   the originals from the mailbox by Message-ID: average body **289 → 5,771

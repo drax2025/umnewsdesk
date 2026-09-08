@@ -20,6 +20,20 @@ export interface TriageInput {
   subject: string;
   /** First part of the body is plenty; the intent is always near the top. */
   bodySample: string;
+  /**
+   * The whole body, for the structural markers only.
+   *
+   * "ENDS" and "Notes to editors" are the two most reliable signs of a press
+   * release and both sit at the *bottom* of one, well past the 2,000
+   * characters the intent checks need. Reading only the top missed every
+   * release that did not announce itself in its opening line.
+   */
+  bodyFull?: string;
+  /**
+   * The sender's domain is a registered press agency. The desk's rule is that
+   * anything from an agency is a release — no wording test required.
+   */
+  isKnownAgency?: boolean;
   /** Set when the message is a forward from the desk itself. */
   forwardedByUs?: boolean;
   /**
@@ -83,9 +97,22 @@ const LINK_BUILDER_PHRASES = [
 /** Unambiguous on their own — one is enough, wherever it appears. */
 const STRONG_RELEASE_MARKERS = [
   "press release", "for immediate release", "media release", "news release",
-  "media alert", "notes to editors", "under embargo", "embargoed until",
+  "media alert", "under embargo", "embargoed until",
   "photo caption", "media enquiries",
+  // Both spellings and both numbers are in live use.
+  "notes to editors", "notes to editor", "notes for editors", "notes for editor",
 ];
+
+/**
+ * The trade's own furniture, at the foot of a release.
+ *
+ * "ENDS" has to be anchored to its own line: as a bare substring it fires on
+ * "trends", "recommends" and "attends". Agencies write it as ENDS, -ENDS-,
+ * //ENDS, **ENDS** and with en or em dashes, so the surrounding punctuation is
+ * allowed for but a line of its own is required.
+ */
+const ENDS_LINE = /(^|\n)[\s*_/\\|-]*(?:-{0,3}|–|—)?\s*ends\s*(?:-{0,3}|–|—)?[\s*_/\\|.-]*(\n|$)/i;
+const NOTES_TO_EDITORS = /notes?\s+(?:to|for)\s+editors?/i;
 
 /** Suggestive, but only together — "launches" alone is just a word. */
 const WEAK_RELEASE_MARKERS = [
@@ -101,7 +128,12 @@ const WEAK_RELEASE_MARKERS = [
  */
 const looksLikeAgency = (domain: string): boolean =>
   /(^|[.-])pr[.-]/.test(domain) || /pr\.(co\.uk|com|net|io|agency)$/.test(domain) ||
-  /(comms|communications|publicrelations|mediagroup|pragency)/.test(domain);
+  // "communicat" rather than "communications": perceptivecommunicators.co.uk
+  // was missed by the longer word.
+  /(comms|communicat|publicrelations|mediagroup|pragency|publicity)/.test(domain) ||
+  // Agencies increasingly sit on .agency / .press / .media outright —
+  // rostrum.agency, pc.agency, tfr.agency.
+  /\.(agency|press|media)$/.test(domain);
 
 const domainOf = (address: string): string =>
   String(address || "").split("@")[1]?.toLowerCase().trim() || "";
@@ -113,6 +145,9 @@ export const triage = (input: TriageInput): TriageDecision => {
   const from = String(input.fromEmail || "").toLowerCase();
   const domain = domainOf(from);
   const text = `${input.subject || ""}\n${input.bodySample || ""}`.toLowerCase();
+  // The structural markers live at the foot of a release, so they are searched
+  // against the whole body rather than the opening sample.
+  const full = `${input.subject || ""}\n${input.bodyFull || input.bodySample || ""}`;
 
   // Our own automated mail. The digests are sent from the same address the
   // mailbox authenticates as, so without this they would be read as a forward
@@ -160,9 +195,27 @@ export const triage = (input: TriageInput): TriageDecision => {
     return { category: "pr", moveTo: FOLDERS.pr, reason: `release marker: ${strong.slice(0, 2).join(", ")}` };
   }
 
+  // The trade's own furniture. Checked after the commercial rules so a pitch
+  // that happens to quote a release is still read as a pitch.
+  if (NOTES_TO_EDITORS.test(full)) {
+    return { category: "pr", moveTo: FOLDERS.pr, reason: "notes to editors" };
+  }
+  if (ENDS_LINE.test(full)) {
+    return { category: "pr", moveTo: FOLDERS.pr, reason: "ENDS on its own line" };
+  }
+
+  // The desk's rule: anything from a registered press agency is a release, no
+  // wording test required. They are on the list because they send releases.
+  if (input.isKnownAgency) {
+    return { category: "pr", moveTo: FOLDERS.pr, reason: `registered press agency (${domain})` };
+  }
+
   const weak = hits(text, WEAK_RELEASE_MARKERS);
   if (looksLikeAgency(domain) && weak.length) {
     return { category: "pr", moveTo: FOLDERS.pr, reason: `agency sender (${domain}) with release wording: ${weak.slice(0, 2).join(", ")}` };
+  }
+  if (looksLikeAgency(domain)) {
+    return { category: "pr", moveTo: FOLDERS.pr, reason: `sender looks like a PR agency (${domain})` };
   }
   if (weak.length >= 2) {
     return { category: "pr", moveTo: FOLDERS.pr, reason: `release wording: ${weak.slice(0, 3).join(", ")}` };
