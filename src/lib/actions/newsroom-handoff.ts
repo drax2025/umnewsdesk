@@ -139,9 +139,15 @@ export async function sendToNewsroom(candidateId: string): Promise<HandoffResult
    */
   const MIN_LEAD_IMAGE_BYTES = 25_000;
   const mirrored = Array.isArray(candidate.attachments)
-    ? (candidate.attachments as Array<{ url?: string; size?: number }>).filter(
-        (a) => a && typeof a.url === "string",
-      )
+    ? (
+        candidate.attachments as Array<{
+          url?: string;
+          name?: string;
+          size?: number;
+          content_type?: string;
+          inline?: boolean;
+        }>
+      ).filter((a) => a && typeof a.url === "string")
     : [];
   const leadImage =
     candidate.image_url ??
@@ -149,6 +155,26 @@ export async function sendToNewsroom(candidateId: string): Promise<HandoffResult
       .filter((a) => (a.size ?? 0) >= MIN_LEAD_IMAGE_BYTES)
       .sort((a, b) => (b.size ?? 0) - (a.size ?? 0))[0]?.url ??
     undefined;
+
+  /**
+   * Every picture, so the desk can choose rather than take our guess.
+   *
+   * The newsroom decides which becomes the featured image using its own floors
+   * — it distinguishes an inline signature graphic from a photo referenced in
+   * the release's HTML, which we cannot do as well from here — so the flag
+   * travels with each one. `imageUrl` above stays as our best guess, which is
+   * what the newsroom falls back to and what older versions read.
+   */
+  const images = mirrored
+    .sort((a, b) => (b.size ?? 0) - (a.size ?? 0))
+    .slice(0, 20)
+    .map((a) => ({
+      url: a.url as string,
+      name: a.name ?? null,
+      size: a.size ?? null,
+      contentType: a.content_type ?? null,
+      inline: !!a.inline,
+    }));
 
   const payload = {
     candidateId: candidate.code,
@@ -167,6 +193,7 @@ export async function sendToNewsroom(candidateId: string): Promise<HandoffResult
     layer: candidate.layer ?? undefined,
     score: candidate.score ?? undefined,
     imageUrl: leadImage,
+    images: images.length ? images : undefined,
     verification: {
       state: candidate.verification_state,
       dedup: candidate.dedup_state,

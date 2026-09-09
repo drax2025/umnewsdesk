@@ -30,6 +30,15 @@ export type MirroredAttachment = {
   url: string;
   content_type: string;
   size: number;
+  /**
+   * Referenced from the message's own HTML rather than attached separately.
+   *
+   * Signature logos and layout spacers arrive this way, so an inline image has
+   * to be much larger before it is worth treating as the story's picture. The
+   * newsroom applies that rule on the far side — 20 KB for a real attachment,
+   * 200 KB for an inline one — and cannot without knowing which this is.
+   */
+  inline: boolean;
 };
 
 /** Storage keys must be predictable and safe; the display name is kept in the row. */
@@ -59,6 +68,10 @@ export async function mirrorImageAttachments(
       if (!body?.length || body.length > MAX_BYTES) continue;
 
       const name = String(att.filename ?? `image-${i + 1}`).slice(0, 240);
+      const inline =
+        String(att.contentDisposition ?? "").toLowerCase() === "inline" ||
+        Boolean((att as { related?: boolean }).related) ||
+        Boolean(att.cid);
       const key = safeKey(candidateId, name, i);
 
       const { error } = await supabase.storage
@@ -70,7 +83,7 @@ export async function mirrorImageAttachments(
       }
 
       const { data } = supabase.storage.from(BUCKET).getPublicUrl(key);
-      out.push({ name, url: data.publicUrl, content_type: type, size: body.length });
+      out.push({ name, url: data.publicUrl, content_type: type, size: body.length, inline });
     } catch (e) {
       // One bad attachment must not cost the others.
       console.error(`[MIRROR] ${candidateId} attachment ${i}: ${(e as Error).message}`);

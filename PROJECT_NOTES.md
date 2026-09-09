@@ -11,6 +11,29 @@ _Last updated: 2026-09-03_
 
 ## Recently landed (this session)
 
+- **Every picture a release carries now reaches the newsroom** (cross-repo).
+  Previously one image travelled and the desk took whatever the ingest guessed
+  at — a release with eight photos contributed one.
+  - **V2**: `mirror-attachments.ts` records whether an attachment was `inline`
+    (referenced from the message's own HTML), and the handoff sends an
+    `images[]` array — up to 20, largest first — alongside the existing
+    `imageUrl`, which stays as the suggested lead.
+  - **V1** (PR #3, deployed): contract takes `images[]`; every picture is copied
+    onto the newsroom's domain rather than only the chosen one; the set is kept
+    on `workflow_items.images` (JSON, self-migrating like the other columns).
+  - **The lead is now chosen on V1, not V2**, with the floors its mailbox
+    ingest already used: **20 KB** for a real attachment, **200 KB** for an
+    inline one. Signature logos arrive inline; a press photo referenced from a
+    release's HTML does not stop at 20 KB. That is a better rule than V2's
+    flat 25 KB, and V2 could not apply it without knowing which were inline —
+    hence the flag.
+  - The editor shows the set as thumbnails, inline graphics last and labelled,
+    since a signature logo looks like a photo at that size. Clicking one makes
+    it the featured image.
+  - Additive and back-compatible: a payload with no `images` behaves exactly as
+    before, and `image_url` still holds the chosen picture so nothing that reads
+    it changed. 4 new tests on V1, 37 passing.
+
 - **Emailed releases reached the newsroom with no picture at all.** The handoff
   sent `imageUrl: candidate.image_url`, and that column is only ever set for a
   swept page — a release arriving by mail keeps its pictures in the mirrored
