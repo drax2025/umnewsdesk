@@ -27,8 +27,13 @@ _Last updated: 2026-09-03_
 - **⚠️ SRC-9016 was deleted rather than paused, orphaning 966 candidates.**
   The live FK is `on delete set null`, so nothing was destroyed, but the total
   with no source went 34 → **1,000**: blank Source in the inbox and unreachable
-  by the Source filter. Host attribution can repair **377** of them (272
-  digit.fyi → SRC-9027, 60 futurescot.com → SRC-9028, 45 to the papers).
+  by the Source filter. Host attribution repaired **377** of them
+  (`scripts/reattribute-by-host.mjs`, dry-run by default): 272 digit.fyi →
+  SRC-9027, 60 futurescot.com → SRC-9028, 45 to the papers. **332 candidates
+  are now classified L4 signal-only where none were before**, so the badge
+  shows and the F3 drafting guardrail applies to them. Orphans down to 623.
+  Only rows with no source were touched — an existing attribution is somebody's
+  decision.
   - The remaining 623 have no registered source for their host: `gov.scot`
     (156), `gla.ac.uk` (87), `ed.ac.uk` (50), `thenational.scot` (45),
     `strath.ac.uk` (25), `technologyscotland.scot` (16). These are what the
