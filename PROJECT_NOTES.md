@@ -11,6 +11,22 @@ _Last updated: 2026-09-03_
 
 ## Recently landed (this session)
 
+- **Five outlets the deleted aggregator was carrying are now registered
+  directly** — `SRC-9031` University of Glasgow (L2), `SRC-9032` Technology
+  Scotland (L2), `SRC-9033` Cyber and Fraud Centre (L2), `SRC-9034` The
+  National (L3), `SRC-9035` Scottish Business News (L3). Each feed was fetched
+  and confirmed to return valid RSS with a live item count before registering.
+  Glasgow's feed is at `/rss/news/`, **not** `/news/rss/`, which 404s — likely
+  why it was never registered.
+  - Re-running `scripts/reattribute-by-host.mjs` recovered a further **177**
+    orphans. Unattributed candidates: 1,000 → 623 → **446**.
+  - **Still unattributed, and now arriving from nowhere:** `gov.scot` (156),
+    `ed.ac.uk` (50), `government-transformation.com` (32), `strath.ac.uk` (25).
+    gov.scot answers **202 with an empty body on every path**, including its
+    ordinary news page — bot protection rather than a missing feed. The
+    aggregator read it happily, so an rss.app feed is the way back in.
+    Edinburgh and Strathclyde declare no feed at all.
+
 - **A story is now credited to the outlet that published it, not the feed that
   found it** (`src/lib/ingest/attribution.ts`, applied in `/api/ingest/item`).
   An aggregator passed on its own layer and signal-only status, which is how
