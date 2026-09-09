@@ -11,6 +11,30 @@ _Last updated: 2026-09-03_
 
 ## Recently landed (this session)
 
+- **A story is now credited to the outlet that published it, not the feed that
+  found it** (`src/lib/ingest/attribution.ts`, applied in `/api/ingest/item`).
+  An aggregator passed on its own layer and signal-only status, which is how
+  272 DIGIT and 60 FutureScot stories — both registered **L4 signal-only** —
+  entered as ordinary L2 with no badge and no F3 drafting guardrail. Per spec
+  §B2 the sourcing rule is about the outlet, not the pipe.
+  - **Data-driven, not a hardcoded list**: the registry already knows digit.fyi
+    is L4 signal-only because someone registered it that way. Adding a source
+    is enough; the index is built from `feed_url` hosts at ingest.
+  - Only sources whose feed sits on their **own** domain are indexed, so an
+    aggregator (feed on `rss.app`) can never claim another outlet's work — no
+    article URL has that host.
+  - The delivering feed is kept as `raw.carried_by` so the path is traceable.
+- **⚠️ SRC-9016 was deleted rather than paused, orphaning 966 candidates.**
+  The live FK is `on delete set null`, so nothing was destroyed, but the total
+  with no source went 34 → **1,000**: blank Source in the inbox and unreachable
+  by the Source filter. Host attribution can repair **377** of them (272
+  digit.fyi → SRC-9027, 60 futurescot.com → SRC-9028, 45 to the papers).
+  - The remaining 623 have no registered source for their host: `gov.scot`
+    (156), `gla.ac.uk` (87), `ed.ac.uk` (50), `thenational.scot` (45),
+    `strath.ac.uk` (25), `technologyscotland.scot` (16). These are what the
+    aggregator was carrying beyond the two signal-only outlets, and they now
+    arrive from nowhere at all.
+
 - **Every picture a release carries now reaches the newsroom** (cross-repo).
   Previously one image travelled and the desk took whatever the ingest guessed
   at — a release with eight photos contributed one.

@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { checkIngestAuth } from "@/lib/ingest/auth";
 import { nextCandidateCode } from "@/lib/ingest/codes";
+import { attributeByHost, buildHostIndex } from "@/lib/ingest/attribution";
 import { checkDedup } from "@/lib/ingest/dedup";
 import {
   canonicalizeUrl,
@@ -136,14 +137,30 @@ export async function POST(req: Request) {
 
   const imageUrl = safeTrim(body.item.image_url, 2000) ?? extractImageUrl(raw);
 
+  /**
+   * Credit the outlet, not the feed that found it.
+   *
+   * An aggregator carrying another outlet's article would otherwise pass on its
+   * own layer and signal-only status, which is how DIGIT and FutureScot
+   * material — registered as L4 signal-only — was entering as ordinary L2.
+   */
+  const hostIndex = await buildHostIndex(supabase);
+  const owner = attributeByHost(primaryUrl, source.id, hostIndex);
+  const attributedTo = owner ?? {
+    id: source.id,
+    code: body.source_code,
+    layer: source.layer,
+    stream_id: source.stream_id,
+  };
+
   const { data: inserted, error } = await supabase
     .from("candidates")
     .insert({
       code,
       sweep_run_id: sweep.id,
-      source_id: source.id,
-      stream_id: source.stream_id,
-      layer: source.layer,
+      source_id: attributedTo.id,
+      stream_id: attributedTo.stream_id,
+      layer: attributedTo.layer,
       working_headline: headline,
       primary_url: primaryUrl,
       external_id: externalId,
@@ -153,7 +170,9 @@ export async function POST(req: Request) {
       author: safeTrim(body.item.author, 200),
       image_url: imageUrl,
       tags,
-      raw,
+      raw: owner
+        ? { ...(raw ?? {}), carried_by: body.source_code, attributed_by: "host" }
+        : raw,
       fetched_at: fetchedAt,
       published_at: publishedAt,
       dedup_state: "clear",
