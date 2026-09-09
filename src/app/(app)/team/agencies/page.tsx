@@ -9,6 +9,7 @@ import {
   AgencyTierCell,
   DeleteAgencyButton,
 } from "@/components/forms/agencies-crud";
+import { CrmMatchQueue } from "@/components/crm/match-queue";
 
 export const dynamic = "force-dynamic";
 
@@ -100,6 +101,8 @@ export default async function AgenciesPage() {
       </div>
 
       <div className="flex-1 overflow-y-auto px-5 py-5">
+        <CrmMatchQueue canManage={canManage} />
+
         <div className="mb-5 rounded-md border border-border bg-card p-4">
           <div className="mb-1 flex items-start justify-between gap-4">
             <h2 className="text-[13px] font-semibold text-foreground">

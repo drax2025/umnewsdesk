@@ -5,6 +5,8 @@ import { checkDedup } from "@/lib/ingest/dedup";
 import { detectEmbargo } from "@/lib/ingest/embargo";
 import { mirrorImageAttachments } from "@/lib/ingest/mirror-attachments";
 import { normalizeHeadline, safeIso, safeTrim } from "@/lib/ingest/normalize";
+import { isInternalDomain } from "@/lib/ingest/internal";
+import { ensureCrmAgency, resolveAgency } from "@/lib/crm/agency";
 
 /**
  * Turning a press release read off IMAP into a `candidates` row.
@@ -160,6 +162,16 @@ export async function ingestEmailMessage(
         .maybeSingle()
     : { data: null };
 
+  // press_agencies answers "which discovery_source and how much do we trust
+  // it"; the CRM answers "who are they to us commercially". 309 organisations
+  // are tagged 'PR Agency' there against 21 rows here, so the CRM name wins
+  // where there is one — and when it cannot be reached this falls straight
+  // back to the registry rather than failing the ingest.
+  const senderName = safeTrim(parsed.from?.value?.[0]?.name, 200) ?? null;
+  const crm = await resolveAgency(supabase, fromDomain, senderName);
+  const agencyName = crm.name ?? agency?.name ?? null;
+  const isAgency = crm.isPrAgency || !!agency;
+
   let sourceId: string | null = agency?.source_id ?? null;
   if (!sourceId) {
     const { data: fallback } = await supabase
@@ -206,7 +218,7 @@ export async function ingestEmailMessage(
       state: "clear",
       candidate_id: "(dry-run)",
       candidate_code: "(dry-run)",
-      agency: agency?.name ?? null,
+      agency: agencyName,
       embargoed: embargo.embargoed,
       embargo_until: embargo.until?.toISOString() ?? null,
     };
@@ -239,7 +251,7 @@ export async function ingestEmailMessage(
       // Read straight from the mailbox, so the sender is the real sender rather
       // than whoever forwarded it. A known agency domain is therefore genuinely
       // 'verified' here, which it never was over the webhook.
-      verification_state: agency ? "verified" : "unverified",
+      verification_state: isAgency ? "verified" : "unverified",
       risk: "low",
       pr_contact: { name: parsed.from?.value?.[0]?.name ?? null, email: fromEmail },
       attachment_urls: attachmentNames,
@@ -249,9 +261,13 @@ export async function ingestEmailMessage(
         to: parsed.to && "text" in parsed.to ? parsed.to.text : null,
         subject,
         agency_id: agency?.id ?? null,
-        agency_name: agency?.name ?? null,
-        agency_match: agency ? "envelope" : null,
+        agency_name: agencyName,
+        agency_match: agency ? "envelope" : crm.crmOrgId ? "crm" : null,
         trust_tier: agency?.trust_tier ?? null,
+        // The live commercial record, for the pill on the discovery overview.
+        crm_org_id: crm.crmOrgId,
+        crm_lifecycle: crm.lifecycle,
+        agency_source: crm.origin,
         attachment_count: parsed.attachments?.length ?? 0,
         // Who passed it on, when the release came enclosed as a .eml. The
         // sender above is the agency, recovered from the enclosed message.
@@ -292,10 +308,30 @@ export async function ingestEmailMessage(
     console.error(`[INGEST] ${inserted.code} attachment mirror failed: ${(e as Error).message}`);
   }
 
+  // An agency has sent us material, which by the desk's rule makes them a
+  // client. A new sender becomes a client PR agency in the CRM; a lead or a
+  // prospect is promoted; anything uncertain goes to the review queue and is
+  // not written. Never for mail from our own domains — a release the desk
+  // forwarded to itself must not file us as our own client.
+  //
+  // Best-effort by design, like the attachment mirror above: the CRM is a
+  // different box on a different network, and it must not cost us a release.
+  if (!isInternalDomain(fromDomain)) {
+    try {
+      await ensureCrmAgency(supabase, {
+        domain: fromDomain,
+        name: senderName,
+        candidateId: inserted.id,
+      });
+    } catch (e) {
+      console.error(`[INGEST] ${inserted.code} CRM sync failed: ${(e as Error).message}`);
+    }
+  }
+
   return {
     state: "clear",
     candidate_id: inserted.id,
     candidate_code: inserted.code,
-    agency: agency?.name ?? null,
+    agency: agencyName,
   };
 }
