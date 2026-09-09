@@ -18,6 +18,12 @@ import type { SupabaseClient } from "@supabase/supabase-js";
  * Data-driven rather than a hardcoded list: the registry already knows that
  * digit.fyi is L4 signal-only, because someone registered it that way. Adding a
  * source is enough — nothing here needs editing.
+ *
+ * A source is matched on its feed's host *and* on `article_hosts`, for the two
+ * cases where those differ: a feed served from a delivery domain (the BBC's
+ * feeds are on feeds.bbci.co.uk, its articles on bbc.co.uk and bbc.com) and a
+ * feed fronted by a third party (an rss.app feed's host is rss.app, which no
+ * article will ever match).
  */
 
 export type HostSource = {
@@ -47,22 +53,56 @@ export function registrableHost(url: string | null | undefined): string | null {
 export async function buildHostIndex(
   supabase: SupabaseClient,
 ): Promise<Map<string, HostSource>> {
-  const { data } = await supabase
+  /**
+   * `article_hosts` is read tolerantly.
+   *
+   * Migrations here are applied by hand and one has gone unnoticed for months
+   * before. If this column is missing, selecting it fails and the whole index
+   * comes back empty — which would silently stop attributing *anything*, a far
+   * worse outcome than losing the aliases. So a missing column falls back to
+   * matching on the feed host alone, and says so in the log.
+   */
+  type SourceRow = {
+    id: string; code: string; layer: string | null;
+    stream_id: string | null; feed_url: string | null;
+    article_hosts?: string[] | null;
+  };
+  const COLS = "id, code, layer, stream_id, feed_url";
+  let rows: SourceRow[] = [];
+  const withHosts = await supabase
     .from("discovery_sources")
-    .select("id, code, layer, stream_id, feed_url");
+    .select(`${COLS}, article_hosts`);
+  if (withHosts.error) {
+    console.warn(
+      "[attribution] article_hosts unavailable, matching on feed host only — " +
+        "apply supabase/migrations/0048_source_article_hosts.sql. " +
+        withHosts.error.message,
+    );
+    const plain = await supabase.from("discovery_sources").select(COLS);
+    rows = (plain.data ?? []) as SourceRow[];
+  } else {
+    rows = (withHosts.data ?? []) as SourceRow[];
+  }
+
+  const data = rows;
   const index = new Map<string, HostSource>();
-  for (const s of data ?? []) {
-    const host = registrableHost(s.feed_url as string | null);
-    if (!host) continue;
-    // First registration of a host wins; a duplicate would be a registry
-    // problem to fix there rather than silently resolve here.
-    if (!index.has(host)) {
-      index.set(host, {
-        id: s.id as string,
-        code: s.code as string,
-        layer: (s.layer as string) ?? null,
-        stream_id: (s.stream_id as string) ?? null,
-      });
+  for (const s of data) {
+    const entry: HostSource = {
+      id: s.id,
+      code: s.code,
+      layer: s.layer ?? null,
+      stream_id: s.stream_id ?? null,
+    };
+    const hosts = [
+      registrableHost(s.feed_url),
+      ...(s.article_hosts ?? []).map((h) =>
+        String(h || "").toLowerCase().trim().replace(/^www\./, "") || null,
+      ),
+    ].filter((h): h is string => !!h);
+    for (const host of hosts) {
+      // First registration of a host wins; a duplicate would be a registry
+      // problem to fix there rather than silently resolve here.
+      if (!index.has(host)) index.set(host, entry);
     }
   }
   return index;

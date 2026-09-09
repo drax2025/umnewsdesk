@@ -11,6 +11,26 @@ _Last updated: 2026-09-03_
 
 ## Recently landed (this session)
 
+- **A source can now declare which hosts its articles live on**
+  (`discovery_sources.article_hosts`, migration **0048 — not yet applied**).
+  Host attribution matched the article's host against the source's `feed_url`
+  host, which breaks in two common cases:
+  - **A feed on a delivery domain.** The BBC's feeds are on `feeds.bbci.co.uk`
+    while its articles are on `bbc.co.uk` and `bbc.com`, so 19 BBC stories sat
+    unattributed beside a registered BBC source.
+  - **A feed fronted by a third party.** An rss.app feed's host is `rss.app`,
+    which no article URL ever matches — so the gov.scot / Edinburgh /
+    Strathclyde feeds being set up that way **could never claim their own
+    stories** without this. That was the more important reason to build it.
+  - Same shape as `press_agencies.email_domains`, which solves the same problem
+    for senders.
+  - **The read is deliberately tolerant.** Migrations here are applied by hand
+    and one went unnoticed for months; selecting a missing column would return
+    an error, leave the index empty and silently stop attributing *anything*.
+    So a missing `article_hosts` falls back to the feed host alone and logs
+    which migration to apply. Verified against the live database with the
+    column absent: 15 hosts indexed, `digit.fyi` still resolves to SRC-9027.
+
 - **Five outlets the deleted aggregator was carrying are now registered
   directly** — `SRC-9031` University of Glasgow (L2), `SRC-9032` Technology
   Scotland (L2), `SRC-9033` Cyber and Fraud Centre (L2), `SRC-9034` The
