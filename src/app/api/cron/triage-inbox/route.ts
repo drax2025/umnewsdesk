@@ -3,6 +3,8 @@ import type { ParsedMail } from "mailparser";
 import { createServiceClient } from "@/lib/supabase/service";
 import { mailboxConfigFromEnv, readNewInbox, moveMessages } from "@/lib/ingest/mailbox";
 import { triage, type TriageDecision } from "@/lib/ingest/triage";
+import { knownAgencyDomains, warmAgencyDomains } from "@/lib/crm/agency";
+import { isInternalDomain } from "@/lib/ingest/internal";
 
 /**
  * GET /api/cron/triage-inbox
@@ -38,18 +40,6 @@ const LAST_RUN_KEY = "inbox_triage_last_run";
 /** Stamped on every message the newsroom sends, so its own digests are not read as releases. */
 const APP_MAIL_HEADER = "x-union-newsroom";
 
-const INTERNAL_DOMAINS = (
-  process.env.INTERNAL_DOMAINS || "unionmedia.news,unionmedianews.com,unionmediainc.com"
-)
-  .split(",")
-  .map((d) => d.trim().toLowerCase())
-  .filter(Boolean);
-
-const isInternal = (address: string): boolean => {
-  const domain = String(address || "").split("@")[1]?.toLowerCase() || "";
-  return INTERNAL_DOMAINS.includes(domain);
-};
-
 const sentByTheApp = (parsed: ParsedMail): boolean =>
   (parsed.headerLines || []).some(
     (h) => String(h.key || "").toLowerCase() === APP_MAIL_HEADER,
@@ -69,7 +59,7 @@ type Decision = TriageDecision & {
   messageId: string;
 };
 
-function decide(uid: number, parsed: ParsedMail, knownAgencyDomains: Set<string>): Decision {
+function decide(uid: number, parsed: ParsedMail, agencyDomains: Set<string>): Decision {
   const fromEmail = parsed.from?.value?.[0]?.address || "";
   // Some agency mail carries no plain-text part at all, and reading only
   // `text` left triage with nothing but the subject to go on.
@@ -87,8 +77,8 @@ function decide(uid: number, parsed: ParsedMail, knownAgencyDomains: Set<string>
     // body is needed — capped, because a release with a base64 image inline
     // can be very large.
     bodyFull: body.slice(0, 60_000),
-    isKnownAgency: !!domain && knownAgencyDomains.has(domain),
-    forwardedByUs: isInternal(fromEmail),
+    isKnownAgency: !!domain && agencyDomains.has(domain),
+    forwardedByUs: isInternalDomain(fromEmail),
     sentByTheApp: sentByTheApp(parsed),
   });
   return {
@@ -122,21 +112,14 @@ export async function GET(req: Request) {
 
   const dryRun = url.searchParams.get("dry") === "1";
 
+  const supabase = createServiceClient();
+
   // The desk's rule is that anything from a registered agency is a release, so
   // the registry is consulted rather than guessed at from the domain shape.
-  const knownAgencyDomains = new Set<string>();
-  {
-    const { data: agencies } = await createServiceClient()
-      .from("press_agencies")
-      .select("email_domains");
-    for (const a of agencies ?? []) {
-      for (const d of (a.email_domains as string[] | null) ?? []) {
-        const clean = String(d || "").toLowerCase().trim();
-        if (clean) knownAgencyDomains.add(clean);
-      }
-    }
-  }
-  const supabase = createServiceClient();
+  // That registry is now the CRM's 309 organisations tagged 'PR Agency' as well
+  // as the 21 in press_agencies, read from the local cache so this costs
+  // nothing when the CRM is quiet or down.
+  const agencyDomains = await knownAgencyDomains(supabase);
 
   try {
     const { data: mark } = await supabase
@@ -160,7 +143,7 @@ export async function GET(req: Request) {
       return NextResponse.json({
         preview: true,
         decisions: messages.slice(-back).map(({ uid, parsed }) => {
-          const d = decide(uid, parsed, knownAgencyDomains);
+          const d = decide(uid, parsed, agencyDomains);
           return { ...d, subject: d.subject.slice(0, 70) };
         }),
       });
@@ -183,7 +166,16 @@ export async function GET(req: Request) {
     const sinceUid = Number(mark.value) || 0;
     const { messages, highestUid } = await readNewInbox(config, config.source, sinceUid);
 
-    const decisions = messages.map(({ uid, parsed }) => decide(uid, parsed, knownAgencyDomains));
+    // Ask the CRM about senders we have never seen before, so this batch is
+    // judged against it rather than against whatever happened to be cached.
+    // One call per new domain, once ever — a miss is cached too.
+    await warmAgencyDomains(
+      supabase,
+      messages.map(({ parsed }) => parsed.from?.value?.[0]?.address || ""),
+      agencyDomains,
+    );
+
+    const decisions = messages.map(({ uid, parsed }) => decide(uid, parsed, agencyDomains));
     const moves = decisions
       .filter((d) => d.moveTo)
       .map((d) => ({ uid: d.uid, to: d.moveTo as string }));
