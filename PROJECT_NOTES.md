@@ -24,6 +24,15 @@ _Last updated: 2026-09-03_
     stories** without this. That was the more important reason to build it.
   - Same shape as `press_agencies.email_domains`, which solves the same problem
     for senders.
+  - **Applied 9 Sep.** `SRC-9022` BBC Scotland now declares
+    `article_hosts = {bbc.com, bbc.co.uk}` and the 19 stranded BBC stories are
+    attributed to it (163 candidates in total). The Business feed
+    (`SRC-9021`) deliberately carries no alias — both feeds are the same site,
+    and first registration of a host wins, so the general feed takes them.
+  - Found while doing it: `scripts/reattribute-by-host.mjs` built its **own**
+    host index inline and only read `feed_url`, so it saw no aliases and
+    re-attributed nothing. Now mirrors `buildHostIndex`. Worth remembering the
+    two indexes exist separately and can drift.
   - **The read is deliberately tolerant.** Migrations here are applied by hand
     and one went unnoticed for months; selecting a missing column would return
     an error, leave the index empty and silently stop attributing *anything*.

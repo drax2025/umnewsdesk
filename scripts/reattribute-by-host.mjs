@@ -26,11 +26,18 @@ const host = (u) => {
   try { return new URL(u).hostname.toLowerCase().replace(/^www\./, "") || null; } catch { return null; }
 };
 
-const { data: sources } = await sb.from("discovery_sources").select("id, code, layer, stream_id, feed_url");
+// Mirrors buildHostIndex in src/lib/ingest/attribution.ts: a source is matched
+// on its feed's host *and* on article_hosts, for feeds served from a delivery
+// domain (feeds.bbci.co.uk -> bbc.co.uk) or fronted by a third party (rss.app).
+const { data: sources } = await sb.from("discovery_sources")
+  .select("id, code, layer, stream_id, feed_url, article_hosts");
 const index = new Map();
 for (const s of sources ?? []) {
-  const h = host(s.feed_url);
-  if (h && !index.has(h)) index.set(h, s);
+  const hosts = [
+    host(s.feed_url),
+    ...(s.article_hosts ?? []).map(h => String(h || "").toLowerCase().trim().replace(/^www\./, "") || null),
+  ].filter(Boolean);
+  for (const h of hosts) if (!index.has(h)) index.set(h, s);
 }
 
 const { data: rows } = await sb.from("candidates")
