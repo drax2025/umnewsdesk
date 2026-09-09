@@ -11,6 +11,25 @@ _Last updated: 2026-09-03_
 
 ## Recently landed (this session)
 
+- **Emailed releases reached the newsroom with no picture at all.** The handoff
+  sent `imageUrl: candidate.image_url`, and that column is only ever set for a
+  swept page — a release arriving by mail keeps its pictures in the mirrored
+  `attachments`, which the payload never read. Confirmed on V1: `PR-17A533`,
+  `PR-48A631` and `PR-52B16D` all hold `image_url NULL` despite 7–8 mirrored
+  images each in V2.
+  - The handoff now falls back to the mirrored attachments, choosing the
+    **largest** rather than the first: agency mail attaches signature logos and
+    layout spacers, which are always the small ones, while the press photo is
+    the big one. Verified — it picks the 4.5 MB Macallan photo over six others,
+    and "Chris W .jpeg" over a .gif and four PNG spacers.
+  - **Below 25 KB nothing is sent.** One live release attaches nine 1–3 KB
+    signature PNGs and nothing else; shipping the biggest of those would put a
+    spacer on the story as its picture, which is worse than no picture.
+  - ⚠️ **Only one image can travel.** V1's ingest contract takes a single
+    `imageUrl` and its `workflow_items` row stores one `image_url`, so a release
+    with eight photos still arrives with one. Carrying the rest needs a schema
+    and contract change on the V1 side.
+
 - **Inbox triage was filing nothing.** It ran every 10 minutes and kept up, but
   of the last 60 messages **0 were classified as a release** — 45 unknown, 15
   wire — so the whole pile reached the desk by hand. The rules matched on exact

@@ -46,6 +46,7 @@ type CandidateRow = {
   verification_state: string | null;
   sent_to_newsroom_at: string | null;
   newsroom_record_id: string | null;
+  attachments: unknown;
   kind: string | null;
   message_id: string | null;
   raw: { agency_name?: string | null } | null;
@@ -80,7 +81,8 @@ export async function sendToNewsroom(candidateId: string): Promise<HandoffResult
     .select(
       "id, code, working_headline, primary_url, summary, body_text, image_url, " +
       "published_at, layer, score, dedup_state, verification_state, kind, " +
-      "message_id, raw, sent_to_newsroom_at, newsroom_record_id, discovery_sources(name)",
+      "message_id, raw, attachments, sent_to_newsroom_at, newsroom_record_id, " +
+      "discovery_sources(name)",
     )
     .eq("id", candidateId)
     .single();
@@ -118,6 +120,36 @@ export async function sendToNewsroom(candidateId: string): Promise<HandoffResult
       })
     : null;
 
+  /**
+   * The picture to send with the story.
+   *
+   * A release arriving by mail never has `image_url` — that field is for a
+   * swept page's lead image. Its pictures are the mirrored attachments, and
+   * because the handoff only ever read `image_url`, every emailed release
+   * reached the newsroom with no image at all.
+   *
+   * The largest image is chosen rather than the first: agency mail carries
+   * signature logos and layout spacers as attachments too, and those are
+   * invariably the small ones, while the press photo is the big one.
+   *
+   * Below the floor nothing is sent at all. Some releases attach nothing but
+   * signature graphics — nine 1-3 KB PNGs in one live case — and shipping the
+   * biggest of those would put a spacer on the story as its picture, which is
+   * worse than having none.
+   */
+  const MIN_LEAD_IMAGE_BYTES = 25_000;
+  const mirrored = Array.isArray(candidate.attachments)
+    ? (candidate.attachments as Array<{ url?: string; size?: number }>).filter(
+        (a) => a && typeof a.url === "string",
+      )
+    : [];
+  const leadImage =
+    candidate.image_url ??
+    mirrored
+      .filter((a) => (a.size ?? 0) >= MIN_LEAD_IMAGE_BYTES)
+      .sort((a, b) => (b.size ?? 0) - (a.size ?? 0))[0]?.url ??
+    undefined;
+
   const payload = {
     candidateId: candidate.code,
     sourceUrl: candidate.primary_url ?? undefined,
@@ -134,7 +166,7 @@ export async function sendToNewsroom(candidateId: string): Promise<HandoffResult
       candidate.raw?.agency_name ?? candidate.discovery_sources?.name ?? undefined,
     layer: candidate.layer ?? undefined,
     score: candidate.score ?? undefined,
-    imageUrl: candidate.image_url ?? undefined,
+    imageUrl: leadImage,
     verification: {
       state: candidate.verification_state,
       dedup: candidate.dedup_state,
