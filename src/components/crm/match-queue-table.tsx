@@ -14,6 +14,8 @@ export type QueueRow = {
   id: number;
   domain: string;
   sender_name: string | null;
+  /** What the name box starts as — see suggestedOrgName. */
+  suggested_name?: string;
   reason: string;
   candidates: { id: string; name: string; lifecycle: string }[] | null;
   created_at: string;
@@ -40,6 +42,13 @@ export function CrmQueueTable({
   crmUrl: string;
 }) {
   const [picked, setPicked] = useState<Set<number>>(new Set());
+  // The name each record will be created under. Pre-filled with the same
+  // suggestion the CRM would reach on its own, so what is on screen is what
+  // gets saved — sugarbirdwines.com was created as "Becky Orlinski" precisely
+  // because nobody could see the name before it was written.
+  const [names, setNames] = useState<Record<number, string>>(
+    () => Object.fromEntries(rows.map((r) => [r.id, r.suggested_name ?? r.domain])),
+  );
   const [pending, startTransition] = useTransition();
   const [note, setNote] = useState<string | null>(null);
   const [errors, setErrors] = useState<Record<number, string>>({});
@@ -51,9 +60,9 @@ export function CrmQueueTable({
       return next;
     });
 
-  const run = (id: number, fn: (id: number) => Promise<CrmQueueResult>) => () =>
+  const run = (id: number, fn: (id: number, name?: string) => Promise<CrmQueueResult>) => () =>
     startTransition(async () => {
-      const r = await fn(id);
+      const r = await fn(id, names[id]?.trim() || undefined);
       setErrors((prev) => {
         const next = { ...prev };
         if (r.ok) delete next[id]; else next[id] = r.error;
@@ -124,6 +133,17 @@ export function CrmQueueTable({
                 <td className="px-3 py-2 align-top">
                   <div className="font-mono text-[11.5px] text-foreground">{r.domain}</div>
                   {r.sender_name ? <div className="text-[11px] text-um-muted">{r.sender_name}</div> : null}
+                  {canManage ? (
+                    <input
+                      type="text"
+                      value={names[r.id] ?? ""}
+                      onChange={(e) => setNames((prev) => ({ ...prev, [r.id]: e.target.value }))}
+                      placeholder={r.domain}
+                      aria-label={`Name to create ${r.domain} under`}
+                      title="The name this record will be created under"
+                      className="mt-1 h-6 w-full rounded-md border border-border bg-secondary/40 px-1.5 text-[11.5px] text-foreground placeholder:text-um-muted focus:border-primary/50 focus:outline-none"
+                    />
+                  ) : null}
                 </td>
                 <td className="px-3 py-2 align-top text-[12px] text-fg-2">
                   {r.reason}
