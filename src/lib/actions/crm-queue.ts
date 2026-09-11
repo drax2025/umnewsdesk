@@ -34,6 +34,18 @@ type QueueRow = {
   reason: string;
 };
 
+/** The From address on the candidate that put this sender in the queue. */
+async function emailForCandidate(
+  db: ReturnType<typeof createServiceClient>,
+  candidateId: string,
+): Promise<string | null> {
+  const { data } = await db
+    .from("candidates").select("raw").eq("id", candidateId)
+    .maybeSingle<{ raw: { from_email?: string } | null }>();
+  const email = data?.raw?.from_email;
+  return typeof email === "string" && email.includes("@") ? email.toLowerCase() : null;
+}
+
 async function admin(): Promise<{ userId: string } | { error: string }> {
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
@@ -141,6 +153,11 @@ async function create(
     .eq("id", id).eq("status", "open").maybeSingle<QueueRow>();
   if (!row) return { ok: false, error: "That queue entry has gone" };
 
+  // The sender's address lives on the candidate that raised the question, not
+  // on the queue row. Read it here rather than carrying a second copy that can
+  // go stale — every open row could resolve one when this was written.
+  const senderEmail = row.candidate_id ? await emailForCandidate(db, row.candidate_id) : null;
+
   const note = asPrAgency
     ? `Added from the News Desk: sends us press releases (${row.domain}).`
     : `Added from the News Desk: submits its own PR (${row.domain}). Worth a call about marketing or paid PR support.`;
@@ -156,6 +173,8 @@ async function create(
     asPrAgency,
     note,
     candidateId: row.candidate_id,
+    contactEmail: senderEmail,
+    contactName: row.sender_name,
   });
   if (!result) return { ok: false, error: "The CRM did not answer — nothing was written" };
   if (result.action === "created_untagged") {

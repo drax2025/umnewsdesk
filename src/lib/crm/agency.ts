@@ -304,6 +304,9 @@ export async function createCrmOrganisation(
     candidateId?: string | null;
     /** True when a person typed the name, rather than it being inferred. */
     nameIsExplicit?: boolean;
+    /** The person who sent the release, added to the record as a contact. */
+    contactEmail?: string | null;
+    contactName?: string | null;
   },
 ): Promise<EnsureOutcome | null> {
   const domain = normaliseSenderDomain(input.domain);
@@ -312,6 +315,7 @@ export async function createCrmOrganisation(
   const result = await crmCreate(
     domain, input.name, input.lifecycle, input.asPrAgency, input.note ?? null,
     input.nameIsExplicit === true,
+    { email: input.contactEmail ?? null, name: input.contactName ?? null },
   );
   if (!result?.ok) return null;
 

@@ -103,8 +103,12 @@ export function crmCreate(
   asPrAgency: boolean,
   note: string | null,
   nameIsExplicit: boolean,
+  contact: { email: string | null; name: string | null },
 ): Promise<CrmEnsure | null> {
-  return call<CrmEnsure>({ op: "create", domain, name, lifecycle, asPrAgency, note, nameIsExplicit });
+  return call<CrmEnsure>({
+    op: "create", domain, name, lifecycle, asPrAgency, note, nameIsExplicit,
+    contactEmail: contact.email, contactName: contact.name,
+  });
 }
 
 export function crmEnsure(

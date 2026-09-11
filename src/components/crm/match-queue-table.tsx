@@ -17,6 +17,9 @@ export type QueueRow = {
   sender_name: string | null;
   /** What the name box starts as — see suggestedOrgName. */
   suggested_name?: string;
+  /** The From address, created as a contact on the record. */
+  sender_email?: string | null;
+  candidate_id?: string | null;
   reason: string;
   candidates: { id: string; name: string; lifecycle: string }[] | null;
   created_at: string;
@@ -149,6 +152,11 @@ export function CrmQueueTable({
                     </a>
                   </div>
                   {r.sender_name ? <div className="text-[11px] text-um-muted">{r.sender_name}</div> : null}
+                  {r.sender_email ? (
+                    <div className="font-mono text-[10.5px] text-um-muted" title="Added to the record as a contact">
+                      {r.sender_email}
+                    </div>
+                  ) : null}
                   {canManage ? (
                     <input
                       type="text"

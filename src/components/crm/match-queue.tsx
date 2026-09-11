@@ -24,7 +24,7 @@ export async function CrmMatchQueue({ canManage }: { canManage: boolean }) {
   const [{ data: queue }, { count: writes }, { count: ignored }] = await Promise.all([
     admin
       .from("crm_match_queue")
-      .select("id, domain, sender_name, reason, candidates, created_at")
+      .select("id, domain, sender_name, reason, candidates, created_at, candidate_id")
       .eq("status", "open")
       .order("created_at", { ascending: false })
       .limit(200)
@@ -37,11 +37,27 @@ export async function CrmMatchQueue({ canManage }: { canManage: boolean }) {
     admin.from("crm_ignored_domains").select("domain", { count: "exact", head: true }),
   ]);
 
+  // The sender's address comes off the candidate that raised the question. It
+  // is shown because it is what gets created as a contact — a push should not
+  // write anything the person clicking could not see first.
+  const ids = (queue ?? []).map((r) => r.candidate_id).filter((id): id is string => !!id);
+  const emails = new Map<string, string>();
+  if (ids.length) {
+    const { data: cands } = await admin
+      .from("candidates").select("id, raw").in("id", ids)
+      .returns<{ id: string; raw: { from_email?: string } | null }[]>();
+    for (const c of cands ?? []) {
+      const e = c.raw?.from_email;
+      if (typeof e === "string" && e.includes("@")) emails.set(c.id, e.toLowerCase());
+    }
+  }
+
   // The name box is filled in on the server, so the row arrives showing what
   // it will actually be saved as rather than filling in after hydration.
   const rows = (queue ?? []).map((r) => ({
     ...r,
     suggested_name: suggestedOrgName(r.domain, r.sender_name),
+    sender_email: r.candidate_id ? (emails.get(r.candidate_id) ?? null) : null,
   }));
 
   return (
