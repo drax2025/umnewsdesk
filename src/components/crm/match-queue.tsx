@@ -1,5 +1,6 @@
 import { AlertTriangle } from "lucide-react";
 import { createServiceClient } from "@/lib/supabase/service";
+import { suggestedOrgName } from "@/lib/crm/agency";
 import { CrmQueueTable, type QueueRow } from "./match-queue-table";
 
 /**
@@ -36,7 +37,12 @@ export async function CrmMatchQueue({ canManage }: { canManage: boolean }) {
     admin.from("crm_ignored_domains").select("domain", { count: "exact", head: true }),
   ]);
 
-  const rows = queue ?? [];
+  // The name box is filled in on the server, so the row arrives showing what
+  // it will actually be saved as rather than filling in after hydration.
+  const rows = (queue ?? []).map((r) => ({
+    ...r,
+    suggested_name: suggestedOrgName(r.domain, r.sender_name),
+  }));
 
   return (
     <div className="mb-5 rounded-md border border-border bg-card p-4">
@@ -60,7 +66,8 @@ export async function CrmMatchQueue({ canManage }: { canManage: boolean }) {
         <strong className="font-medium text-fg-2">Prospect</strong> adds a business that submits
         its own PR and is worth a call about marketing or paid support;{" "}
         <strong className="font-medium text-fg-2">Not an agency</strong> rules the domain out for
-        good.
+        good. The name box is what the record will be called — most senders sign
+        with a person\u2019s name, so it falls back to the domain unless you set it.
       </p>
 
       {rows.length === 0 ? (

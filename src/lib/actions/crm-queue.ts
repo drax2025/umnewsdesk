@@ -129,6 +129,7 @@ async function create(
   id: number,
   lifecycle: "prospect" | "client",
   asPrAgency: boolean,
+  name?: string,
 ): Promise<CrmQueueResult> {
   const who = await admin();
   if ("error" in who) return { ok: false, error: who.error };
@@ -144,9 +145,13 @@ async function create(
     ? `Added from the News Desk: sends us press releases (${row.domain}).`
     : `Added from the News Desk: submits its own PR (${row.domain}). Worth a call about marketing or paid PR support.`;
 
+  const chosen = (name ?? "").trim();
   const result = await createCrmOrganisation(db, {
     domain: row.domain,
-    name: row.sender_name,
+    // What the desk typed wins. Left alone, the CRM applies its own rule —
+    // which is what stops a sender's personal name becoming the record.
+    name: chosen || row.sender_name,
+    nameIsExplicit: chosen.length > 0,
     lifecycle,
     asPrAgency,
     note,
@@ -164,11 +169,11 @@ async function create(
 }
 
 /** An agency the rules could not spot. Client, tagged 'PR Agency'. */
-export async function createCrmAgency(id: number): Promise<CrmQueueResult> {
-  return create(id, "client", true);
+export async function createCrmAgency(id: number, name?: string): Promise<CrmQueueResult> {
+  return create(id, "client", true, name);
 }
 
 /** A business that sends its own PR. A prospect for us, not a supplier. */
-export async function createCrmProspect(id: number): Promise<CrmQueueResult> {
-  return create(id, "prospect", false);
+export async function createCrmProspect(id: number, name?: string): Promise<CrmQueueResult> {
+  return create(id, "prospect", false, name);
 }

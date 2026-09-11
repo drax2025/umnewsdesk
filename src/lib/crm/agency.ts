@@ -302,12 +302,17 @@ export async function createCrmOrganisation(
     asPrAgency: boolean;
     note?: string | null;
     candidateId?: string | null;
+    /** True when a person typed the name, rather than it being inferred. */
+    nameIsExplicit?: boolean;
   },
 ): Promise<EnsureOutcome | null> {
   const domain = normaliseSenderDomain(input.domain);
   if (!domain || !crmConfigured()) return null;
 
-  const result = await crmCreate(domain, input.name, input.lifecycle, input.asPrAgency, input.note ?? null);
+  const result = await crmCreate(
+    domain, input.name, input.lifecycle, input.asPrAgency, input.note ?? null,
+    input.nameIsExplicit === true,
+  );
   if (!result?.ok) return null;
 
   await db.from("crm_sync_log").insert({
@@ -330,4 +335,43 @@ export async function createCrmOrganisation(
     crmOrgId: result.org?.id ?? null,
     dryRun: false,
   };
+}
+
+/**
+ * What to put in the queue's name box before anyone edits it.
+ *
+ * The authoritative version of this rule lives in the CRM
+ * (src/lib/desk/matching.ts) and still applies to anything created without an
+ * explicit name. This is the desk's copy, and it exists only so the box can be
+ * filled in before the request is made — showing "Becky Orlinski" and then
+ * quietly saving something else would be worse than either.
+ *
+ * Kept deliberately small: the CRM decides, this only suggests.
+ */
+const ORG_WORDS =
+  /\b(pr|prs|comms|communications|media|marketing|partnership|group|agency|agencies|associates|consultants?|consulting|creative|studio|digital|publicity|relations|press|newsroom|news|council|university|college|limited|ltd|plc|llp|llc|inc|company|team|office)\b/;
+
+/** Words that describe a mailbox rather than a company — "Press Office". */
+const GENERIC =
+  /^(the|press|media|news|newsroom|comms|communications|marketing|pr|relations|team|office|desk|department|dept|enquiries|enquiry|info|contact|group)$/i;
+
+const isGenericMailbox = (name: string) => {
+  const words = name.toLowerCase().replace(/[^a-z\s]/g, " ").split(/\s+/).filter(Boolean);
+  return words.length > 0 && words.every((w) => GENERIC.test(w));
+};
+
+export function suggestedOrgName(domain: string, senderName: string | null): string {
+  const n = (senderName ?? "").trim();
+  if (!n) return domain;
+  // "Claire at GiftRound" names the company after the person. Take the company.
+  const at = /^.+?\s+(?:at|from|@)\s+(.+)$/i.exec(n);
+  if (at?.[1]?.trim() && !isGenericMailbox(at[1].trim())) return at[1].trim();
+  if (isGenericMailbox(n)) return domain;
+  if (ORG_WORDS.test(n.toLowerCase())) return n;
+  const bare = n.replace(/\([^)]*\)/g, " ").replace(/,.*$/, " ").trim();
+  const words = bare.split(/\s+/).filter(Boolean);
+  const isNameWord = (w: string) =>
+    /^[A-Z]\.?$/.test(w) || /^[A-Z][a-z’\'-]+(?:[’\'-]?[A-Z][a-z’\'-]+)*\.?$/.test(w);
+  if (words.length > 0 && words.length <= 3 && words.every(isNameWord)) return domain;
+  return n;
 }

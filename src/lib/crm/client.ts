@@ -102,8 +102,9 @@ export function crmCreate(
   lifecycle: "prospect" | "client",
   asPrAgency: boolean,
   note: string | null,
+  nameIsExplicit: boolean,
 ): Promise<CrmEnsure | null> {
-  return call<CrmEnsure>({ op: "create", domain, name, lifecycle, asPrAgency, note });
+  return call<CrmEnsure>({ op: "create", domain, name, lifecycle, asPrAgency, note, nameIsExplicit });
 }
 
 export function crmEnsure(
