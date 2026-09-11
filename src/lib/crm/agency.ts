@@ -1,6 +1,9 @@
 import "server-only";
 import type { SupabaseClient } from "@supabase/supabase-js";
-import { crmConfigured, crmCreate, crmEnsure, crmResolve, crmWritesEnabled, type CrmOrg } from "./client";
+import {
+  crmConfigured, crmCreate, crmEnsure, crmResolve, crmWritesEnabled,
+  type CrmOrg, type CrmRelationship,
+} from "./client";
 
 /**
  * Who sent this release, according to the CRM.
@@ -299,7 +302,8 @@ export async function createCrmOrganisation(
     domain: string;
     name: string | null;
     lifecycle: "prospect" | "client";
-    asPrAgency: boolean;
+    /** Null files them under no relationship — a prospect we might sell to. */
+    relationship: CrmRelationship | null;
     note?: string | null;
     candidateId?: string | null;
     /** True when a person typed the name, rather than it being inferred. */
@@ -313,7 +317,7 @@ export async function createCrmOrganisation(
   if (!domain || !crmConfigured()) return null;
 
   const result = await crmCreate(
-    domain, input.name, input.lifecycle, input.asPrAgency, input.note ?? null,
+    domain, input.name, input.lifecycle, input.relationship, input.note ?? null,
     input.nameIsExplicit === true,
     { email: input.contactEmail ?? null, name: input.contactName ?? null },
   );

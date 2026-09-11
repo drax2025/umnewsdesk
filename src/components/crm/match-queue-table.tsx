@@ -4,6 +4,7 @@ import { ExternalLink } from "lucide-react";
 import { useState, useTransition } from "react";
 import {
   createCrmAgency,
+  createCrmMarketingAgency,
   createCrmProspect,
   ignoreCrmDomain,
   ignoreCrmDomains,
@@ -117,7 +118,7 @@ export function CrmQueueTable({
               <Th className="w-[220px]">Sender</Th>
               <Th>Why it is here</Th>
               <Th className="w-[90px]">Seen</Th>
-              <Th className="w-[300px] text-right">Actions</Th>
+              <Th className="w-[380px] text-right">Actions</Th>
             </tr>
           </thead>
           <tbody>
@@ -200,6 +201,13 @@ export function CrmQueueTable({
                         className="inline-flex h-6 items-center rounded-md border border-success/35 bg-success/10 px-2 text-[11px] font-medium text-success hover:bg-success/15 disabled:opacity-50"
                       >
                         PR agency
+                      </button>
+                      <button
+                        type="button" disabled={pending} onClick={run(r.id, createCrmMarketingAgency)}
+                        title="A marketing agency — adds a client tagged 'Marketing Agency'"
+                        className="inline-flex h-6 items-center rounded-md border border-state-comm/35 bg-state-comm/10 px-2 text-[11px] font-medium text-state-comm hover:bg-state-comm/15 disabled:opacity-50"
+                      >
+                        Marketing
                       </button>
                       <button
                         type="button" disabled={pending} onClick={run(r.id, createCrmProspect)}

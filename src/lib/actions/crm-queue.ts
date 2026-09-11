@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { createServiceClient } from "@/lib/supabase/service";
 import { createCrmOrganisation } from "@/lib/crm/agency";
+import type { CrmRelationship } from "@/lib/crm/client";
 
 /**
  * Working through the CRM match queue.
@@ -140,7 +141,7 @@ export async function ignoreCrmDomains(ids: number[]): Promise<CrmQueueResult> {
 async function create(
   id: number,
   lifecycle: "prospect" | "client",
-  asPrAgency: boolean,
+  relationship: CrmRelationship | null,
   name?: string,
 ): Promise<CrmQueueResult> {
   const who = await admin();
@@ -158,7 +159,7 @@ async function create(
   // go stale — every open row could resolve one when this was written.
   const senderEmail = row.candidate_id ? await emailForCandidate(db, row.candidate_id) : null;
 
-  const note = asPrAgency
+  const note = relationship
     ? `Added from the News Desk: sends us press releases (${row.domain}).`
     : `Added from the News Desk: submits its own PR (${row.domain}). Worth a call about marketing or paid PR support.`;
 
@@ -170,7 +171,7 @@ async function create(
     name: chosen || row.sender_name,
     nameIsExplicit: chosen.length > 0,
     lifecycle,
-    asPrAgency,
+    relationship,
     note,
     candidateId: row.candidate_id,
     contactEmail: senderEmail,
@@ -178,7 +179,7 @@ async function create(
   });
   if (!result) return { ok: false, error: "The CRM did not answer — nothing was written" };
   if (result.action === "created_untagged") {
-    return { ok: false, error: result.reason ?? "Created, but the 'PR Agency' tag failed" };
+    return { ok: false, error: result.reason ?? "Created, but the relationship tag failed" };
   }
 
   const failed = await close(id, "resolved", who.userId);
@@ -189,10 +190,19 @@ async function create(
 
 /** An agency the rules could not spot. Client, tagged 'PR Agency'. */
 export async function createCrmAgency(id: number, name?: string): Promise<CrmQueueResult> {
-  return create(id, "client", true, name);
+  return create(id, "client", "pr-agency", name);
+}
+
+/**
+ * A marketing agency. Same standing as a PR agency — they send us material and
+ * are a supplier — but filed under their own relationship, because what we do
+ * with them differs from what we do with a PR firm.
+ */
+export async function createCrmMarketingAgency(id: number, name?: string): Promise<CrmQueueResult> {
+  return create(id, "client", "marketing-agency", name);
 }
 
 /** A business that sends its own PR. A prospect for us, not a supplier. */
 export async function createCrmProspect(id: number, name?: string): Promise<CrmQueueResult> {
-  return create(id, "prospect", false, name);
+  return create(id, "prospect", null, name);
 }
