@@ -1,5 +1,5 @@
 {
-  "name": "UM Newsroom — RSS sweep (am + pm)",
+  "name": "UM Newsroom \u2014 RSS sweep (am + pm)",
   "nodes": [
     {
       "parameters": {
@@ -108,7 +108,7 @@
         "jsCode": "// Map each RSS item into the IngestItem envelope. Trim long bodies;\n// the route caps them too but it's cheaper to do it here.\nconst source = $('Loop sources').item.json;\nconst now = new Date().toISOString();\nconst items = $input.all().slice(0, 50); // soft cap per source per sweep\nreturn items.map((it) => {\n  const r = it.json;\n  const headline = (r.title || '').toString().trim();\n  if (!headline) return null;\n  return {\n    json: {\n      sweep_id: source.sweep_id,\n      source_code: source.code,\n      kind: 'rss',\n      fetched_at: now,\n      item: {\n        headline,\n        external_id: r.guid || r.id || r.link || null,\n        primary_url: r.link || null,\n        published_at: r.isoDate || r.pubDate || null,\n        summary: r.contentSnippet || r.summary || null,\n        body_text: r['content:encoded'] || r.content || null,\n        author: r.creator || r['dc:creator'] || r.author || null,\n        tags: Array.isArray(r.categories) ? r.categories.slice(0, 16) : [],\n        raw: r\n      }\n    }\n  };\n}).filter(Boolean);"
       },
       "id": "98adda91-6524-40a4-8e1a-e7945ffea6a9",
-      "name": "Map RSS → items",
+      "name": "Map RSS \u2192 items",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
@@ -147,11 +147,15 @@
           "id": "REPLACE_WITH_CREDENTIAL_ID",
           "name": "Runware N8nLocal"
         }
-      }
+      },
+      "onError": "continueErrorOutput",
+      "retryOnFail": true,
+      "maxTries": 2,
+      "waitBetweenTries": 1000
     },
     {
       "parameters": {
-        "jsCode": "// Roll the per-source outcome up for /complete. The route ignores\n// candidate_count — it counts authoritative rows — but parse_issue_count\n// and outcome are honoured.\nconst source = $('Loop sources').item.json;\nreturn [{\n  json: {\n    source_code: source.code,\n    outcome: 'reached_items',\n    http_status: 200,\n    parse_issue_count: 0\n  }\n}];"
+        "jsCode": "// Roll the per-source outcome up for /complete. The route ignores\n// candidate_count \u2014 it counts authoritative rows \u2014 but parse_issue_count\n// and outcome are honoured.\nconst source = $('Loop sources').item.json;\nreturn [{\n  json: {\n    source_code: source.code,\n    outcome: 'reached_items',\n    http_status: 200,\n    parse_issue_count: 0\n  }\n}];"
       },
       "id": "19b4dfb6-5fd1-4bae-a157-ddc8bc182658",
       "name": "Record success",
@@ -164,7 +168,7 @@
     },
     {
       "parameters": {
-        "jsCode": "// RSS fetch failed — record outcome and raise a P2 alert.\nconst source = $('Loop sources').item.json;\nreturn [{\n  json: {\n    source_code: source.code,\n    outcome: 'parse_failure',\n    http_status: 0,\n    parse_issue_count: 1,\n    _alert: {\n      source_code: source.code,\n      sweep_id: source.sweep_id,\n      severity: 'p2',\n      issue_type: 'unreachable',\n      description: 'RSS fetch failed for ' + source.code + ' (' + source.feed_url + ')'\n    }\n  }\n}];"
+        "jsCode": "// RSS fetch failed \u2014 record outcome and raise a P2 alert.\nconst source = $('Loop sources').item.json;\nreturn [{\n  json: {\n    source_code: source.code,\n    outcome: 'parse_failure',\n    http_status: 0,\n    parse_issue_count: 1,\n    _alert: {\n      source_code: source.code,\n      sweep_id: source.sweep_id,\n      severity: 'p2',\n      issue_type: 'unreachable',\n      description: 'RSS fetch failed for ' + source.code + ' (' + source.feed_url + ')'\n    }\n  }\n}];"
       },
       "id": "03bdd72b-f364-48c5-8e85-e470bab2b5a3",
       "name": "Record failure",
@@ -248,6 +252,19 @@
           "name": "Runware N8nLocal"
         }
       }
+    },
+    {
+      "parameters": {
+        "jsCode": "// One article would not post. Record it and carry on: losing a\n// sweep because a single item was rejected costs every source\n// after it, which is what used to happen.\nconst source = $('Loop sources').item.json;\nreturn [{\n  json: {\n    source_code: source.code,\n    outcome: 'item_failure',\n    http_status: $json.error?.httpCode ?? 0,\n    parse_issue_count: 1,\n    _alert: {\n      source_code: source.code,\n      sweep_id: source.sweep_id,\n      severity: 'p3',\n      issue_type: 'item_rejected',\n      description: 'Item POST failed for ' + source.code + ': ' + ($json.error?.message ?? 'unknown')\n    }\n  }\n}];\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        944,
+        56
+      ],
+      "id": "record-item-failure-0001",
+      "name": "Record item failure"
     }
   ],
   "connections": {
@@ -317,7 +334,7 @@
       "main": [
         [
           {
-            "node": "Map RSS → items",
+            "node": "Map RSS \u2192 items",
             "type": "main",
             "index": 0
           }
@@ -331,7 +348,7 @@
         ]
       ]
     },
-    "Map RSS → items": {
+    "Map RSS \u2192 items": {
       "main": [
         [
           {
@@ -347,6 +364,13 @@
         [
           {
             "node": "Record success",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Record item failure",
             "type": "main",
             "index": 0
           }
@@ -391,6 +415,17 @@
         [
           {
             "node": "Source list",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Record item failure": {
+      "main": [
+        [
+          {
+            "node": "File alert",
             "type": "main",
             "index": 0
           }
