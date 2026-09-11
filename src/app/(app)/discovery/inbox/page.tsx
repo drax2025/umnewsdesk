@@ -45,7 +45,7 @@ type CandidateRow = {
   attachment_urls: string[] | null;
   surfaced_at: string;
   source_id: string | null;
-  raw: { agency_name?: string | null } | null;
+  raw: { agency_name?: string | null; from_domain?: string | null } | null;
   stream_id: string | null;
   sweep_run_id: string | null;
 };
@@ -244,7 +244,8 @@ export default async function CandidateInboxPage({
   const openOps: OpsAlertRow[] = opsRes.data ?? [];
 
   const sourceMap = new Map(sources.map((s) => [s.id, s]));
-  const sourceId = sources.find((s) => s.code === activeSource)?.id ?? null;
+  const activeAgency = activeSource.startsWith("agency:") ? activeSource.slice(7) : "";
+  const sourceId = activeAgency ? null : (sources.find((s) => s.code === activeSource)?.id ?? null);
   const streamId = streams.find((s) => s.slug === activeStream)?.id ?? null;
 
   /**
@@ -255,7 +256,12 @@ export default async function CandidateInboxPage({
    */
   function applyFilters(qb: QueryBuilder): QueryBuilder {
     let out: QueryBuilder = qb;
-    if (sourceId) out = out.eq("source_id", sourceId);
+    // One control, two kinds of thing. A feed is a discovery_sources row; an
+    // agency is a sender domain, which lives on the candidate rather than in
+    // the registry — there is no discovery_sources row for BIG Partnership and
+    // creating 358 of them to make this filter work would wreck the registry.
+    if (activeAgency) out = out.eq("raw->>from_domain", activeAgency);
+    else if (sourceId) out = out.eq("source_id", sourceId);
     if (activeLayer) out = out.eq("layer", activeLayer);
     if (streamId) out = out.eq("stream_id", streamId);
     if (activeVerified) out = out.eq("verification_state", activeVerified);
@@ -306,6 +312,32 @@ export default async function CandidateInboxPage({
 
   const { data: rowData, count: matchedCount } = await rowQuery.range(from, from + PAGE_SIZE - 1);
   const filtered: CandidateRow[] = (rowData ?? []) as unknown as CandidateRow[];
+
+  /**
+   * Who each sender is, read now rather than as stored.
+   *
+   * raw.agency_name is a snapshot taken at ingest: it is null for everything
+   * that arrived before the CRM knew the sender, and it keeps whatever the
+   * record was called that day — "deepsouthmedia.co.uk" stays that even after
+   * the CRM record is given a proper name. The cache is the live answer and is
+   * maintained on every ingest, so the column reads from it and falls back to
+   * the snapshot, then to the feed.
+   */
+  const { data: agencyRows } = await supabase
+    .from("crm_agency_cache")
+    .select("domain, name, is_pr_agency")
+    .not("name", "is", null)
+    .returns<{ domain: string; name: string; is_pr_agency: boolean }[]>();
+  const agencyByDomain = new Map((agencyRows ?? []).map((a) => [a.domain, a.name]));
+  const agencyOptions = [...(agencyRows ?? [])]
+    .filter((a) => a.is_pr_agency)
+    .sort((a, b) => a.name.localeCompare(b.name));
+
+  /** The live CRM name, else what was stored at ingest, else the feed. */
+  function agencyLabel(c: CandidateRow): string | null {
+    const domain = c.raw?.from_domain ?? null;
+    return (domain ? agencyByDomain.get(domain) : null) ?? c.raw?.agency_name ?? null;
+  }
   const matched = matchedCount ?? 0;
   const pageCount = Math.max(1, Math.ceil(matched / PAGE_SIZE));
 
@@ -442,6 +474,13 @@ export default async function CandidateInboxPage({
             ...[...sources]
               .sort((a, b) => a.name.localeCompare(b.name))
               .map((s) => ({ value: s.code, label: s.name })),
+            // Agencies are senders rather than feeds, so they are labelled as
+            // such — "show me everything from BIG Partnership" is the question
+            // the desk actually asks, and it was not answerable before.
+            ...agencyOptions.map((a) => ({
+              value: `agency:${a.domain}`,
+              label: `Agency · ${a.name}`,
+            })),
           ]}
         />
 
@@ -630,7 +669,7 @@ export default async function CandidateInboxPage({
                         </td>
                         <td className="px-3 py-2.5 text-[11.5px] text-fg-2">
                           <span className="block">
-                            {c.raw?.agency_name ?? source?.name ?? "—"}
+                            {agencyLabel(c) ?? source?.name ?? "—"}
                           </span>
                           {source?.signal_only_eligible ? (
                             <span
