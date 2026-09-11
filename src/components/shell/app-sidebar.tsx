@@ -22,6 +22,7 @@ import {
 import type { NavIconName } from "@/components/shell/nav-config";
 import type { SidebarNavSection } from "@/lib/shell/get-nav-for-role";
 import { cn } from "@/lib/utils";
+import { BUILT_AT, buildLabel } from "@/lib/version";
 
 /**
  * iconName → component map. Lives here (in the client component) on
@@ -150,6 +151,14 @@ export function AppSidebar({ user, sections }: Props) {
           </span>
           <span className="block text-[11px] text-um-muted">{user.role}</span>
         </div>
+        {/* Which build is in front of you. Worth the two lines: a bug report
+            that names a version is answerable, one that does not is a guess. */}
+        <span
+          className="ml-auto flex-shrink-0 font-mono text-[10px] text-um-muted"
+          title={BUILT_AT ? `Built ${new Date(BUILT_AT).toLocaleString("en-GB")}` : "Local build"}
+        >
+          {buildLabel()}
+        </span>
       </div>
     </aside>
   );
