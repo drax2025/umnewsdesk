@@ -45,6 +45,9 @@ export type CrmEnsure = {
   ambiguous: CrmOrg[];
 };
 
+/** A slug from the CRM's `relationships` table. */
+export type CrmRelationship = "pr-agency" | "marketing-agency" | "link-builder" | "web-design";
+
 export function crmConfigured(): boolean {
   return !!(process.env.CRM_API_URL && process.env.CRM_API_SECRET);
 }
@@ -100,13 +103,13 @@ export function crmCreate(
   domain: string,
   name: string | null,
   lifecycle: "prospect" | "client",
-  asPrAgency: boolean,
+  relationship: CrmRelationship | null,
   note: string | null,
   nameIsExplicit: boolean,
   contact: { email: string | null; name: string | null },
 ): Promise<CrmEnsure | null> {
   return call<CrmEnsure>({
-    op: "create", domain, name, lifecycle, asPrAgency, note, nameIsExplicit,
+    op: "create", domain, name, lifecycle, relationship, note, nameIsExplicit,
     contactEmail: contact.email, contactName: contact.name,
   });
 }
