@@ -3,65 +3,172 @@
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { createServiceClient } from "@/lib/supabase/service";
+import { createCrmOrganisation } from "@/lib/crm/agency";
 
 /**
- * Closing an entry in the CRM match queue.
+ * Working through the CRM match queue.
  *
- * The queue holds senders the CRM would not decide on its own — an ambiguous
- * name, an organisation we hold for another reason, a new sender that does not
- * read as an agency. Nothing was written to the CRM for any of them.
+ * The queue holds senders the automatic rules would not decide: an ambiguous
+ * name, an organisation we hold for another reason, a new sender with nothing
+ * in its name to say it is an agency. Nothing was written to the CRM for any
+ * of them.
  *
- * Neither action here writes to the CRM either. The record is made in the CRM
- * itself, by a person, and this only clears the reminder — so a mistake costs
- * a row in a queue rather than a wrong client record in someone else's
- * database. Same admin gate as the agency registry beside it.
+ * Four ways out, and only two of them write:
+ *
+ *   asAgency   — an agency the rules missed. Client, tagged 'PR Agency'.
+ *   asProspect — a business sending its own PR. Not a supplier: a company
+ *                worth a sales call, so a prospect with no relationship tag.
+ *   ignore     — never an agency, and never ask again (migration 0050).
+ *   resolve    — handled by hand in the CRM; just clear the row.
+ *
+ * Same admin gate as the agency registry beside it.
  */
 
-export type CrmQueueResult = { ok: true } | { ok: false; error: string };
+export type CrmQueueResult = { ok: true; message?: string } | { ok: false; error: string };
 
-async function requireAdmin(): Promise<CrmQueueResult | null> {
+type QueueRow = {
+  id: number;
+  domain: string;
+  sender_name: string | null;
+  candidate_id: string | null;
+  reason: string;
+};
+
+async function admin(): Promise<{ userId: string } | { error: string }> {
   const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) return { ok: false, error: "Not signed in" };
-
-  const { data: me } = await supabase
-    .from("profiles")
-    .select("role")
-    .eq("id", user.id)
-    .single();
-
-  if (me?.role !== "admin") return { ok: false, error: "Only admins can clear the CRM queue" };
-  return null;
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return { error: "Not signed in" };
+  const { data: me } = await supabase.from("profiles").select("role").eq("id", user.id).single();
+  if (me?.role !== "admin") return { error: "Only admins can clear the CRM queue" };
+  return { userId: user.id };
 }
 
-async function close(id: number, status: "resolved" | "dismissed"): Promise<CrmQueueResult> {
-  const denied = await requireAdmin();
-  if (denied) return denied;
-
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-
+async function close(
+  id: number,
+  status: "resolved" | "dismissed",
+  userId: string,
+): Promise<{ error: string } | null> {
   const { error } = await createServiceClient()
     .from("crm_match_queue")
-    .update({ status, resolved_by: user?.id ?? null, resolved_at: new Date().toISOString() })
+    .update({ status, resolved_by: userId, resolved_at: new Date().toISOString() })
     .eq("id", id)
     .eq("status", "open");
+  return error ? { error: error.message } : null;
+}
 
-  if (error) return { ok: false, error: error.message };
+function done(): CrmQueueResult {
   revalidatePath("/team/agencies");
   return { ok: true };
 }
 
-/** Handled — the record was created or corrected in the CRM. */
+/** Handled in the CRM by hand. Clears the row and nothing else. */
 export async function resolveCrmMatch(id: number): Promise<CrmQueueResult> {
-  return close(id, "resolved");
+  const who = await admin();
+  if ("error" in who) return { ok: false, error: who.error };
+  const failed = await close(id, "resolved", who.userId);
+  return failed ? { ok: false, error: failed.error } : done();
 }
 
-/** Not an agency, or not worth a record. The domain can queue again if it mails again. */
-export async function dismissCrmMatch(id: number): Promise<CrmQueueResult> {
-  return close(id, "dismissed");
+/**
+ * Never an agency. Clears the row and stops the domain queueing again —
+ * without which the desk would dismiss the same eighty press offices every
+ * few weeks.
+ */
+export async function ignoreCrmDomain(id: number, reason?: string): Promise<CrmQueueResult> {
+  const who = await admin();
+  if ("error" in who) return { ok: false, error: who.error };
+  const db = createServiceClient();
+
+  const { data: row } = await db
+    .from("crm_match_queue").select("domain").eq("id", id).maybeSingle<{ domain: string }>();
+  if (!row) return { ok: false, error: "That queue entry has gone" };
+
+  const { error } = await db.from("crm_ignored_domains").upsert(
+    { domain: row.domain, reason: reason ?? "not a PR agency", ignored_by: who.userId },
+    { onConflict: "domain" },
+  );
+  if (error) return { ok: false, error: error.message };
+
+  const failed = await close(id, "dismissed", who.userId);
+  return failed ? { ok: false, error: failed.error } : done();
+}
+
+/** Ignore several at once — the backlog is mostly press offices. */
+export async function ignoreCrmDomains(ids: number[]): Promise<CrmQueueResult> {
+  const who = await admin();
+  if ("error" in who) return { ok: false, error: who.error };
+  if (!ids.length) return { ok: false, error: "Nothing selected" };
+  const db = createServiceClient();
+
+  const { data: rows } = await db
+    .from("crm_match_queue").select("domain").in("id", ids).eq("status", "open")
+    .returns<{ domain: string }[]>();
+  if (!rows?.length) return { ok: false, error: "Those entries have gone" };
+
+  const { error } = await db.from("crm_ignored_domains").upsert(
+    rows.map((r) => ({ domain: r.domain, reason: "not a PR agency", ignored_by: who.userId })),
+    { onConflict: "domain" },
+  );
+  if (error) return { ok: false, error: error.message };
+
+  const { error: closeError } = await db
+    .from("crm_match_queue")
+    .update({ status: "dismissed", resolved_by: who.userId, resolved_at: new Date().toISOString() })
+    .in("id", ids).eq("status", "open");
+  if (closeError) return { ok: false, error: closeError.message };
+
+  revalidatePath("/team/agencies");
+  return { ok: true, message: `${rows.length} domain${rows.length === 1 ? "" : "s"} will not be asked about again` };
+}
+
+/**
+ * Write the record the rules would not. `asPrAgency` decides which kind:
+ * a supplier who sends us releases, or a business worth selling to.
+ */
+async function create(
+  id: number,
+  lifecycle: "prospect" | "client",
+  asPrAgency: boolean,
+): Promise<CrmQueueResult> {
+  const who = await admin();
+  if ("error" in who) return { ok: false, error: who.error };
+  const db = createServiceClient();
+
+  const { data: row } = await db
+    .from("crm_match_queue")
+    .select("id, domain, sender_name, candidate_id, reason")
+    .eq("id", id).eq("status", "open").maybeSingle<QueueRow>();
+  if (!row) return { ok: false, error: "That queue entry has gone" };
+
+  const note = asPrAgency
+    ? `Added from the News Desk: sends us press releases (${row.domain}).`
+    : `Added from the News Desk: submits its own PR (${row.domain}). Worth a call about marketing or paid PR support.`;
+
+  const result = await createCrmOrganisation(db, {
+    domain: row.domain,
+    name: row.sender_name,
+    lifecycle,
+    asPrAgency,
+    note,
+    candidateId: row.candidate_id,
+  });
+  if (!result) return { ok: false, error: "The CRM did not answer — nothing was written" };
+  if (result.action === "created_untagged") {
+    return { ok: false, error: result.reason ?? "Created, but the 'PR Agency' tag failed" };
+  }
+
+  const failed = await close(id, "resolved", who.userId);
+  if (failed) return { ok: false, error: failed.error };
+  revalidatePath("/team/agencies");
+  return { ok: true, message: result.changes?.join(", ") || result.action };
+}
+
+/** An agency the rules could not spot. Client, tagged 'PR Agency'. */
+export async function createCrmAgency(id: number): Promise<CrmQueueResult> {
+  return create(id, "client", true);
+}
+
+/** A business that sends its own PR. A prospect for us, not a supplier. */
+export async function createCrmProspect(id: number): Promise<CrmQueueResult> {
+  return create(id, "prospect", false);
 }

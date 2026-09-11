@@ -1,6 +1,6 @@
 import "server-only";
 import type { SupabaseClient } from "@supabase/supabase-js";
-import { crmConfigured, crmEnsure, crmResolve, crmWritesEnabled, type CrmOrg } from "./client";
+import { crmConfigured, crmCreate, crmEnsure, crmResolve, crmWritesEnabled, type CrmOrg } from "./client";
 
 /**
  * Who sent this release, according to the CRM.
@@ -247,6 +247,17 @@ export async function ensureCrmAgency(
   });
 
   if (result.action === "needs_review") {
+    // A domain somebody has already ruled out is not asked about again.
+    // Ninety of the first ninety-three queue entries were in-house press
+    // offices that mail us every week; without this the same list comes back
+    // indefinitely. See migration 0050.
+    const { data: ignored } = await db
+      .from("crm_ignored_domains")
+      .select("domain")
+      .eq("domain", domain)
+      .maybeSingle<{ domain: string }>();
+    if (ignored) return { action: result.action, reason: result.reason ?? null, changes: [], crmOrgId: null, dryRun };
+
     // Unique on open rows per domain, so the same agency mailing twice before
     // anyone looks does not produce two identical things to work through.
     const { error } = await db.from("crm_match_queue").insert({
@@ -269,5 +280,54 @@ export async function ensureCrmAgency(
     changes: result.changes ?? [],
     crmOrgId: result.org?.id ?? null,
     dryRun,
+  };
+}
+
+/**
+ * Create a record in the CRM because a person at the desk said what this
+ * sender is.
+ *
+ * The automatic path refuses anything that does not read as an agency, which
+ * is right when a machine is guessing and wrong once somebody has looked. Two
+ * things come through here: an agency the heuristics missed, and a business
+ * that sends its own PR — not a supplier at all, but a company worth a sales
+ * call, so it goes in as a prospect with no relationship tag.
+ */
+export async function createCrmOrganisation(
+  db: SupabaseClient,
+  input: {
+    domain: string;
+    name: string | null;
+    lifecycle: "prospect" | "client";
+    asPrAgency: boolean;
+    note?: string | null;
+    candidateId?: string | null;
+  },
+): Promise<EnsureOutcome | null> {
+  const domain = normaliseSenderDomain(input.domain);
+  if (!domain || !crmConfigured()) return null;
+
+  const result = await crmCreate(domain, input.name, input.lifecycle, input.asPrAgency, input.note ?? null);
+  if (!result?.ok) return null;
+
+  await db.from("crm_sync_log").insert({
+    domain,
+    sender_name: input.name,
+    candidate_id: input.candidateId ?? null,
+    action: result.action,
+    reason: result.reason ?? null,
+    changes: result.changes ?? [],
+    crm_org_id: result.org?.id ?? null,
+    dry_run: false,
+  });
+
+  if (result.org) await writeCache(db, domain, result.org, "created");
+
+  return {
+    action: result.action,
+    reason: result.reason ?? null,
+    changes: result.changes ?? [],
+    crmOrgId: result.org?.id ?? null,
+    dryRun: false,
   };
 }

@@ -34,7 +34,7 @@ export type CrmResolve = {
 
 export type CrmEnsureAction =
   | "ignored" | "none" | "promoted" | "created" | "created_untagged" | "needs_review"
-  | "would_promote" | "would_create";
+  | "would_promote" | "would_create" | "linked";
 
 export type CrmEnsure = {
   ok: true;
@@ -90,6 +90,20 @@ async function call<T>(body: Record<string, unknown>): Promise<T | null> {
 
 export function crmResolve(domain: string | null, name: string | null): Promise<CrmResolve | null> {
   return call<CrmResolve>({ op: "resolve", domain, name });
+}
+
+/**
+ * Create a record the desk has decided on. Unlike `ensure`, this is not the
+ * machine's judgement — so it is not subject to the machine's refusals.
+ */
+export function crmCreate(
+  domain: string,
+  name: string | null,
+  lifecycle: "prospect" | "client",
+  asPrAgency: boolean,
+  note: string | null,
+): Promise<CrmEnsure | null> {
+  return call<CrmEnsure>({ op: "create", domain, name, lifecycle, asPrAgency, note });
 }
 
 export function crmEnsure(
