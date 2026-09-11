@@ -6,6 +6,7 @@ import { detectEmbargo } from "@/lib/ingest/embargo";
 import { mirrorImageAttachments } from "@/lib/ingest/mirror-attachments";
 import { normalizeHeadline, safeIso, safeTrim } from "@/lib/ingest/normalize";
 import { isInternalDomain } from "@/lib/ingest/internal";
+import { textFromAttachments } from "@/lib/ingest/attachment-text";
 import { ensureCrmAgency, resolveAgency } from "@/lib/crm/agency";
 
 /**
@@ -185,7 +186,16 @@ export async function ingestEmailMessage(
     return { state: "rejected", reason: "PRESS_MAILBOX discovery_source not found" };
   }
 
-  const bodyText = bodyOf(parsed);
+  // "Please find the release attached." Where the mail is a covering note and
+  // the release is in a Word file or a PDF beside it, the attachment is the
+  // body. Same rule as the .eml unwrap above: the longer text wins, because
+  // the covering note is by definition the shorter one.
+  const mailBody = bodyOf(parsed);
+  const document = await textFromAttachments(parsed.attachments as Attachment[] | undefined, (m) =>
+    console.warn(`[INGEST] ${messageId}: ${m}`),
+  );
+  const useDocument = !!document && document.text.length > (mailBody?.length ?? 0);
+  const bodyText = useDocument ? document!.text : mailBody;
   const headlineNorm = normalizeHeadline(subject);
 
   // Read against the message's own date, so "FRIDAY 28 AUGUST" with no year
@@ -269,6 +279,10 @@ export async function ingestEmailMessage(
         crm_lifecycle: crm.lifecycle,
         agency_source: crm.origin,
         attachment_count: parsed.attachments?.length ?? 0,
+        // Which file the body came out of, and what the mail itself said, so a
+        // person can see the machine did not invent the content.
+        body_from_attachment: useDocument ? document!.filename : null,
+        covering_note: useDocument ? (mailBody ?? "").slice(0, 2000) : null,
         // Who passed it on, when the release came enclosed as a .eml. The
         // sender above is the agency, recovered from the enclosed message.
         forwarded_by: forwardedBy,
