@@ -1,5 +1,6 @@
 "use client";
 
+import { ExternalLink } from "lucide-react";
 import { useState, useTransition } from "react";
 import {
   createCrmAgency,
@@ -131,7 +132,22 @@ export function CrmQueueTable({
                   </td>
                 ) : null}
                 <td className="px-3 py-2 align-top">
-                  <div className="font-mono text-[11.5px] text-foreground">{r.domain}</div>
+                  <div className="flex items-center gap-1.5">
+                    <span className="font-mono text-[11.5px] text-foreground">{r.domain}</span>
+                    {/* Deciding whether a sender is an agency, a business or a
+                        press office usually means looking at the site. noreferrer
+                        as well as noopener: these are unvetted third parties. */}
+                    <a
+                      href={`https://${r.domain}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      title={`Open ${r.domain} in a new tab`}
+                      aria-label={`Open ${r.domain} in a new tab`}
+                      className="text-um-muted transition-colors hover:text-primary"
+                    >
+                      <ExternalLink className="h-3 w-3" />
+                    </a>
+                  </div>
                   {r.sender_name ? <div className="text-[11px] text-um-muted">{r.sender_name}</div> : null}
                   {canManage ? (
                     <input
