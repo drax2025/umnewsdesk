@@ -3,6 +3,7 @@
 import { useSyncExternalStore } from "react";
 import { Bell, LogOut } from "lucide-react";
 import { signOut } from "@/app/login/actions";
+import { ThemeToggle } from "./theme-toggle";
 
 type Props = {
   title: string;
@@ -79,6 +80,8 @@ export function AppTopbar({ title, userInitials }: Props) {
           </span>
         </>
       ) : null}
+
+      <ThemeToggle />
 
       <button
         type="button"
