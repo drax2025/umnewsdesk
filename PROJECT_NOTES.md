@@ -272,11 +272,33 @@ _Last updated: 2026-09-03_
   - **Triage has no workflow of its own** — `poll-mailbox`'s last node calls
     `/api/cron/triage-inbox`. Inbox sorting and polling therefore share the
     10-minute cadence, and disabling that one workflow stops both.
-  - **⚠️ The n8n instance timezone is UTC−4, not UK.** Crons read `0 8,16` and
-    `0 8`, but executions fire at 12:00/20:00 UTC. So the "am" sweep runs at
-    **13:00 BST**, the "pm" at **21:00**, and the "daily 08:00" triage digest
-    arrives at **13:00**. The schedules are right; the clock is wrong. Fix once
-    at the instance (`GENERIC_TIMEZONE=Europe/London`) — it will move all three.
+  - ~~**The n8n instance timezone is UTC−4, not UK.**~~ **Fixed, around 8
+    September 2026** — this note is kept because it was acted on, not because
+    it is still true. `rss-sweep`, `triage-digest` and `reap-sweeps` each carry
+    `settings.timezone: Europe/London` in their workflow JSON, which overrides
+    the instance default per workflow. Verified against `sweep_runs.started_at`
+    on 15 Sep 2026:
+
+    ```
+    2026-09-03 .. 09-07   12:00 + 20:00 UTC   (= 13:00 + 21:00 BST, wrong)
+    2026-09-08 onwards    07:00 + 15:00 UTC   (= 08:00 + 16:00 BST, right)
+    ```
+
+    Per-workflow timezone was the right fix rather than
+    `GENERIC_TIMEZONE=Europe/London` on the instance: `automation.graniteseo.com`
+    is shared, so changing the instance default would have moved every unrelated
+    workflow on it too.
+
+    `poll-mailbox.json` still has **no timezone set** and so follows the
+    instance default. It runs every ten minutes, so nothing is visibly wrong —
+    but it calls `/api/cron/triage-inbox`, and anything date-sensitive in there
+    is being evaluated in the wrong zone.
+
+    Odd start times still appear — 15 Sep 12:00, 12 Sep 19:58/20:03/20:08,
+    10 Sep 16:53. These are consistent with manual runs rather than a second
+    schedule: `/api/ingest/sweep` defaults `trigger` to `"scheduled"` when the
+    body omits it, so a hand-fired sweep is indistinguishable from a timed one
+    in the table. Worth having the manual path send `trigger: "manual"`.
   - Production host is **`desk.unionmedia.news`**. `smoke-test.json` still points
     at `umnewsdesk.vercel.app` — inactive, so harmless, but wrong.
 
