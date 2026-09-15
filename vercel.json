@@ -4,10 +4,6 @@
     {
       "path": "/api/cron/embargo-release",
       "schedule": "0 6 * * *"
-    },
-    {
-      "path": "/api/cron/reap-sweeps",
-      "schedule": "20 * * * *"
     }
   ]
 }

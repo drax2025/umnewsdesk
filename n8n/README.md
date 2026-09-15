@@ -164,7 +164,17 @@ and they did not mention triage at all.
 | `poll-mailbox.json` | ● yes | every 10 minutes |
 | `rss-sweep.json` | ● yes | `0 8,16 * * *` — see the timezone note |
 | `triage-digest.json` | ● yes | `0 8 * * *` — see the timezone note |
+| `reap-sweeps.json` | ● yes | `20 * * * *` — hourly, see below |
 | `smoke-test.json` | no | manual |
+
+**The sweep reaper lives here, not on Vercel.** `/api/cron/reap-sweeps` closes
+sweeps that were opened and never reported. It was added to `vercel.json` on
+15 September as `20 * * * *` and made the whole project undeployable — the Hobby
+plan allows daily crons only, so *every* build was rejected for a day, including
+changes that had nothing to do with it. Anything running more often than once a
+day belongs in n8n, which is why the 15-minute embargo cron moved to GitHub
+Actions in June for the same reason. `reap-sweeps.json` takes the
+**CRON SECRET** credential, not the ingest one.
 
 **Triage has no workflow of its own.** `poll-mailbox` calls it: its last node,
 *Triage inbox*, hits `/api/cron/triage-inbox` after the poll. So inbox sorting
