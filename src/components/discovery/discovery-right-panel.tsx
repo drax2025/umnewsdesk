@@ -28,13 +28,16 @@ const SWEEP_BADGE: Record<string, string> = {
   running: "border-state-comm/35 bg-state-comm/10 text-state-comm",
   partial: "border-warn/35 bg-warn/10 text-warn",
   failed: "border-destructive/35 bg-destructive/10 text-destructive",
+  // Opened and never reported back. Muted rather than red: the sweep did not
+  // fail, nobody ever heard what it did.
+  abandoned: "border-border-mid bg-background text-fg-2",
 };
 
 export type RPanelRun = {
   id: string;
   code: string;
   slot: "am" | "pm";
-  status: "running" | "complete" | "partial" | "failed";
+  status: "running" | "complete" | "partial" | "failed" | "abandoned";
   started_at: string;
   candidates_total: number;
   parse_failures: number;
@@ -237,7 +240,9 @@ export function DiscoveryRightPanel({
                   ? "…"
                   : r.status === "partial"
                     ? "~"
-                    : "✕"}
+                    : r.status === "abandoned"
+                      ? "–"
+                      : "✕"}
             </span>
           </li>
         ))}

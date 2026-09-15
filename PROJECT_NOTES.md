@@ -11,6 +11,35 @@ _Last updated: 2026-09-03_
 
 ## Recently landed (this session)
 
+- **Sweeps that were opened and never reported are now closed** (15 Sep 2026,
+  migration **0051 — not yet applied**). n8n opens a sweep, ingests, then calls
+  `/complete`. When the workflow dies in between the row sits at `running` for
+  ever: **29 had accumulated**, the oldest `RR-9041` from 9 June, and one from
+  that same morning.
+  - `/api/cron/reap-sweeps` closes anything running longer than **two hours**.
+    Measured, not guessed: across 162 completed sweeps the median is 50s, p99
+    1140s and the slowest ever 1320s, while the youngest stuck row was seven
+    hours old. Hourly on Vercel cron; `?dry=1` reports without writing.
+  - **New status `abandoned`.** `failed` means the sweep reached no sites and
+    `partial` means some sites failed — both are outcomes the sweep reported.
+    A sweep nobody ever heard back from is a third thing, and folding it into
+    `failed` would make these 28 rows indistinguishable from genuine zero-reach
+    sweeps in any later reliability figure.
+  - **`duration_seconds` is left null.** We know when it started and when we
+    noticed, not when it stopped. Writing the gap would put two-hour entries in
+    a column whose real maximum is twenty-two minutes.
+  - **Until 0051 is applied the route returns 503 naming the migration**, rather
+    than logging an enum error hourly and looking like it works. Verified
+    against the live database: `abandoned` is currently rejected with 22P02.
+  - ⚠️ **This is a safety net, not a fix.** The sweeps are still dying — and
+    they are dying *after* doing the work: those 28 rows ingested **635
+    candidates** between them, and none has a single `sweep_site_results` row,
+    which is only written at `/complete`. So ingestion succeeds and the closing
+    call never lands. The n8n side is still to be looked at.
+  - Migration status checked the same day: **0047 and 0048 are applied** (the
+    note below saying otherwise is out of date); **0049 and 0050 are not** —
+    `crm_agencies` does not exist.
+
 - **A source can now declare which hosts its articles live on**
   (`discovery_sources.article_hosts`, migration **0048 — not yet applied**).
   Host attribution matched the article's host against the source's `feed_url`
