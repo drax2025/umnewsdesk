@@ -46,5 +46,5 @@ create index if not exists candidates_embargo_idx
 insert into public.discovery_sources
   (code, name, feed_url, crawl_method, layer, status, exclusivity_window_hours)
 values
-  ('PRESS_MAILBOX', 'Press mailbox (unattributed)', 'mailto:press@unionmedia', 'email', 'l3', 'active', 24)
+  ('PRESS_MAILBOX', 'Press Mailbox', 'mailto:press@unionmedia', 'email', 'l3', 'active', 24)
 on conflict (code) do nothing;
