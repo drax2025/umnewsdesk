@@ -301,9 +301,19 @@ export default async function CandidateInboxPage({
 
   const asc = activeDir === "asc";
   if (activeSort === "source") {
-    rowQuery = rowQuery.order("name", { referencedTable: "discovery_sources", ascending: asc });
+    // order("discovery_sources(name)"), not order("name", { referencedTable }).
+    // The second form orders rows *inside* the embed, which for a many-to-one
+    // join does nothing at all — ascending and descending returned byte-for-byte
+    // identical pages, so this column has never sorted since it was made
+    // sortable. The agency filter only made it obvious.
+    rowQuery = rowQuery
+      .order("discovery_sources(name)", { ascending: asc, nullsFirst: false })
+      // Within one feed, order by who sent it. Everything from the press
+      // mailbox shares a source, so without this the whole email side of the
+      // table is one undifferentiated block.
+      .order("raw->>from_domain", { ascending: asc, nullsFirst: false });
   } else if (activeSort === "stream") {
-    rowQuery = rowQuery.order("name", { referencedTable: "discovery_streams", ascending: asc });
+    rowQuery = rowQuery.order("discovery_streams(name)", { ascending: asc, nullsFirst: false });
   } else {
     rowQuery = rowQuery.order(activeSort, { ascending: asc, nullsFirst: false });
   }

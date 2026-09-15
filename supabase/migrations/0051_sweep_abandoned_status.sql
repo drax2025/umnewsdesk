@@ -1,0 +1,15 @@
+-- A sweep that never reported is not the same as a sweep that reached nothing.
+--
+-- `failed` means sites_total = 0: the sweep ran and got nowhere.
+-- `partial` means some sites failed.
+-- Both describe an outcome the sweep itself reported.
+--
+-- 28 rows sat at `running` for as long as three months because n8n opened the
+-- sweep and never called /complete. Closing those as `failed` would make them
+-- indistinguishable from genuine zero-reach sweeps and quietly corrupt any
+-- reliability figure drawn afterwards. They get their own word.
+--
+-- ADD VALUE IF NOT EXISTS is safe to re-run and, on PG 12+, safe inside the
+-- transaction a migration runs in, provided the new value is not used in the
+-- same transaction. It is not: only application code uses it.
+alter type sweep_status add value if not exists 'abandoned';

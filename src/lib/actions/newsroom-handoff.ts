@@ -187,7 +187,7 @@ export async function sendToNewsroom(candidateId: string): Promise<HandoffResult
     body: candidate.body_text,
     summary: candidate.summary ?? undefined,
     publishedAt: candidate.published_at ?? undefined,
-    // The agency is a better attribution than "Press mailbox (unattributed)".
+    // The agency is a better attribution than the shared press mailbox.
     sourceName:
       candidate.raw?.agency_name ?? candidate.discovery_sources?.name ?? undefined,
     layer: candidate.layer ?? undefined,
