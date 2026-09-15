@@ -11,6 +11,34 @@ _Last updated: 2026-09-03_
 
 ## Recently landed (this session)
 
+- **Why the sweeps were dying: one bad feed killed the whole run** (15 Sep 2026).
+  Chased after the reaper went in. The answer is in the data, not in a log:
+  across **163 completed sweeps only two ever contained a feed failure**, both
+  from the old numbering. Every recent completion is a perfect run —
+  `sites_total == reached_with_items`, zero empty, zero failures. **A sweep
+  completed if and only if all eighteen feeds returned items.**
+  - **`File alert` had no error handling**, and it sits on the return path from
+    every feed failure back to the loop (`Fetch RSS` error → `Record failure` →
+    `File alert` → `Loop sources`). One failed alert aborted the workflow before
+    `Complete sweep`. Corroborated: **no alert raised since 31 August**, and
+    SRC-9027 (DIGIT FYI, which 403s intermittently) has never had one at all,
+    despite failing regularly. Fixed in `n8n/workflows/rss-sweep.json` —
+    `onError: continueRegularOutput`, two retries.
+  - **A feed that returns no usable items stalls the loop.** `Map RSS → items`
+    ends in `.filter(Boolean)`; a node emitting nothing does not run its
+    downstream, so `Post item` and then `Record success` are skipped and
+    `Loop sources` never gets its input back. **Not fixed** — needs an IF node,
+    which wants testing in the n8n UI rather than hand-edited JSON. Rare (only
+    two sweeps ever recorded `reached_no_items`) but real, and it explains why
+    `reached_empty` is effectively never seen though the API supports it.
+  - ⚠️ **Editing the JSON in this repo changes nothing.** n8n runs its own
+    stored copy; it must be re-imported.
+  - Also found: the `INGEST_TOKEN` in the local `.env.local` no longer matches
+    production — it returns `401 Invalid token` against
+    `desk.unionmedia.news/api/ingest/alert`. n8n's own credential is fine (its
+    sweeps open and items post), so this is a stale local file, not a live
+    fault. Worth refreshing before anyone debugs ingestion from a laptop.
+
 - **Sweeps that were opened and never reported are now closed** (15 Sep 2026,
   migration **0051 — not yet applied**). n8n opens a sweep, ingests, then calls
   `/complete`. When the workflow dies in between the row sits at `running` for

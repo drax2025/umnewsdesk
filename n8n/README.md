@@ -218,3 +218,42 @@ The 10-minute poll is unaffected — it is an interval, not a wall-clock time.
 The active workflows call **`https://desk.unionmedia.news`**. `smoke-test.json`
 still points at `umnewsdesk.vercel.app`; it is inactive and manual, so it has not
 mattered, but it will mislead whoever runs it next.
+
+## Why a sweep used to stop without completing
+
+Found 15 September 2026, after 28 sweeps had piled up at `running`.
+
+Across 163 completed sweeps, **only two ever contained a feed failure**, and
+both are from the old numbering. Every recent completion is a perfect run:
+`sites_total == reached_with_items`, zero empty, zero failures. Put the other
+way round: **a sweep completed if and only if all eighteen feeds returned
+items.** One bad feed and the sweep never finished.
+
+There are two ways the run stops short of `Complete sweep`, and both are in the
+loop, not in the app:
+
+1. **A feed fails.** `Fetch RSS` routes to its error output (good), then
+   `Record failure` → `File alert` → `Loop sources`. `File alert` had **no error
+   handling**, so if filing the alert failed for any reason the whole workflow
+   aborted — before `Complete sweep`, leaving the sweep at `running` for ever.
+   Corroborating evidence: no alert has been raised since 31 August, and
+   SRC-9027 (DIGIT FYI, which 403s intermittently) has **never** had one.
+   *Fixed:* `File alert` now has `onError: continueRegularOutput` and retries
+   twice. A failed alert is worth losing; a sweep is not.
+
+2. **A feed succeeds but yields no usable items.** `Map RSS → items` ends in
+   `.filter(Boolean)` and can return an empty array. In n8n a node that emits
+   nothing does not run its downstream — so `Post item` is skipped, then
+   `Record success` is skipped, and `Loop sources` never gets its input back.
+   The loop stalls silently. **Not yet fixed**: it needs an IF node between
+   `Map RSS → items` and `Post item`, routing the empty case straight to a
+   `reached_empty` outcome, and that wants testing in the n8n UI rather than
+   hand-edited JSON. It is rare in practice — only two sweeps ever recorded
+   `reached_no_items` — but it is real, and it is why `reached_empty` has
+   effectively never been seen despite the API supporting it.
+
+**Changing this file does not change what runs.** n8n executes its own stored
+copy; the workflow must be re-imported for any of this to take effect.
+
+The `abandoned` reaper (`/api/cron/reap-sweeps`) cleans up after both cases. It
+is a safety net, not a substitute for the fix.
