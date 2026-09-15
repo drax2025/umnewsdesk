@@ -36,9 +36,18 @@ _Last updated: 2026-09-03_
     candidates** between them, and none has a single `sweep_site_results` row,
     which is only written at `/complete`. So ingestion succeeds and the closing
     call never lands. The n8n side is still to be looked at.
-  - Migration status checked the same day: **0047 and 0048 are applied** (the
-    note below saying otherwise is out of date); **0049 and 0050 are not** —
-    `crm_agencies` does not exist.
+  - Migration status checked properly on 15 Sep 2026: **0044 through 0050 are
+    all applied** — including `reject_candidate()`, which exists and raises its
+    own `P0001 Not permitted to reject candidates`. The notes below saying 0046
+    and 0047 are outstanding are out of date. **0051 is the only unapplied
+    migration.**
+  - How to check, since getting this wrong is easy: probe a **column** with
+    `select=`, a **table** with `select=*`, a **function** by calling it with
+    its real argument signature (PostgREST resolves by name *and* signature, so
+    an empty body 404s on a function that exists), and an **enum value** with a
+    read-only filter — `?status=eq.<value>` casts the literal and errors 22P02
+    if it is missing. A `PATCH` against a row id that matches nothing proves
+    nothing: PostgreSQL never evaluates the cast, so a nonsense value 'passes'.
 
 - **A source can now declare which hosts its articles live on**
   (`discovery_sources.article_hosts`, migration **0048 — not yet applied**).
