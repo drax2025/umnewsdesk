@@ -78,7 +78,20 @@ function AddCandidateForm({ sources, onDone }: { sources: SourceOption[]; onDone
   // "Added by hand" unless the desk knows better.
   const manual = sources.find((s) => s.code === "MANUAL");
 
-  function submit(fd: FormData) {
+  /**
+   * Submitted by hand rather than through `<form action={…}>`.
+   *
+   * The action form never fired: no POST ever reached the server, while the
+   * dialog opened and closed normally — so the component was hydrated and
+   * interactive, and only the form wiring was inert. Reading the form directly
+   * removes the mechanism that was failing, and lets an invalid field say so
+   * through reportValidity() instead of a bubble nobody sees inside a modal.
+   */
+  function submit() {
+    const form = formRef.current;
+    if (!form) return;
+    if (!form.reportValidity()) return;
+    const fd = new FormData(form);
     setError(null);
     startTransition(async () => {
       let res: ManualCandidateResult;
@@ -100,7 +113,11 @@ function AddCandidateForm({ sources, onDone }: { sources: SourceOption[]; onDone
   }
 
   return (
-    <form ref={formRef} action={submit} className="flex flex-col gap-3">
+    <form
+      ref={formRef}
+      onSubmit={(e) => { e.preventDefault(); submit(); }}
+      className="flex flex-col gap-3"
+    >
       <div>
         <label className={labelCls} htmlFor="mc-headline">Working headline</label>
         <input
@@ -157,7 +174,9 @@ function AddCandidateForm({ sources, onDone }: { sources: SourceOption[]; onDone
           {added ? "Done" : "Cancel"}
         </button>
         <button
-          type="submit" disabled={pending}
+          type="button"
+          onClick={submit}
+          disabled={pending}
           className="h-7 rounded-md border border-state-comm/35 bg-state-comm/10 px-2.5 text-[11.5px] font-medium text-state-comm hover:bg-state-comm/15 disabled:opacity-50"
         >
           {pending ? "Adding…" : "Add to inbox"}

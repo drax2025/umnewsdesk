@@ -11,6 +11,36 @@ _Last updated: 2026-09-03_
 
 ## Recently landed (this session)
 
+- **The sweep reaper has never run on a schedule** (found 16 Sep 2026). It ran
+  exactly once, by hand: all 28 reaped sweeps carry the same `completed_at`,
+  `2026-09-15T10:00:22`. Confirmed in the n8n workflow list — **UM News Desk —
+  reap abandoned sweeps (hourly)** has no *Published* badge, so it is not
+  active.
+  - The Vercel cron I first added was correctly removed in `146574a` ("move the
+    sweep reaper to n8n, and make the project deployable again") — the extra
+    entry broke deployment, presumably the plan's cron limit. So n8n is the
+    right home; it simply was never switched on.
+  - ⚠️ **Check the credential before trusting it.** The node uses
+    `httpHeaderAuth`, but `/api/cron/reap-sweeps` wants
+    `Authorization: Bearer $CRON_SECRET`, while every other workflow's header
+    credential carries the *ingest* token. If the reaper reuses that one it will
+    401 — and because the node is set to `onError: continueRegularOutput`, that
+    401 is completely silent. Wrong token plus continue-on-error is a cron that
+    looks healthy and does nothing.
+  - There are currently **0 sweeps at `running`**, but that is because the last
+    few completed, not because anything is tidying up.
+
+- **Three copies of the RSS sweep exist on the instance; one is Published.**
+  Created 10 June, 12 September and 16 September. Only the 16 September one —
+  the import carrying the `File alert` fix — is active, which is correct. The
+  other two should be deleted: an inactive copy is harmless until somebody
+  activates it, which is what produced the double sweeps on 15 September.
+
+- **The local `.env.local` is stale for both tokens.** `INGEST_TOKEN` and
+  `CRON_SECRET` are both rejected by production. Neither is a live fault — n8n
+  holds its own credentials — but it means ingestion and cron endpoints cannot
+  be exercised from a laptop until the file is refreshed.
+
 - **Why the sweeps were dying: one bad feed killed the whole run** (15 Sep 2026).
   Chased after the reaper went in. The answer is in the data, not in a log:
   across **163 completed sweeps only two ever contained a feed failure**, both
@@ -322,11 +352,30 @@ _Last updated: 2026-09-03_
     but it calls `/api/cron/triage-inbox`, and anything date-sensitive in there
     is being evaluated in the wrong zone.
 
-    Odd start times still appear — 15 Sep 12:00, 12 Sep 19:58/20:03/20:08,
-    10 Sep 16:53. These are consistent with manual runs rather than a second
-    schedule: `/api/ingest/sweep` defaults `trigger` to `"scheduled"` when the
-    body omits it, so a hand-fired sweep is indistinguishable from a timed one
-    in the table. Worth having the manual path send `trigger: "manual"`.
+    **Correction, 16 Sep: "fixed on the 8th" was too confident.** A wider look at
+    `started_at` shows *both* patterns, and which one is live has changed:
+
+    ```
+    2026-08-31 .. 09-07   12:00 + 20:00 UTC   (instance default)
+    2026-09-08 .. 09-14   07:00 + 15:00 UTC   (Europe/London)
+    2026-09-15            07:00 + 12:00 + 20:00   <- both, same day
+    ```
+
+    Two copies of the sweep workflow therefore exist on the instance, one with
+    `settings.timezone` set and one without, and on 15 September both fired.
+    That is not a manual run: 12:00 and 20:00 are exactly the UTC−4 rendering of
+    the `0 8,16` schedule, to the minute, and they arrive as a pair.
+
+    **Someone has to look in the n8n UI** — the API key is empty by policy, so
+    this cannot be checked from here. Wanted: exactly one active `rss-sweep`,
+    carrying `Europe/London`. A duplicate means every feed is fetched twice a
+    day more than intended, on a shared instance.
+
+    Genuinely manual runs do also appear — 12 Sep 19:58/20:03/20:08 five minutes
+    apart, 10 Sep 16:53, 16 Sep 08:35. `/api/ingest/sweep` defaults `trigger` to
+    `"scheduled"` when the body omits it, so a hand-fired sweep is
+    indistinguishable from a timed one. Worth having the manual path send
+    `trigger: "manual"` so the table can tell them apart.
   - Production host is **`desk.unionmedia.news`**. `smoke-test.json` still points
     at `umnewsdesk.vercel.app` — inactive, so harmless, but wrong.
 
