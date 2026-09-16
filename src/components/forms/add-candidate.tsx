@@ -92,6 +92,22 @@ function AddCandidateForm({ sources, onDone }: { sources: SourceOption[]; onDone
     if (!form) return;
     if (!form.reportValidity()) return;
     const fd = new FormData(form);
+
+    // datetime-local hands back a naive "2026-09-16T10:31" with no zone. The
+    // browser means that in the reader's time; the server would parse it in
+    // its own, and Vercel runs UTC — so 10:31 BST arrived as 10:31 UTC, an
+    // hour in the future, and was refused. Converted here, where the local
+    // zone is actually known, so the server only ever sees an instant.
+    const when = String(fd.get("surfaced_at") ?? "").trim();
+    if (when) {
+      const local = new Date(when);
+      if (Number.isNaN(local.getTime())) {
+        setError("That date and time could not be read");
+        return;
+      }
+      fd.set("surfaced_at", local.toISOString());
+    }
+
     setError(null);
     startTransition(async () => {
       let res: ManualCandidateResult;
