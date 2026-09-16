@@ -92,6 +92,13 @@ async function fileStory(fd: FormData): Promise<ManualCandidateResult> {
     };
   }
 
+  // The newsroom refuses a story with less than 50 characters of text —
+  // "the desk cannot work from a headline and a link" — so this is what makes
+  // a filed story sendable. Optional all the same: capturing the story now and
+  // writing it up later is a real way to work, and losing the tip because the
+  // text is not ready yet would be worse.
+  const bodyText = safeTrim(String(fd.get("body_text") ?? ""), 100_000);
+
   const admin = createServiceClient();
 
   // Deduped like anything else. Adding the same story twice by hand is easy
@@ -131,6 +138,8 @@ async function fileStory(fd: FormData): Promise<ManualCandidateResult> {
     layer: source?.layer ?? null,
     working_headline: headline,
     primary_url: primaryUrl,
+    body_text: bodyText,
+    summary: bodyText ? bodyText.slice(0, 2000) : null,
     // Stable enough to dedupe a second attempt at the same link; a story with
     // no URL falls back to the code, which is unique by construction.
     external_id: primaryUrl ?? code,

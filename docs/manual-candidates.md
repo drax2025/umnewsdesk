@@ -10,6 +10,7 @@ mentioned in a meeting — and needs it in the candidate inbox alongside everyth
 | Working headline | yes | `working_headline` |
 | Source | yes | `source_id` — the registry, defaulting to **Added by hand** |
 | URL | no | `primary_url`, and the dedup key |
+| Story text | no | `body_text` and `summary` |
 | Date and time | yes, defaults to now | `surfaced_at` |
 | Added by | captured, not typed | `raw.added_by` / `raw.added_by_name` |
 
@@ -28,6 +29,13 @@ is seeded and used as the default, so these are findable as a group.
 needs. Without one a story can be added twice and nobody will notice. The form accepts it empty,
 because a tip heard in a meeting has no URL yet, and says why it wants one.
 
+**Story text is optional, but the newsroom needs it.** The hand-off refuses a candidate with
+under 50 characters of `body_text` — "the desk cannot work from a headline and a link" — so a
+story filed without text can sit in the inbox but cannot be sent on. It stays optional because
+capturing a tip now and writing it up later is a real way to work, and losing the tip because
+the text is not ready would be worse. The field says so rather than leaving it to be discovered
+at the hand-off.
+
 **Date and time drives `surfaced_at`**, the column the inbox actually shows, not `published_at`.
 The desk's question is "when did this reach us", and back-dating an entry to when it was really
 spotted keeps the inbox in a truthful order.
@@ -39,5 +47,8 @@ spotted keeps the inbox in a truthful order.
   candidate it matched, rather than quietly created.
 - `triage_state: 'ready'` — it goes straight into the working set, which is the point.
 - `verification_state: 'unverified'` — a person typing a headline is not verification.
+- The date and time is converted to an instant **in the browser**. `datetime-local` carries no
+  zone, and this app runs in UTC while the desk is in London — parsed server-side, every entry
+  landed an hour in the future and was refused.
 - Any signed-in desk user may add one. Filing a story is ordinary editorial work, not an
   administrative act.
