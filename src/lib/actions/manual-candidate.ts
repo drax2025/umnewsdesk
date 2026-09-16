@@ -23,6 +23,19 @@ export type ManualCandidateResult =
   | { ok: false; error: string; duplicateOf?: string };
 
 export async function addManualCandidate(fd: FormData): Promise<ManualCandidateResult> {
+  try {
+    return await fileStory(fd);
+  } catch (e) {
+    // Anything that throws in here rejects on the client, and an unhandled
+    // rejection inside a transition is swallowed in production: the form goes
+    // quiet and the desk believes the story was filed. Say what happened.
+    const message = (e as Error)?.message ?? "Unknown error";
+    console.error("addManualCandidate failed:", message);
+    return { ok: false, error: `Could not add the story: ${message}` };
+  }
+}
+
+async function fileStory(fd: FormData): Promise<ManualCandidateResult> {
   const supabase = await createClient();
   const {
     data: { user },

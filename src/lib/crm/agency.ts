@@ -375,6 +375,12 @@ export function suggestedOrgName(domain: string, senderName: string | null): str
   const at = /^.+?\s+(?:at|from|@)\s+(.+)$/i.exec(n);
   if (at?.[1]?.trim() && !isGenericMailbox(at[1].trim())) return at[1].trim();
   if (isGenericMailbox(n)) return domain;
+  // A single word is the company only if the domain agrees — "Petal" at
+  // petal.co is, "Sofia" at antidotecomms.com is the person who wrote in.
+  const label = domain.toLowerCase().split(".")[0]!.replace(/[^a-z0-9]/g, "");
+  if (!/\s/.test(n) && n.toLowerCase().replace(/[^a-z0-9]/g, "") !== label) return domain;
+  // Someone trading under their own name — Marina Kaiser at marinakaiser.co.uk.
+  if (n.toLowerCase().replace(/[^a-z0-9]/g, "") === label) return n;
   if (ORG_WORDS.test(n.toLowerCase())) return n;
   const bare = n.replace(/\([^)]*\)/g, " ").replace(/,.*$/, " ").trim();
   const words = bare.split(/\s+/).filter(Boolean);

@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useState, useTransition } from "react";
+import { useRef, useState, useSyncExternalStore, useTransition } from "react";
 import { Plus, X } from "lucide-react";
 import { addManualCandidate, type ManualCandidateResult } from "@/lib/actions/manual-candidate";
 import { cn } from "@/lib/utils";
@@ -18,6 +18,20 @@ function nowForInput(): string {
   return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
 }
 
+/**
+ * The default time, filled in on the client only.
+ *
+ * Rendering it during SSR is a guaranteed hydration mismatch: Vercel runs in
+ * UTC and the desk is in London, so the server writes 08:35 and the browser
+ * expects 09:35. Same footgun the topbar clock documents at length — hence the
+ * same answer, useSyncExternalStore with a server snapshot that commits to
+ * nothing. The action treats an empty value as "now", so a form submitted
+ * before hydration is still correct.
+ */
+const noSubscribe = () => () => {};
+const clientNow = () => nowForInput();
+const serverNow = () => "";
+
 export function AddCandidateButton({ sources }: { sources: SourceOption[] }) {
   const ref = useRef<HTMLDialogElement>(null);
   return (
@@ -32,7 +46,7 @@ export function AddCandidateButton({ sources }: { sources: SourceOption[] }) {
       </button>
       <dialog
         ref={ref}
-        className="w-[min(30rem,92vw)] rounded-lg border border-border bg-card p-0 text-foreground backdrop:bg-black/50"
+        className="fixed inset-0 m-auto h-fit w-[520px] max-w-[92vw] rounded-lg border border-border bg-card p-0 text-foreground shadow-2xl backdrop:bg-foreground/40 backdrop:backdrop-blur-sm"
         onClick={(e) => { if (e.target === ref.current) ref.current?.close(); }}
       >
         <div className="flex items-center justify-between border-b border-border px-4 py-2.5">
@@ -59,6 +73,7 @@ function AddCandidateForm({ sources, onDone }: { sources: SourceOption[]; onDone
   const [error, setError] = useState<string | null>(null);
   const [added, setAdded] = useState<string | null>(null);
   const formRef = useRef<HTMLFormElement>(null);
+  const defaultWhen = useSyncExternalStore(noSubscribe, clientNow, serverNow);
 
   // "Added by hand" unless the desk knows better.
   const manual = sources.find((s) => s.code === "MANUAL");
@@ -66,7 +81,16 @@ function AddCandidateForm({ sources, onDone }: { sources: SourceOption[]; onDone
   function submit(fd: FormData) {
     setError(null);
     startTransition(async () => {
-      const res: ManualCandidateResult = await addManualCandidate(fd);
+      let res: ManualCandidateResult;
+      try {
+        res = await addManualCandidate(fd);
+      } catch (e) {
+        // A server action that throws rejects here, and an unhandled rejection
+        // inside a transition is swallowed in production — the form goes quiet
+        // and the story is never filed. Which is exactly what happened.
+        setError((e as Error)?.message ?? "Could not reach the server");
+        return;
+      }
       if (!res.ok) { setError(res.error); return; }
       // Left open with the code shown: filing one story usually means filing
       // three, and reopening the dialog each time is the annoying part.
@@ -96,8 +120,8 @@ function AddCandidateForm({ sources, onDone }: { sources: SourceOption[]; onDone
         <div>
           <label className={labelCls} htmlFor="mc-when">Date and time</label>
           <input
-            id="mc-when" name="surfaced_at" type="datetime-local" required
-            defaultValue={nowForInput()}
+            id="mc-when" name="surfaced_at" type="datetime-local"
+            defaultValue={defaultWhen}
             className={cn(inputCls, "mt-1")}
           />
         </div>
