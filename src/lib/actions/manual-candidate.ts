@@ -101,6 +101,9 @@ async function fileStory(fd: FormData): Promise<ManualCandidateResult> {
   const bodyText = safeTrim(String(fd.get("body_text") ?? ""), 100_000);
 
   const admin = createServiceClient();
+  // Set when this story was filed before and thrown out; changes the identity
+  // the new row takes, and is recorded on it.
+  let refiledAfter: string | null = null;
 
   // Deduped like anything else. Adding the same story twice by hand is easy
   // and the desk would have no way of knowing.
@@ -113,14 +116,29 @@ async function fileStory(fd: FormData): Promise<ManualCandidateResult> {
   if (dedup.state === "duplicate") {
     const { data: match } = await admin
       .from("candidates")
-      .select("code")
+      .select("code, triage_state")
       .eq("id", dedup.matched_candidate_id ?? "")
-      .maybeSingle<{ code: string }>();
-    return {
-      ok: false,
-      error: `Already in the inbox as ${match?.code ?? "another candidate"} (${dedup.reason})`,
-      duplicateOf: match?.code,
-    };
+      .maybeSingle<{ code: string; triage_state: string }>();
+
+    // A story the desk has already thrown out must not block filing it again.
+    // Rejecting is a decision about that candidate, not a standing ban on the
+    // story — and re-filing after a rejection is exactly what someone does
+    // when the first attempt was wrong or incomplete.
+    const settled = match?.triage_state === "rejected" || match?.triage_state === "archived";
+    if (!settled) {
+      return {
+        ok: false,
+        error: `Already in the inbox as ${match?.code ?? "another candidate"} (${dedup.reason})`,
+        duplicateOf: match?.code,
+      };
+    }
+    // The thrown-out row still holds this URL as its external_id, and
+    // (source_id, external_id) is unique in the database — so re-filing with
+    // the same identity is refused by Postgres whatever this check decides.
+    // The new row takes its own code as its identity instead; primary_url is
+    // unconstrained, so the link is still on both, and anything arriving later
+    // still dedupes against it.
+    refiledAfter = match?.code ?? null;
   }
 
   const { data: source } = await admin
@@ -143,7 +161,8 @@ async function fileStory(fd: FormData): Promise<ManualCandidateResult> {
     summary: bodyText ? bodyText.slice(0, 2000) : null,
     // Stable enough to dedupe a second attempt at the same link; a story with
     // no URL falls back to the code, which is unique by construction.
-    external_id: primaryUrl ?? code,
+    // Own code when re-filing something rejected: see above.
+    external_id: refiledAfter ? code : (primaryUrl ?? code),
     kind: "manual",
     dedup_state: "clear",
     triage_state: "ready",
@@ -159,6 +178,7 @@ async function fileStory(fd: FormData): Promise<ManualCandidateResult> {
       added_by: user.id,
       added_by_name: me?.full_name ?? user.email ?? null,
       added_at: now,
+      refiled_after: refiledAfter,
       note: safeTrim(String(fd.get("note") ?? ""), 2000) ?? null,
     },
   });

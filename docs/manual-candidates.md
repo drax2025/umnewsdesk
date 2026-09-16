@@ -61,6 +61,12 @@ spotted keeps the inbox in a truthful order.
 - `kind: 'manual'`, so these are distinguishable from `rss` and `email` for ever.
 - Deduped like anything else when a URL is given: a duplicate is refused with a link to the
   candidate it matched, rather than quietly created.
+- **Unless the match was rejected or archived.** Throwing a candidate out is a decision about
+  that candidate, not a standing ban on the story, and re-filing is exactly what someone does
+  when the first attempt was wrong or incomplete. The re-filed row takes its own `code` as its
+  `external_id`, because the thrown-out row still holds the URL and `(source_id, external_id)`
+  is unique in the database; `primary_url` is on both, so anything arriving later still dedupes.
+  `raw.refiled_after` records the code it replaced.
 - `triage_state: 'ready'` — it goes straight into the working set, which is the point.
 - `verification_state: 'unverified'` — a person typing a headline is not verification.
 - The date and time is converted to an instant **in the browser**. `datetime-local` carries no
