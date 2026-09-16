@@ -12,6 +12,7 @@ import {
   InboxSelectionProvider,
   RowCheckbox,
 } from "@/components/discovery/inbox-selection";
+import { AddCandidateButton } from "@/components/forms/add-candidate";
 
 export const dynamic = "force-dynamic";
 
@@ -557,6 +558,16 @@ export default async function CandidateInboxPage({
             className="h-7 w-[220px] rounded-sm border border-border bg-background px-2.5 text-[11.5px] text-foreground placeholder:text-um-muted focus:border-primary focus:outline-none"
           />
         </form>
+
+        {/* Pushed to the right of the filters: filing a story is an action, not
+            a way of narrowing the list. */}
+        <div className="ml-auto">
+          <AddCandidateButton
+            sources={[...sources]
+              .sort((a, b) => (a.code === "MANUAL" ? -1 : b.code === "MANUAL" ? 1 : a.name.localeCompare(b.name)))
+              .map((s) => ({ id: s.id, name: s.name, code: s.code }))}
+          />
+        </div>
       </div>
 
       {/* Body 2-col. Keyed on the view so changing any filter remounts the
