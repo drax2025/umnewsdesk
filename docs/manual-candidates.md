@@ -10,7 +10,7 @@ mentioned in a meeting — and needs it in the candidate inbox alongside everyth
 | Working headline | yes | `working_headline` |
 | Source | yes | `source_id` — the registry, defaulting to **Added by hand** |
 | URL | no | `primary_url`, and the dedup key |
-| Story text | no | `body_text` and `summary` |
+| Story text | no | `body_text` and `summary` — **Fetch** reads it off the link |
 | Date and time | yes, defaults to now | `surfaced_at` |
 | Added by | captured, not typed | `raw.added_by` / `raw.added_by_name` |
 
@@ -35,6 +35,22 @@ story filed without text can sit in the inbox but cannot be sent on. It stays op
 capturing a tip now and writing it up later is a real way to work, and losing the tip because
 the text is not ready would be worse. The field says so rather than leaving it to be discovered
 at the hand-off.
+
+**Fetch reads the page rather than a person pasting it.** `src/lib/ingest/fetch-article.ts`
+takes the narrowest container that looks like the story — `<article>`, then `<main>`, then the
+page — strips script, style, nav, header, footer and aside, and keeps blocks over 40 characters,
+which drops breadcrumbs and cookie lines while keeping paragraphs. It fills the headline only
+when that field is still empty.
+
+Not jsdom and Readability: a large dependency and a slow cold start for something used a few
+times a day, when a news article is a narrow enough shape to handle directly. It will lose to
+Readability on a hostile page and does not need to win — the result goes into the form for a
+person to read before filing, so a site that defeats it costs a paste rather than a bad story
+nobody noticed.
+
+The URL comes from a user, so the fetch is guarded: http(s) only, no credentials in the URL,
+nothing resolving to loopback, RFC1918, link-local, `.internal` or `.local`, a 12-second
+timeout, a 3 MB cap, and HTML content types only.
 
 **Date and time drives `surfaced_at`**, the column the inbox actually shows, not `published_at`.
 The desk's question is "when did this reach us", and back-dating an entry to when it was really
