@@ -71,13 +71,25 @@ async function fileStory(fd: FormData): Promise<ManualCandidateResult> {
 
   // The desk's question is "when did this reach us", so this drives
   // surfaced_at — the column the inbox shows and sorts by.
+  //
+  // Sent as an ISO instant by the form, because a datetime-local value carries
+  // no zone: the browser means London, this process runs in UTC, and parsing
+  // it here read every entry an hour into the future and refused it. A bare
+  // local string is still accepted for anything posting without JavaScript,
+  // and is read in this process's zone — which is the best that can be done
+  // without knowing the reader's.
   const when = String(fd.get("surfaced_at") ?? "").trim();
   const surfacedAt = when ? new Date(when) : new Date();
   if (Number.isNaN(surfacedAt.getTime())) {
     return { ok: false, error: "That date and time could not be read" };
   }
-  if (surfacedAt.getTime() > Date.now() + 60_000) {
-    return { ok: false, error: "That is in the future" };
+  // Five minutes of slack for an unsynchronised clock; an hour would mean a
+  // timezone fault rather than drift, and should still be reported.
+  if (surfacedAt.getTime() > Date.now() + 5 * 60_000) {
+    return {
+      ok: false,
+      error: `That is in the future (${surfacedAt.toLocaleString("en-GB", { timeZone: "Europe/London" })})`,
+    };
   }
 
   const admin = createServiceClient();
