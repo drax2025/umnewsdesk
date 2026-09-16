@@ -1,8 +1,12 @@
 "use client";
 
 import { useRef, useState, useSyncExternalStore, useTransition } from "react";
-import { Plus, X } from "lucide-react";
-import { addManualCandidate, type ManualCandidateResult } from "@/lib/actions/manual-candidate";
+import { Download, Plus, X } from "lucide-react";
+import {
+  addManualCandidate,
+  fetchArticleText,
+  type ManualCandidateResult,
+} from "@/lib/actions/manual-candidate";
 import { cn } from "@/lib/utils";
 
 const inputCls =
@@ -74,6 +78,37 @@ function AddCandidateForm({ sources, onDone }: { sources: SourceOption[]; onDone
   const [added, setAdded] = useState<string | null>(null);
   const formRef = useRef<HTMLFormElement>(null);
   const defaultWhen = useSyncExternalStore(noSubscribe, clientNow, serverNow);
+  const [fetching, setFetching] = useState(false);
+  const [fetched, setFetched] = useState<string | null>(null);
+
+  /**
+   * Pull the story off the page rather than making someone paste it.
+   *
+   * Fills the text, and the headline only when it is still empty — overwriting
+   * a headline somebody has just written would be its own small betrayal.
+   */
+  function fetchFromLink() {
+    const form = formRef.current;
+    if (!form) return;
+    const url = String(new FormData(form).get("primary_url") ?? "").trim();
+    if (!url) { setError("Add a link first"); return; }
+    setError(null);
+    setFetched(null);
+    setFetching(true);
+    startTransition(async () => {
+      try {
+        const res = await fetchArticleText(url);
+        if (!res.ok) { setError(res.error); return; }
+        const body = form.elements.namedItem("body_text") as HTMLTextAreaElement | null;
+        const head = form.elements.namedItem("working_headline") as HTMLInputElement | null;
+        if (body) body.value = res.text;
+        if (head && !head.value.trim() && res.title) head.value = res.title;
+        setFetched(`Read ${res.text.length.toLocaleString()} characters from ${res.host}`);
+      } finally {
+        setFetching(false);
+      }
+    });
+  }
 
   // "Added by hand" unless the desk knows better.
   const manual = sources.find((s) => s.code === "MANUAL");
@@ -124,6 +159,7 @@ function AddCandidateForm({ sources, onDone }: { sources: SourceOption[]; onDone
       // Left open with the code shown: filing one story usually means filing
       // three, and reopening the dialog each time is the annoying part.
       setAdded(res.code);
+      setFetched(null);
       formRef.current?.reset();
     });
   }
@@ -162,10 +198,22 @@ function AddCandidateForm({ sources, onDone }: { sources: SourceOption[]; onDone
 
       <div>
         <label className={labelCls} htmlFor="mc-url">Link <span className="font-normal normal-case">— optional</span></label>
-        <input
-          id="mc-url" name="primary_url" placeholder="https://…"
-          className={cn(inputCls, "mt-1 font-mono text-[11.5px]")}
-        />
+        <div className="mt-1 flex gap-2">
+          <input
+            id="mc-url" name="primary_url" placeholder="https://…"
+            className={cn(inputCls, "font-mono text-[11.5px]")}
+          />
+          <button
+            type="button"
+            onClick={fetchFromLink}
+            disabled={fetching || pending}
+            title="Read the story from that page"
+            className="inline-flex h-8 flex-shrink-0 items-center gap-1.5 rounded-md border border-border bg-secondary px-2.5 text-[11.5px] font-medium text-fg-2 hover:bg-secondary/70 disabled:opacity-50"
+          >
+            <Download className="h-3.5 w-3.5" />
+            {fetching ? "Reading…" : "Fetch"}
+          </button>
+        </div>
         <p className="mt-1 text-[10.5px] text-um-muted">
           Worth adding where there is one: it is how the desk spots the same story
           arriving twice, and what the newsroom needs on hand-off.
@@ -198,6 +246,7 @@ function AddCandidateForm({ sources, onDone }: { sources: SourceOption[]; onDone
         <input id="mc-note" name="note" placeholder="Where it came from, why it matters" className={cn(inputCls, "mt-1")} />
       </div>
 
+      {fetched ? <p className="text-[11.5px] text-success">{fetched}</p> : null}
       {error ? <p className="text-[11.5px] text-danger">{error}</p> : null}
       {added ? (
         <p className="text-[11.5px] text-success">Added as {added}. Add another, or close.</p>

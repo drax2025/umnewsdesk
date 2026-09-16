@@ -6,6 +6,7 @@ import { createServiceClient } from "@/lib/supabase/service";
 import { nextCandidateCode } from "@/lib/ingest/codes";
 import { checkDedup } from "@/lib/ingest/dedup";
 import { normalizeHeadline, safeTrim } from "@/lib/ingest/normalize";
+import { fetchArticle } from "@/lib/ingest/fetch-article";
 
 /**
  * Filing a story by hand.
@@ -166,4 +167,33 @@ async function fileStory(fd: FormData): Promise<ManualCandidateResult> {
 
   revalidatePath("/discovery/inbox");
   return { ok: true, code };
+}
+
+
+export type FetchArticleResult =
+  | { ok: true; title: string | null; text: string; host: string }
+  | { ok: false; error: string };
+
+/**
+ * Read a story off the page so it does not have to be pasted.
+ *
+ * Runs on the server because the browser cannot fetch another origin, and
+ * because a user-supplied URL should not become a way to reach anything only
+ * this process can see — see the guards in fetch-article.ts.
+ *
+ * The result goes into the form for a person to look at, not straight into the
+ * database. A site that defeats the extractor should cost a paste, not a bad
+ * story filed without anyone noticing.
+ */
+export async function fetchArticleText(url: string): Promise<FetchArticleResult> {
+  const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return { ok: false, error: "Not signed in" };
+
+  try {
+    const article = await fetchArticle(url);
+    return { ok: true, ...article };
+  } catch (e) {
+    return { ok: false, error: (e as Error)?.message ?? "Could not read that page" };
+  }
 }
