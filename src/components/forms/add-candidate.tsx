@@ -173,6 +173,27 @@ function AddCandidateForm({ sources, onDone }: { sources: SourceOption[]; onDone
       </div>
 
       <div>
+        <label className={labelCls} htmlFor="mc-body">
+          Story text <span className="font-normal normal-case">— optional, but needed to send it on</span>
+        </label>
+        <textarea
+          id="mc-body"
+          name="body_text"
+          rows={5}
+          placeholder="Paste the story, or write what you know…"
+          className={cn(
+            inputCls,
+            "mt-1 h-auto resize-y py-1.5 leading-[1.45]",
+          )}
+        />
+        <p className="mt-1 text-[10.5px] text-um-muted">
+          The newsroom will not take a headline and a link — it needs a paragraph
+          at least. File it without if you are capturing the story now and
+          writing it up later.
+        </p>
+      </div>
+
+      <div>
         <label className={labelCls} htmlFor="mc-note">Note <span className="font-normal normal-case">— optional</span></label>
         <input id="mc-note" name="note" placeholder="Where it came from, why it matters" className={cn(inputCls, "mt-1")} />
       </div>
