@@ -322,11 +322,30 @@ _Last updated: 2026-09-03_
     but it calls `/api/cron/triage-inbox`, and anything date-sensitive in there
     is being evaluated in the wrong zone.
 
-    Odd start times still appear — 15 Sep 12:00, 12 Sep 19:58/20:03/20:08,
-    10 Sep 16:53. These are consistent with manual runs rather than a second
-    schedule: `/api/ingest/sweep` defaults `trigger` to `"scheduled"` when the
-    body omits it, so a hand-fired sweep is indistinguishable from a timed one
-    in the table. Worth having the manual path send `trigger: "manual"`.
+    **Correction, 16 Sep: "fixed on the 8th" was too confident.** A wider look at
+    `started_at` shows *both* patterns, and which one is live has changed:
+
+    ```
+    2026-08-31 .. 09-07   12:00 + 20:00 UTC   (instance default)
+    2026-09-08 .. 09-14   07:00 + 15:00 UTC   (Europe/London)
+    2026-09-15            07:00 + 12:00 + 20:00   <- both, same day
+    ```
+
+    Two copies of the sweep workflow therefore exist on the instance, one with
+    `settings.timezone` set and one without, and on 15 September both fired.
+    That is not a manual run: 12:00 and 20:00 are exactly the UTC−4 rendering of
+    the `0 8,16` schedule, to the minute, and they arrive as a pair.
+
+    **Someone has to look in the n8n UI** — the API key is empty by policy, so
+    this cannot be checked from here. Wanted: exactly one active `rss-sweep`,
+    carrying `Europe/London`. A duplicate means every feed is fetched twice a
+    day more than intended, on a shared instance.
+
+    Genuinely manual runs do also appear — 12 Sep 19:58/20:03/20:08 five minutes
+    apart, 10 Sep 16:53, 16 Sep 08:35. `/api/ingest/sweep` defaults `trigger` to
+    `"scheduled"` when the body omits it, so a hand-fired sweep is
+    indistinguishable from a timed one. Worth having the manual path send
+    `trigger: "manual"` so the table can tell them apart.
   - Production host is **`desk.unionmedia.news`**. `smoke-test.json` still points
     at `umnewsdesk.vercel.app` — inactive, so harmless, but wrong.
 
