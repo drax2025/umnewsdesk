@@ -11,6 +11,36 @@ _Last updated: 2026-09-03_
 
 ## Recently landed (this session)
 
+- **The sweep reaper has never run on a schedule** (found 16 Sep 2026). It ran
+  exactly once, by hand: all 28 reaped sweeps carry the same `completed_at`,
+  `2026-09-15T10:00:22`. Confirmed in the n8n workflow list — **UM News Desk —
+  reap abandoned sweeps (hourly)** has no *Published* badge, so it is not
+  active.
+  - The Vercel cron I first added was correctly removed in `146574a` ("move the
+    sweep reaper to n8n, and make the project deployable again") — the extra
+    entry broke deployment, presumably the plan's cron limit. So n8n is the
+    right home; it simply was never switched on.
+  - ⚠️ **Check the credential before trusting it.** The node uses
+    `httpHeaderAuth`, but `/api/cron/reap-sweeps` wants
+    `Authorization: Bearer $CRON_SECRET`, while every other workflow's header
+    credential carries the *ingest* token. If the reaper reuses that one it will
+    401 — and because the node is set to `onError: continueRegularOutput`, that
+    401 is completely silent. Wrong token plus continue-on-error is a cron that
+    looks healthy and does nothing.
+  - There are currently **0 sweeps at `running`**, but that is because the last
+    few completed, not because anything is tidying up.
+
+- **Three copies of the RSS sweep exist on the instance; one is Published.**
+  Created 10 June, 12 September and 16 September. Only the 16 September one —
+  the import carrying the `File alert` fix — is active, which is correct. The
+  other two should be deleted: an inactive copy is harmless until somebody
+  activates it, which is what produced the double sweeps on 15 September.
+
+- **The local `.env.local` is stale for both tokens.** `INGEST_TOKEN` and
+  `CRON_SECRET` are both rejected by production. Neither is a live fault — n8n
+  holds its own credentials — but it means ingestion and cron endpoints cannot
+  be exercised from a laptop until the file is refreshed.
+
 - **Why the sweeps were dying: one bad feed killed the whole run** (15 Sep 2026).
   Chased after the reaper went in. The answer is in the data, not in a log:
   across **163 completed sweeps only two ever contained a feed failure**, both
